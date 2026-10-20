@@ -1,0 +1,7 @@
+# Dependencies
+node_modules/
+
+# Environment files (secrets). The .env.example templates stay tracked.
+.env
+.env.*
+!.env.example

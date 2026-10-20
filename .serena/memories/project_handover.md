@@ -46,6 +46,6 @@
 4. Add authenticated admin management only after requirements are agreed.
 
 ## Rules
-- Follow `AGENTS.md`: no invented company facts, project claims, client information, pricing, stock, certifications, or performance claims.
-- Keep no-payment enquiry design.
+- Follow `AGENTS.md` and `CLAUDE.md`: no invented company facts, project claims, client information, pricing, stock, certifications, or performance claims.
+- 2026-10-20 scope change: the no-payment enquiry design is superseded. Payment goes through Paystack's hosted redirect checkout, with fixed prices from a planned admin panel and pickup or delivery at checkout. No card data on GPEC systems. See `ECOMMERCE_REQUIREMENTS.md`.
 - Maintain accessibility and responsive design.

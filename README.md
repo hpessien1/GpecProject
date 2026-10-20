@@ -2,11 +2,11 @@
 
 ## Purpose
 
-GPEC is an engineering company focused on electrical control and distribution panels, solar energy, and sales of electrical, solar, electronic, and industrial products. This website will give customers one clear place to understand GPEC's services, view completed and current work, find relevant products, and contact the company.
+GPEC is an engineering company based in Nigeria, focused on electrical control and distribution panels, solar energy, and sales of electrical, solar, electronic, and industrial products. This website will give customers one clear place to understand GPEC's services, view completed and current work, find and buy relevant products, and contact the company.
 
-The site should work as both a company profile and a practical sales channel. Someone receiving its link should quickly learn who GPEC is, what GPEC can do, what GPEC has delivered, what GPEC is working on, and how to request a quote or speak with the team. Content should be understandable to both technical buyers and customers who need help choosing a solution.
+The site should work as both a company profile and a practical sales channel. Someone receiving its link should quickly learn who GPEC is, what GPEC can do, what GPEC has delivered, what GPEC is working on, how to buy products online, and how to request a quote or speak with the team. Content should be understandable to both technical buyers and customers who need help choosing a solution.
 
-> **Content rule:** Do not publish invented projects, client names, certifications, years of experience, product stock, prices, or performance claims. Replace placeholders below with verified GPEC information before launch.
+> **Content rule:** Do not publish invented projects, client names, certifications, years of experience, product stock, prices, or performance claims. Product prices come only from GPEC, through the admin panel. Replace placeholders below with verified GPEC information before launch.
 
 ## GPEC's Areas of Work
 
@@ -28,13 +28,13 @@ Explain differences between grid-connected, off-grid, and hybrid systems in plai
 
 GPEC supplies electrical products used in building, maintenance, and industrial projects. This category should present the main equipment families GPEC actually sells, such as cables, breakers, switches, sockets, lighting, transformers, or distribution equipment, with clear distinctions between stocked items and items sourced on request.
 
-Product pages should provide brand, model, specifications, application, availability, warranty information when supplied by the manufacturer, and a way to request a quote. Technical buyers should be able to identify the right item without calling first, while customers who are unsure should be able to ask GPEC for selection help.
+Product pages should provide brand, model, specifications, application, price, availability, warranty information when supplied by the manufacturer, a way to buy online, and a way to request a quote. Technical buyers should be able to identify the right item without calling first, while customers who are unsure should be able to ask GPEC for selection help.
 
 ### 4. Solar sales
 
 GPEC sells major solar-system equipment, subject to verified stock and supplier relationships. This may include solar modules, inverters, battery systems, charge controllers, and packaged solutions. Explain what each product does and how buyers should compare options by capacity, compatibility, expected use, installation environment, and manufacturer documentation.
 
-Organize listings by product type and use case. Provide data sheets when permitted, show whether installation is available from GPEC, and direct customers to request a system recommendation rather than selecting components solely by price. State stock and pricing only when GPEC can keep them current.
+Organize listings by product type and use case. Provide data sheets when permitted, show whether installation is available from GPEC, and direct customers to request a system recommendation rather than selecting components solely by price. Show prices maintained by GPEC through the admin panel. State stock only when GPEC can keep it current.
 
 ### 5. Solar accessory sales
 
@@ -73,7 +73,7 @@ Help buyers search by equipment type, part number, rating, size, and manufacture
 | **Home** | Clear GPEC introduction, core services, selected projects, current work, product categories, and prominent contact or quote actions. |
 | **About GPEC** | Verified company story, location, team capabilities, approach to quality and safety, and actual credentials. |
 | **Services** | Separate sections for panel engineering and solar energy, with process, applications, deliverables, and inquiry links. |
-| **Products** | Browseable categories for electrical, solar, electronics, industrial equipment, and accessories. Include specifications and quote actions. |
+| **Products** | Browseable categories for electrical, solar, electronics, industrial equipment, and accessories. Include specifications, GPEC-set prices, add-to-cart, online checkout, and quote actions. |
 | **Projects** | Completed work with real images, project scope, GPEC's role, challenge, solution, and verified result. |
 | **Current Work** | Approved updates on active projects, milestones, and new offerings. Protect client confidentiality. |
 | **Contact / Request a Quote** | Phone, email, business address, map if useful, business hours, contact form, and document-upload option. |
@@ -101,6 +101,14 @@ Projects should carry the company's profile through evidence rather than broad c
 
 For work in progress, publish only information approved by the customer. Label status and last update date so visitors can distinguish active work from completed projects.
 
+## Online Ordering and Payment
+
+Customers can buy catalogue products online. Prices are fixed and set by GPEC through a protected admin panel; price changes appear on the customer-facing site. At checkout, the customer chooses **pickup** (no delivery address and no delivery fee) or **delivery** (address required; delivery fee rules to be defined by GPEC).
+
+Payment uses **Paystack**. Paystack's transaction fee is added to the customer's total as a separate, visible line before payment. The customer is redirected to Paystack's hosted payment page and returned to the GPEC site afterwards. The website never collects or stores card details. An order counts as paid only after GPEC's server confirms the payment with Paystack. Detailed behaviour is in [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md).
+
+Custom work, such as panel design or a solar site assessment, is not bought online. It goes through the quote flow below.
+
 ## Customer Communication and Quote Flow
 
 Every service and product page should provide a direct contact action. Quote forms should ask only for useful information: name, company if applicable, contact details, service or product needed, quantity or project scope, location, preferred timing, and optional files. Send a confirmation to the customer and route requests to GPEC's sales or engineering contact. Show expected response time only if GPEC commits to it.
@@ -115,8 +123,10 @@ Offer phone and email links for immediate contact. Add WhatsApp only if GPEC has
 - **Performance:** Compressed images, responsive image sizes, limited animation, and fast loading on slower connections.
 - **Search visibility:** Descriptive page titles, service-specific text, useful product metadata, business location details, and structured data where appropriate.
 - **Trust:** Real GPEC photos, accurate contact details, dated project updates, verified credentials, and clear policies. Never use stock images to imply they show GPEC work.
-- **Maintainability:** GPEC staff should be able to update projects, current work, products, and contact details without changing site code. Choose a content system that fits GPEC's editing capacity.
-- **Security:** HTTPS, protected admin access, spam protection for forms, software updates, backups, and restricted handling of customer files.
+- **Maintainability:** GPEC staff should be able to update projects, current work, products, prices, and contact details without changing site code. Choose a content system that fits GPEC's editing capacity.
+- **Security:** HTTPS, protected admin access with a record of who changed prices, spam protection for forms, software updates, backups, and restricted handling of customer files and orders.
+- **Payments:** Paystack hosted checkout only. No card data on GPEC systems, amounts calculated by the server, and payment confirmed by the server before an order is treated as paid.
+- **Hosting:** Hetzner Cloud server managed with Coolify, database on MongoDB Atlas (a tier with automated backups before launch), deployed by the project owner.
 
 ## Content GPEC Must Provide Before Launch
 
@@ -124,6 +134,11 @@ Offer phone and email links for immediate contact. Add WhatsApp only if GPEC has
 - Phone number, email address, business address, hours, and social media links.
 - Confirmed service scope for panel engineering, solar work, installation, and maintenance.
 - Product categories, brands, specifications, data sheets, availability rules, and quote process.
+- Product prices and the currency used for online payment.
+- Paystack business account (keys are held by GPEC and configured on the server, never shared in code).
+- Delivery fee rules and delivery areas, plus pickup location and collection hours.
+- Refund, cancellation, and returns policy for paid orders.
+- Staff who receive order notifications and who will manage prices in the admin panel.
 - Approved project photos, descriptions, dates, customer permissions, and measurable outcomes.
 - Approved details and images for current work.
 - Verified licenses, certifications, warranties, or partnerships, if any.
@@ -135,6 +150,8 @@ Offer phone and email links for immediate contact. Add WhatsApp only if GPEC has
 2. Review project and customer information for accuracy and publication permission.
 3. Test navigation, search or filters, contact links, quote forms, uploads, and confirmation messages on phone and desktop.
 4. Check accessibility, page speed, image quality, spelling, metadata, and broken links.
-5. Verify domain, HTTPS, backups, analytics preferences, and who will maintain content after launch.
+5. Test checkout end to end with Paystack test keys: pickup and delivery orders, successful, failed, and abandoned payments. Confirm the Paystack webhook reaches the live server over HTTPS.
+6. Switch to Paystack live keys only with GPEC's approval, then place one real low-value order to confirm.
+7. Verify domain, HTTPS, backups, analytics preferences, and who will maintain content and prices after launch.
 
-**Definition of success:** A first-time visitor can understand GPEC's services, see credible examples of completed and current work, find relevant products, and contact GPEC about a specific need without searching elsewhere.
+**Definition of success:** A first-time visitor can understand GPEC's services, see credible examples of completed and current work, find and buy relevant products, and contact GPEC about a specific need without searching elsewhere.

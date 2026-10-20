@@ -1,5 +1,7 @@
 # Next-session handover
 
+> **Superseded in part (2026-10-20):** Online payment through Paystack is now in scope, with fixed prices managed in a planned admin panel and a pickup or delivery choice at checkout. The "enquiries only, no payments" note below is out of date. See `CLAUDE.md` and `ECOMMERCE_REQUIREMENTS.md`. Paths and Homebrew steps below are from the previous developer's macOS machine; the project now lives on a Linux machine.
+
 Copy this prompt into next session:
 
 ```text
