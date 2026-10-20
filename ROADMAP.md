@@ -1,0 +1,106 @@
+# GPEC Website Roadmap
+
+The order of work from today to launch. Each step lists what it delivers and why it comes where it
+does. Update this file as steps are completed or the plan changes.
+
+- **Last updated:** 2026-10-21
+- **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
+  (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
+
+## Status at a glance
+
+| Step | Status |
+|---|---|
+| 1. Quick fixes | In progress |
+| 2. Groundwork: CI, hardening, tests | In progress |
+| 3. Deploy early on Coolify | Not started |
+| 4. Products in MongoDB | Not started |
+| 5. Checkout and Paystack (test mode) | Not started — needs GPEC information |
+| 6. Admin panel | Not started |
+
+Already done: TypeScript conversion (frontend and backend), dependency pinning, root `.gitignore`,
+`gpec_dev` / `gpec` database split with a production startup guard, backup remote on `kworlanyo`.
+
+---
+
+## 1. Quick fixes
+
+Small, visible problems that are cheap to fix now.
+
+- [ ] Order confirmation no longer says the backend is "not connected".
+- [ ] Landing-page contact form sends to the backend and is saved (today it shows a success
+      message but sends nothing, so customer enquiries are lost).
+- [ ] Stop tracking `frontend/dist` and `.DS_Store` in git.
+
+## 2. Groundwork: CI, hardening, tests
+
+The safety net that has to exist before any payment code is written.
+
+- [ ] GitHub Actions CI on every push and pull request: type-checks, builds, tests, dependency
+      audit, and a secret scan.
+- [ ] Backend hardening: configuration validated at startup, security headers (`helmet`),
+      `trust proxy` for running behind Coolify, rate limits on the public form routes.
+- [ ] Automated backend tests with an in-memory MongoDB, covering the enquiry and contact routes.
+
+## 3. Deploy early on Coolify
+
+Prove the deployment path before payments. Paystack's webhook also needs a public HTTPS address.
+
+- [ ] Dockerfiles (backend, frontend with nginx and security headers).
+- [ ] Coolify on the Hetzner VPS: resources, environment variables, HTTPS, replica count 1.
+- [ ] **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`.** (The startup guard will
+      refuse to start otherwise, as long as `NODE_ENV=production` is set.)
+- [ ] Atlas: separate database users for `gpec_dev` and `gpec`; network access limited to the
+      Hetzner IP and the developer's IP; a cluster tier with backups before launch.
+- [ ] Short runbook: deploy, roll back, what to do if payments fail.
+
+The project owner deploys; the AI assistant prepares files and instructions only.
+
+## 4. Products in MongoDB
+
+- [ ] Product model and read API; prices stored as integers in kobo (pending currency confirmation).
+- [ ] Remove the duplicated catalogue files (`frontend/src/data/catalogueProducts.ts`,
+      `backend/src/data/catalogue.ts`); the frontend loads products from the API.
+- [ ] Seed script for initial products and prices until the admin panel exists.
+
+## 5. Checkout and Paystack (test mode)
+
+Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS.md`.
+
+- [ ] Order model, checkout form with pickup or delivery, and order summary with the Paystack fee
+      line.
+- [ ] Paystack initialize, redirect, callback verify, and signed webhook — one shared "mark paid"
+      function.
+- [ ] Tests for tampered prices, currency mismatch, replayed webhooks, and double submission.
+- [ ] Live keys only with GPEC's approval.
+
+## 6. Admin panel
+
+- [ ] Admin login with roles; no customer accounts.
+- [ ] Product and price management; price history (who changed what, when).
+- [ ] Order and enquiry lists for GPEC staff.
+
+---
+
+## Needed from GPEC
+
+These block launch, and several block steps 4 to 6. Ask early.
+
+- [ ] Real product list: names, specifications, photos, and **prices**.
+- [ ] Currency confirmation (NGN expected).
+- [ ] Paystack business account, and confirmation that passing the Paystack fee to customers is
+      allowed under GPEC's Paystack terms.
+- [ ] Delivery fee rules and delivery areas; pickup location and hours.
+- [ ] Refund, cancellation, and returns policy.
+- [ ] Phone, email, address, business hours, and social links for the site.
+- [ ] Who receives order and enquiry notifications.
+- [ ] Permission to name Afrizone, and approved real project photos.
+
+## Later / not yet scheduled
+
+- Confirmation emails to customers and notifications to GPEC staff (provider not chosen).
+- File uploads on the quote form (drawings, nameplate photos).
+- Navigation and page structure to match the brief (Home, About, Services, Products, Projects,
+  Current Work, Contact) and all nine business areas.
+- Privacy notice page.
+- Linting and frontend tests.
