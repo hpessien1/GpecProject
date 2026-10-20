@@ -1,6 +1,15 @@
 import Arrow from '../Arrow'
+import type { CartLine } from '../../types'
 
-export default function Cart({ cartItems, itemCount, onUpdateQuantity, onRemove, onGoToOrder }) {
+interface CartProps {
+  cartItems: CartLine[]
+  itemCount: number
+  onUpdateQuantity: (productId: string, change: number) => void
+  onRemove: (productId: string) => void
+  onGoToOrder: () => void
+}
+
+export default function Cart({ cartItems, itemCount, onUpdateQuantity, onRemove, onGoToOrder }: CartProps) {
   return <aside className="shop-cart" id="shop-cart" aria-live="polite">
     <div className="shop-cart-heading"><div><p className="eyebrow"><span /> Your order</p><h2>Cart <span>{itemCount}</span></h2></div><span>Enquiry only</span></div>
     {cartItems.length === 0 ? <p className="shop-empty-cart">Your cart is empty. Add products from the catalogue to start an order enquiry.</p> : <>

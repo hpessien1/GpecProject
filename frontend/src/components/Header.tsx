@@ -1,7 +1,13 @@
 import Arrow from './Arrow'
 import LogoLockup from './LogoLockup'
 
-export default function Header({ menuOpen, onToggleMenu, onCloseMenu }) {
+interface HeaderProps {
+  menuOpen: boolean
+  onToggleMenu: () => void
+  onCloseMenu: () => void
+}
+
+export default function Header({ menuOpen, onToggleMenu, onCloseMenu }: HeaderProps) {
   return <header className="topbar">
     <a className="brand" href="#home" onClick={onCloseMenu} aria-label="GPEC home"><LogoLockup /></a>
     <button className="menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="main-navigation" onClick={onToggleMenu}><span>{menuOpen ? 'Close' : 'Menu'}</span><i aria-hidden="true" /></button>

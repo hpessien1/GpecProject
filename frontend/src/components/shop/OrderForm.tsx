@@ -1,6 +1,18 @@
+import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
+import type { CartLine } from '../../types'
 
-export default function OrderForm({ cartItems, itemCount, orderReference, isSubmitting, submissionError, onSubmit, onGoToCatalogue }) {
+interface OrderFormProps {
+  cartItems: CartLine[]
+  itemCount: number
+  orderReference: string
+  isSubmitting: boolean
+  submissionError: string
+  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void
+  onGoToCatalogue: () => void
+}
+
+export default function OrderForm({ cartItems, itemCount, orderReference, isSubmitting, submissionError, onSubmit, onGoToCatalogue }: OrderFormProps) {
   if (orderReference) return <div className="shop-confirmation" role="status"><p className="eyebrow"><span /> Enquiry confirmed</p><h1>Thank you.<br /><em>We have your request.</em></h1><p>Your frontend enquiry reference is <strong>{orderReference}</strong>. Payment has not been requested. When GPEC backend is connected, this same form will send your order details to the enquiry team.</p><button type="button" className="button button-primary" onClick={onGoToCatalogue}>Browse products <Arrow /></button></div>
 
   return <>
@@ -10,7 +22,7 @@ export default function OrderForm({ cartItems, itemCount, orderReference, isSubm
         <div className="field-row"><label>Full name<input name="fullName" required autoComplete="name" placeholder="Your full name" /></label><label>Company <input name="company" autoComplete="organization" placeholder="Company name" /></label></div>
         <div className="field-row"><label>Email address<input name="email" type="email" required autoComplete="email" placeholder="you@company.com" /></label><label>Phone number<input name="phone" type="tel" required autoComplete="tel" placeholder="Your phone number" /></label></div>
         <label>Project or delivery location <input name="location" autoComplete="address-level2" placeholder="City, region, or project site" /></label>
-        <label>Additional requirements <textarea name="notes" rows="5" placeholder="Technical specifications, required delivery date, drawings, or other notes." /></label>
+        <label>Additional requirements <textarea name="notes" rows={5} placeholder="Technical specifications, required delivery date, drawings, or other notes." /></label>
         <p className="shop-form-note">Submitting creates an order enquiry only. No payment details are requested or stored.</p>
         {submissionError && <p className="shop-form-error" role="alert">{submissionError}</p>}
         <button className="button button-primary" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Submitting enquiry…' : <>Submit enquiry <Arrow /></>}</button>

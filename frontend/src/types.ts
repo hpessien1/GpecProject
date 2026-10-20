@@ -1,0 +1,38 @@
+export interface Product {
+  id: string
+  name: string
+  reference: string
+  description: string
+  specs: string[]
+  image: string
+  alt: string
+}
+
+// What the cart stores in localStorage: product IDs and quantities only.
+export interface CartEntry {
+  id: string
+  quantity: number
+}
+
+export interface CartLine extends CartEntry {
+  product: Product
+}
+
+export type StoreMode = 'catalogue' | 'order'
+
+export interface EnquiryPayload {
+  customer: {
+    fullName: string
+    company: string
+    email: string
+    phone: string
+  }
+  location: string
+  notes: string
+  items: { productId: string, quantity: number }[]
+}
+
+export interface EnquiryResponse {
+  reference: string
+  createdAt: string
+}

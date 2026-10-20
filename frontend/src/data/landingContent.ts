@@ -7,7 +7,7 @@ export const services = [
   { number: '06', title: 'Industrial supply', text: 'Industrial equipment, accessories, replacements, and parts sourced against your specification.', tag: 'Supply' },
 ]
 
-export const panelCapabilities = [
+export const panelCapabilities: [number: string, title: string, text: string][] = [
   ['01', 'New panels', 'New control and distribution panels shaped around operating requirements, available space, and site conditions.'],
   ['02', 'Panel modification', 'Practical changes for outdated panels, new equipment, added capacity, and changing processes.'],
   ['03', 'Control systems', 'Panel layouts for starting, stopping, monitoring, and protecting equipment and processes.'],
@@ -18,14 +18,14 @@ export const panelCapabilities = [
 
 export const panelComponents = ['Motor starters', 'Contactors', 'Relays', 'Variable speed drives', 'Programmable controllers', 'Meters', 'Switches', 'Breakers', 'Isolators', 'Busbars']
 
-export const productGroups = [
+export const productGroups: [title: string, description: string][] = [
   ['Electrical', 'Panels, protection, cables, switches, and installation materials'],
   ['Solar', 'Modules, batteries, inverters, controllers, and system accessories'],
   ['Electronics', 'Sensors, meters, power supplies, and control devices'],
   ['Industrial', 'Equipment, controls, accessories, and replacement parts'],
 ]
 
-export const steps = [
+export const steps: [number: string, title: string, text: string][] = [
   ['01', 'Tell us what you need', 'Share your project requirement, part number, quantity, or technical drawing.'],
   ['02', 'Get the right solution', 'GPEC reviews technical needs and confirms the most suitable service or product path.'],
   ['03', 'Move your work forward', 'Receive a clear quote and next steps from the GPEC team.'],

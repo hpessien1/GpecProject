@@ -1,4 +1,14 @@
-export default function ShopHeader({ mode, itemCount, onGoHome, onGoToCatalogue, onShowCart }) {
+import type { StoreMode } from '../../types'
+
+interface ShopHeaderProps {
+  mode: StoreMode
+  itemCount: number
+  onGoHome: () => void
+  onGoToCatalogue: () => void
+  onShowCart: () => void
+}
+
+export default function ShopHeader({ mode, itemCount, onGoHome, onGoToCatalogue, onShowCart }: ShopHeaderProps) {
   return <header className="shop-topbar">
     <a className="shop-brand" href="#home" onClick={onGoHome} aria-label="Return to GPEC home"><span>GPEC</span><small>Product ordering</small></a>
     <nav className="shop-navigation" aria-label="Store navigation">

@@ -1,4 +1,11 @@
-export default function ProductModal({ product, onClose }) {
+import type { Product } from '../../types'
+
+interface ProductModalProps {
+  product: Product | null
+  onClose: () => void
+}
+
+export default function ProductModal({ product, onClose }: ProductModalProps) {
   if (!product) return null
 
   return <div className="shop-lightbox" role="dialog" aria-modal="true" aria-label={`${product.name} details`}>

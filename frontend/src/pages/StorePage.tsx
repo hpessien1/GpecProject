@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { SubmitEvent } from 'react'
 import { CART_STORAGE_KEY, catalogueProducts, readStoredCart } from '../data/catalogueProducts'
 import ShopHeader from '../components/shop/ShopHeader'
 import ProductCard from '../components/shop/ProductCard'
@@ -6,36 +7,44 @@ import Cart from '../components/shop/Cart'
 import OrderForm from '../components/shop/OrderForm'
 import ProductModal from '../components/shop/ProductModal'
 import { submitOrderEnquiry } from '../services/enquiryApi'
+import type { CartEntry, CartLine, Product, StoreMode } from '../types'
 
 const PRODUCTS_PER_PAGE = 6
 
-export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }) {
-  const [cart, setCart] = useState(readStoredCart)
-  const [activeProduct, setActiveProduct] = useState(null)
+interface StorePageProps {
+  mode: StoreMode
+  goHome: () => void
+  goToCatalogue: () => void
+  goToOrder: () => void
+}
+
+export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: StorePageProps) {
+  const [cart, setCart] = useState<CartEntry[]>(readStoredCart)
+  const [activeProduct, setActiveProduct] = useState<Product | null>(null)
   const [orderReference, setOrderReference] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState('')
-  const cartItems = cart.map((item) => ({ ...item, product: catalogueProducts.find((product) => product.id === item.id) })).filter((item) => item.product)
+  const cartItems = cart.map((item) => ({ ...item, product: catalogueProducts.find((product) => product.id === item.id) })).filter((item): item is CartLine => item.product !== undefined)
   const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0)
   const totalPages = Math.ceil(catalogueProducts.length / PRODUCTS_PER_PAGE)
   const pageProducts = catalogueProducts.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE)
 
   useEffect(() => { window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)) }, [cart])
   useEffect(() => {
-    const closeLightboxOnEscape = (event) => { if (event.key === 'Escape') setActiveProduct(null) }
+    const closeLightboxOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setActiveProduct(null) }
     window.addEventListener('keydown', closeLightboxOnEscape)
     return () => window.removeEventListener('keydown', closeLightboxOnEscape)
   }, [])
 
-  function addToCart(productId) {
+  function addToCart(productId: string) {
     setCart((currentCart) => {
       const existingItem = currentCart.find((item) => item.id === productId)
       return existingItem ? currentCart.map((item) => item.id === productId ? { ...item, quantity: item.quantity + 1 } : item) : [...currentCart, { id: productId, quantity: 1 }]
     })
   }
 
-  function updateQuantity(productId, change) {
+  function updateQuantity(productId: string, change: number) {
     setCart((currentCart) => currentCart.flatMap((item) => {
       if (item.id !== productId) return [item]
       const quantity = item.quantity + change
@@ -43,36 +52,37 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }) {
     }))
   }
 
-  async function handleOrderSubmit(event) {
+  async function handleOrderSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmissionError('')
     setIsSubmitting(true)
     const form = event.currentTarget
     const formData = new FormData(form)
+    const field = (name: string) => String(formData.get(name) ?? '')
     try {
       const response = await submitOrderEnquiry({
         customer: {
-          fullName: formData.get('fullName'),
-          company: formData.get('company'),
-          email: formData.get('email'),
-          phone: formData.get('phone'),
+          fullName: field('fullName'),
+          company: field('company'),
+          email: field('email'),
+          phone: field('phone'),
         },
-        location: formData.get('location'),
-        notes: formData.get('notes'),
+        location: field('location'),
+        notes: field('notes'),
         items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })),
       })
       setOrderReference(response.reference)
       setCart([])
       form.reset()
     } catch (error) {
-      setSubmissionError(error.message)
+      setSubmissionError(error instanceof Error ? error.message : 'Unable to submit enquiry. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   function showCart() { document.getElementById('shop-cart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
-  function selectPage(page) {
+  function selectPage(page: number) {
     setCurrentPage(page)
     document.getElementById('catalogue-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }

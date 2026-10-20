@@ -1,4 +1,6 @@
-export const catalogueProducts = [
+import type { CartEntry, Product } from '../types'
+
+export const catalogueProducts: Product[] = [
   { id: 'panel-001', name: 'Custom control panel', reference: 'GPEC-CP-001', description: 'Control and distribution panel built around your operating requirements and site conditions.', specs: ['415 V', 'IP54 enclosure', 'Made to order'], image: '/assets/electrical-panels-product.png', alt: 'Open industrial electrical control panel with breakers and copper busbars' },
   { id: 'protection-001', name: 'Circuit protection assembly', reference: 'GPEC-CPA-014', description: 'Protection components for reliable switching, isolation, and distribution.', specs: ['DIN rail', 'Three phase', 'Panel ready'], image: '/assets/control-panel-annotated-clean.png', alt: 'Electrical control enclosure showing breakers, metering, and isolator components' },
   { id: 'solar-001', name: 'Solar power package', reference: 'GPEC-SOL-020', description: 'Solar modules, inverter equipment, and balance-of-system components for project supply.', specs: ['Site assessed', 'Inverter ready', 'Project supply'], image: '/assets/portfolio-solar-array.jpg', alt: 'Solar panel array in a landscape at sunset' },
@@ -17,7 +19,7 @@ export const catalogueProducts = [
 
 export const CART_STORAGE_KEY = 'gpec-order-cart'
 
-export function readStoredCart() {
+export function readStoredCart(): CartEntry[] {
   try {
     const storedCart = window.localStorage.getItem(CART_STORAGE_KEY)
     const parsedCart = storedCart ? JSON.parse(storedCart) : []
