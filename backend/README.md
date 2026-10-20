@@ -19,5 +19,8 @@ API base URL: `http://localhost:5001/api`
 
 - `GET /api/health`
 - `POST /api/enquiries`
+- `POST /api/contact-requests`
 
 `POST /api/enquiries` accepts customer details, optional location and notes, plus order items. It saves an enquiry only. No payment details are accepted or stored.
+
+`POST /api/contact-requests` accepts the landing-page contact form: `fullName`, `email`, and `message` (required), plus optional `company`, `phone`, and `subject` (one of the form's listed options). It saves the request and returns a `GPEC-C-YYYY-XXXXXXXX` reference.

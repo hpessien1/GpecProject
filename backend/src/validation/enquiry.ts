@@ -1,24 +1,14 @@
 import { catalogue } from '../data/catalogue.js'
 import type { CatalogueProduct } from '../data/catalogue.js'
+import { asFields, emailPattern, text } from './fields.js'
+import type { Fields, ValidationErrors } from './fields.js'
 
-// Request bodies are untrusted: read their fields as unknown and narrow each one.
-type Fields = Record<string, unknown>
-export type EnquiryErrors = Record<string, string>
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const productById = new Map(catalogue.map((product) => [product.id, product]))
 
-function text(value: unknown, maxLength: number, field: string, errors: EnquiryErrors, required = false) {
-  const normalized = typeof value === 'string' ? value.trim() : ''
-  if (required && !normalized) errors[field] = `${field} is required.`
-  if (normalized.length > maxLength) errors[field] = `${field} must be ${maxLength} characters or fewer.`
-  return normalized
-}
-
 export function validateEnquiry(body: unknown) {
-  const errors: EnquiryErrors = {}
-  const source = (body && typeof body === 'object' ? body : {}) as Fields
-  const customerSource = (source.customer && typeof source.customer === 'object' ? source.customer : {}) as Fields
+  const errors: ValidationErrors = {}
+  const source = asFields(body)
+  const customerSource = asFields(source.customer)
   const customer = {
     fullName: text(customerSource.fullName, 120, 'fullName', errors, true),
     company: text(customerSource.company, 120, 'company', errors),

@@ -36,3 +36,14 @@ export interface EnquiryResponse {
   reference: string
   createdAt: string
 }
+
+export interface ContactRequestPayload {
+  fullName: string
+  company: string
+  email: string
+  phone: string
+  subject: string
+  message: string
+}
+
+export type ContactRequestResponse = EnquiryResponse

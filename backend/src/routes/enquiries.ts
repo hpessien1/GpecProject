@@ -1,13 +1,9 @@
 import { Router } from 'express'
-import { randomBytes } from 'node:crypto'
 import Enquiry from '../models/Enquiry.js'
+import { createReference } from '../utils/reference.js'
 import { validateEnquiry } from '../validation/enquiry.js'
 
 const router = Router()
-
-function createReference() {
-  return `GPEC-${new Date().getFullYear()}-${randomBytes(4).toString('hex').toUpperCase()}`
-}
 
 router.post('/', async (req, res, next) => {
   const { errors, value } = validateEnquiry(req.body)

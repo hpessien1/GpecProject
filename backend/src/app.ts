@@ -1,6 +1,7 @@
 import express from 'express'
 import type { NextFunction, Request, Response } from 'express'
 import cors from 'cors'
+import contactRequestsRouter from './routes/contactRequests.js'
 import enquiriesRouter from './routes/enquiries.js'
 
 export default function createApp() {
@@ -12,6 +13,7 @@ export default function createApp() {
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
   app.use('/api/enquiries', enquiriesRouter)
+  app.use('/api/contact-requests', contactRequestsRouter)
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof SyntaxError && 'body' in error) return res.status(400).json({ message: 'Request body must be valid JSON.' })

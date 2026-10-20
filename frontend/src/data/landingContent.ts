@@ -25,6 +25,9 @@ export const productGroups: [title: string, description: string][] = [
   ['Industrial', 'Equipment, controls, accessories, and replacement parts'],
 ]
 
+// Must match contactSubjects in backend/src/validation/contactRequest.ts, which rejects anything else.
+export const contactSubjects = ['Electrical panels', 'Solar energy', 'Electrical products', 'Solar products', 'Electronics or industrial supply', 'Other inquiry']
+
 export const steps: [number: string, title: string, text: string][] = [
   ['01', 'Tell us what you need', 'Share your project requirement, part number, quantity, or technical drawing.'],
   ['02', 'Get the right solution', 'GPEC reviews technical needs and confirms the most suitable service or product path.'],
