@@ -233,6 +233,16 @@ Orders and enquiries hold names, emails, phone numbers, and addresses. Collect o
 
 ## 5. Data Model Conventions
 
+**Databases:** one MongoDB Atlas cluster holds two databases.
+
+| Database | Used by | Rule |
+|---|---|---|
+| `gpec_dev` | Local development and testing | Test data only; safe to clear |
+| `gpec` | Production (Coolify) | Real customer data; never written to from a developer machine |
+
+The database name comes from the `MONGODB_URI` path (`.../gpec_dev?...`). Mixing them up fails
+silently — the app connects either way — so check the name whenever the variable is set.
+
 **Current entities:**
 
 - **Enquiry** (`backend/src/models/Enquiry.ts`) — `reference` (unique, `GPEC-YYYY-XXXXXXXX`),
@@ -358,8 +368,8 @@ Node.js 22, Express 5, Mongoose 8, MongoDB. Payments: Paystack (planned, hosted 
 cd backend && npm install
 cd frontend && npm install
 
-# Run locally. backend/.env must set MONGODB_URI — locally this points to a separate,
-# non-production Atlas database, never the production cluster.
+# Run locally. backend/.env sets MONGODB_URI to the gpec_dev database on the shared Atlas
+# cluster — never the production gpec database (Section 5, "Databases").
 cd backend && npm run dev      # tsx watch src/server.ts
 cd frontend && npm run dev     # Vite dev server
 
@@ -374,8 +384,8 @@ curl http://localhost:5001/api/health   # must return {"status":"ok"}
 cd frontend && npm run build && npm run preview
 cd backend && npm run build && npm start   # node dist/server.js
 
-# Inspect saved enquiries
-mongosh gpec --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5)'
+# Inspect saved enquiries (paste the gpec_dev URI from backend/.env; never print it in shared logs)
+mongosh "<MONGODB_URI>" --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5)'
 ```
 
 **Ports:**
@@ -384,7 +394,7 @@ mongosh gpec --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5)'
 |---|---|
 | Frontend (Vite dev) | 5173 |
 | Backend API | 5001 |
-| MongoDB | 27017 |
+| MongoDB (only if run locally; normally Atlas) | 27017 |
 
 **Environment:**
 - `backend/.env.example`: `PORT`, `MONGODB_URI`, `CLIENT_ORIGIN`. Payments will add
@@ -392,8 +402,9 @@ mongosh gpec --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5)'
   fee settings — add them to `.env.example` when implemented.
 - `frontend/.env.example`: `VITE_API_BASE_URL`. Anything prefixed `VITE_` is public; never put a
   secret there.
-- `MONGODB_URI` points to MongoDB Atlas in production (and may locally). The real value lives only
-  in `backend/.env` locally and in Coolify in production.
+- `MONGODB_URI` points to MongoDB Atlas. The database name is the path segment before `?`:
+  `.../gpec_dev?...` locally, `.../gpec?...` in production. The real value lives only in
+  `backend/.env` locally and in Coolify in production.
 
 ### Deployment
 
@@ -411,7 +422,10 @@ deploys.
 
 **Release steps (manual, by the project owner):**
 1. Confirm GitHub Actions CI is green on the `main` commit to ship.
-2. In the Coolify dashboard, open the resource and press **Deploy**.
+2. In the Coolify dashboard, open the resource and press **Deploy**. On the first deploy, and
+   whenever the variable is edited, check that `MONGODB_URI` ends in **`/gpec?`** — never
+   `/gpec_dev?`, which is the local development database. An AI assistant helping with deployment
+   must raise this check with the project owner.
 3. Immediately check `/api/health`, load the home page and the shop, and (after payments exist)
    make a test-mode checkout.
 
@@ -433,8 +447,12 @@ MongoDB. A green health check does not mean the database is reachable.
 **Before launch (infrastructure checklist):**
 - Atlas cluster on a tier with **automated backups** (the free M0 tier has none), and one backup
   restore actually tested.
-- Atlas network access limited to the Hetzner server IP, not `0.0.0.0/0`; the database user has
-  only `readWrite` on the app database.
+- Atlas network access limited to the Hetzner server IP plus the developer's current IP (needed
+  because local development uses the same cluster), never `0.0.0.0/0`.
+- **Separate Atlas database users:** a development user with `readWrite` on `gpec_dev` only, and a
+  production user with `readWrite` on `gpec` only. The credentials on a developer laptop then
+  cannot touch production data even by mistake.
+- **Coolify `MONGODB_URI` uses the production user and the `gpec` database, not `gpec_dev`.**
 - Secrets set in Coolify only; Paystack live keys added only with GPEC's approval.
 - Paystack dashboard webhook URL set to the production API's HTTPS webhook route.
 - HTTPS works on every domain, HTTP redirects to HTTPS, and `Strict-Transport-Security` is present.
@@ -572,12 +590,11 @@ raw public URL on the record.
   invalid webhook signature, amount mismatch, **currency mismatch**, a tampered price or fee in the
   request, a replayed webhook, webhook and callback verify arriving together, a `charge.failed`
   after `paid`, and double submission.
-- Use a separate test database, never shared or production data (never the Atlas production
-  cluster).
+- Use a separate test database, never shared or production data (never the `gpec` database).
 
 ### 10.3 Safety while verifying
-- Local MongoDB is fine for test records. Never run scripts against the production database on
-  MongoDB Atlas.
+- Test records go in `gpec_dev`, clearly marked (e.g. `[TEST]` in the name) and deleted afterwards.
+  Never run scripts against the production `gpec` database.
 - Never run a delete/update with an empty or broad filter. Run the equivalent read first.
 - Delete throwaway scripts and screenshots when done.
 
@@ -742,3 +759,7 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   where they fit GPEC's size (Sections 4.1, 4.7, 4.8, 4.10, 7). Heavier pieces (job queues,
   malware scanning, metrics dashboards, recurring charges) were deliberately left out. **Rule:**
   keep this file short; a very large instruction file gets rules missed.
+- **2026-10-21 — Database name missing from the URI.** The first local connection string had no
+  database name, so the verification enquiry was written to Atlas's default `test` database.
+  The project then settled on one cluster with `gpec_dev` (local) and `gpec` (production).
+  **Rule:** confirm the connected database name (not the URI) after any `MONGODB_URI` change.
