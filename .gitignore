@@ -1,6 +1,12 @@
 # Dependencies
 node_modules/
 
+# Build output (rebuilt by npm run build and in the Docker images)
+dist/
+
+# macOS folder metadata
+.DS_Store
+
 # Environment files (secrets). The .env.example templates stay tracked.
 .env
 .env.*
