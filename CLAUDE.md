@@ -199,12 +199,18 @@ payments; GPEC must be able to answer "who changed this price and when?"
 
 ### 4.7 Rate limiting and spam protection
 
-Not implemented yet. Needed on `POST /api/enquiries`, order creation, the Paystack webhook (its own
-limiter), and (later) admin login with a stricter limit. All visitors are anonymous, so key by IP.
-Any in-memory limiter only works with one API instance (Section 6.3).
+Implemented in `backend/src/app.ts` with `express-rate-limit`: `POST /api/enquiries` and
+`POST /api/contact-requests` each have their own per-IP budget — 10 requests per 15 minutes in
+production, 100 in development and test (set in `src/config.ts`). The production limit is the
+security boundary; the looser one exists so manual and automated checks do not lock the developer
+out. Keep that difference deliberate. Still needed: order creation, the Paystack webhook (its own
+limiter), and admin login (stricter). All visitors are anonymous, so key by IP. The in-memory store
+only works with one API instance (Section 6.3).
 
-**Behind Coolify's proxy, set `app.set('trust proxy', 1)`.** Without it every request appears to
-come from the proxy's IP, so one shared budget blocks every visitor at once.
+**Behind Coolify's proxy, `trust proxy` is set to one hop in production only.** Without it every
+request appears to come from the proxy's IP, so one shared budget blocks every visitor at once.
+Outside production it stays off, so a forged `X-Forwarded-For` header cannot dodge the limit.
+`tests/rateLimit.test.ts` covers both.
 
 ### 4.8 Secrets and configuration
 
@@ -214,15 +220,21 @@ come from the proxy's IP, so one shared budget blocks every visitor at once.
 - Every variable has a dummy entry in `backend/.env.example` or `frontend/.env.example`.
 - Production secrets live in Coolify's environment-variable store, not in a `.env` file on the
   server. Test and live values differ.
-- Validate required configuration at startup with a schema and fail fast with a clear message.
-  Reject `*` or `null` in allowed CORS origins, and require HTTPS origins in production.
+- Configuration is validated at startup by `backend/src/config.ts` (Zod): the server exits with a
+  readable list of problems. `MONGODB_URI` is required in production; `CLIENT_ORIGIN` is a
+  comma-separated list of exact origins, never `*` or `null`, https-only in production. Empty
+  variables count as unset. Add every new variable to this schema and to `.env.example`, and read
+  settings from the `Config` object rather than `process.env` elsewhere.
 - Never log card-adjacent data, tokens, or full customer personal details.
 
-### 4.10 HTTP hardening (not implemented yet)
+### 4.10 HTTP hardening
 
-`helmet()` for security headers, a request body size limit (already 32kb on JSON), and
-`express-mongo-sanitize` (or equivalent) so query operators like `$gt` in user input cannot reach
-MongoDB queries.
+- `helmet()` sets security headers on every API response; JSON bodies are capped at 32kb.
+- **Query-operator injection** (e.g. `{ "fullName": { "$gt": "" } }`) is blocked by the validators,
+  not by a sanitising middleware: `validation/fields.ts`'s `text()` keeps only strings, so objects
+  become empty values. Every new validator must coerce fields to primitive types this way before
+  they reach a query. (`express-mongo-sanitize` is not used — it is unmaintained and breaks on
+  Express 5.)
 
 ### 4.9 Customer personal data
 
@@ -292,15 +304,21 @@ name), and logs which database it found. The guard only works if production sets
 ├── AGENTS.md                 # Content and scope rules (imported above)
 ├── README.md                 # Company brief: services, pages, launch requirements (source of truth)
 ├── ECOMMERCE_REQUIREMENTS.md # Shop, checkout, and payment behaviour
+├── ROADMAP.md                # Order of work to launch, with status; update as steps finish
 ├── HANDOVER.md               # Historical notes from the previous developer (macOS paths)
+├── .github/workflows/ci.yml  # CI: type-checks, builds, tests, audit, secret scan
 ├── backend/                  # Express 5 + Mongoose API (TypeScript, compiled to dist/)
 │   ├── tsconfig.json
+│   ├── vitest.config.ts
+│   ├── tests/                # Vitest + Supertest; helpers.ts gives testApp() and an in-memory DB
 │   └── src/
-│       ├── server.ts         # Loads env, connects MongoDB, starts the server
-│       ├── app.ts            # CORS, JSON parsing, routes, 404 and central error handler
-│       ├── routes/           # HTTP wiring (enquiries.ts)
-│       ├── validation/       # Hand-written input validators (enquiry.ts)
-│       ├── models/           # Mongoose schemas (Enquiry.ts)
+│       ├── server.ts         # Loads config, connects MongoDB, production database guard, listens
+│       ├── config.ts         # Zod-validated environment settings (the only reader of process.env)
+│       ├── app.ts            # helmet, CORS, JSON parsing, rate limits, routes, 404, error handler
+│       ├── routes/           # HTTP wiring (enquiries.ts, contactRequests.ts)
+│       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
+│       ├── models/           # Mongoose schemas (Enquiry.ts, ContactRequest.ts)
+│       ├── utils/            # reference.ts: customer-facing reference numbers
 │       └── data/             # Server-side canonical catalogue (catalogue.ts)
 └── frontend/                 # React + Vite SPA (TypeScript)
     ├── vite.config.ts
@@ -313,7 +331,7 @@ name), and logs which database it found. The guard only works if production sets
         ├── pages/            # LandingPage.tsx, StorePage.tsx
         ├── components/       # Header, Footer, LogoLockup, Arrow; shop/ for store components
         ├── data/             # Site copy (landingContent.ts) and catalogue (catalogueProducts.ts)
-        ├── services/         # API client (enquiryApi.ts)
+        ├── services/         # apiClient.ts (all HTTP), enquiryApi.ts, contactApi.ts
         └── styles.css        # All styles, one global stylesheet
 ```
 
@@ -378,9 +396,10 @@ cd frontend && npm install
 cd backend && npm run dev      # tsx watch src/server.ts
 cd frontend && npm run dev     # Vite dev server
 
-# Checks — all must pass before a change is "done". No lint or tests exist yet (see Known Gaps).
+# Checks — all must pass before a change is "done" (CI runs the same). No linter yet.
 cd frontend && npm run typecheck   # tsc -b
-cd backend && npm run typecheck    # tsc --noEmit
+cd backend && npm run typecheck    # source and tests
+cd backend && npm test             # Vitest, in-memory MongoDB
 cd frontend && npm run build       # type-checks, then builds
 curl http://localhost:5001/api/health   # must return {"status":"ok"}
 # ...plus the browser verification in Section 10.
@@ -466,11 +485,18 @@ MongoDB. A green health check does not mean the database is reachable.
 - A named person owns each incident type: leaked secret, payment webhook outage, database restore —
   with the logins needed (Coolify, Atlas, Paystack, GitHub) ready.
 
-### Continuous integration (planned)
+### Continuous integration
 
-GitHub Actions on every push and pull request to `main`: `npm ci`, `npm run typecheck` in both
-packages, frontend build and lint, backend build and tests, `npm audit --omit=dev --audit-level=high`, and a gitleaks secret scan. Pin third-party
-actions to a commit SHA. CI never deploys.
+`.github/workflows/ci.yml` runs on every push and pull request to `main`, with read-only
+permissions:
+
+- **Frontend:** `npm ci`, `npm run build` (type-checks first).
+- **Backend:** `npm ci`, `npm run typecheck` (source and tests), `npm run build`, `npm test`.
+- **Security:** `npm audit --omit=dev --audit-level=high` in both packages, and a checksum-verified
+  gitleaks scan of the full history.
+
+Third-party actions are pinned to a commit SHA with the version in a comment. CI never deploys.
+Linting is not in CI yet (no linter configured).
 
 ---
 
@@ -577,8 +603,8 @@ raw public URL on the record.
 
 1. `npm run typecheck` passes in both `frontend/` and `backend/`, and `npm run build` succeeds in
    `frontend/`. Do not silence a type error with `any`, `as`, or `!` unless the value is genuinely
-   known (e.g. the `#root` element) — fix the type. Lint and tests do not exist yet — when they are
-   added, they become mandatory here.
+   known (e.g. the `#root` element) — fix the type. `npm test` passes in `backend/`, and backend
+   changes come with tests. There is no linter yet — when one is added, it becomes mandatory here.
 2. **For any UI change, drive the real app in a browser** at 390px and desktop width. Rereading
    JSX/CSS is not verification.
 3. **For the shop:** catalogue → open product → add to cart → change quantity → order form → submit
@@ -590,8 +616,12 @@ raw public URL on the record.
    the specific error), then met.
 
 ### 10.2 Test design
-- Planned tooling: Jest + Supertest with `mongodb-memory-server` for API tests; Playwright with
-  `@axe-core/playwright` for browser flows and accessibility checks.
+- Backend tests: Vitest + Supertest in `backend/tests/`, run with `npm test`. Each test file gets
+  an in-memory MongoDB via `useTestDatabase()` and an app via `testApp()` (`tests/helpers.ts`);
+  collections are emptied after every test. Tests never connect to Atlas.
+- Planned: Playwright with `@axe-core/playwright` for browser flows and accessibility checks.
+- Check that a new test can fail: temporarily break the code it protects and confirm the test turns
+  red.
 - Cover unhappy paths: missing fields, unknown product ID, quantity out of range, empty cart,
   invalid webhook signature, amount mismatch, **currency mismatch**, a tampered price or fee in the
   request, a replayed webhook, webhook and callback verify arriving together, a `charge.failed`
@@ -691,18 +721,14 @@ status), or add a new failure path. No update needed for pure refactors or styli
 Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
 **Repository**
-- `frontend/dist` and `.DS_Store` are still committed (`node_modules` and `.env` are now covered by
-  the root `.gitignore`).
-- No lint or automated tests in either package.
-- No GitHub Actions CI workflow yet.
-
-**Deployment**
-- No Dockerfiles, nginx config, or Coolify resources yet.
-- No startup configuration validation; `helmet`, input sanitising, and `trust proxy` not set.
-- `/api/health` does not check the database.
+- No linter in either package, and no frontend tests.
 - `webDevPractice` is an empty file at the root.
 - `HANDOVER.md` and `.serena/memories/project_handover.md` describe the previous developer's macOS
   setup (`/Users/happinessessien/...`, Homebrew MongoDB).
+
+**Deployment**
+- No Dockerfiles, nginx config, or Coolify resources yet.
+- `/api/health` does not check the database.
 
 **Content (AGENTS.md rules)**
 - Sample products in both catalogue files have invented references and specs (e.g. "415 V",
@@ -716,16 +742,18 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - Footer says "Company contact details to be added"; no phone, email, or address anywhere.
 
 **Functionality**
-- The landing-page contact form does not submit anywhere; it only shows a success message
-  (`frontend/src/pages/LandingPage.tsx`).
-- The order confirmation text still says "When GPEC backend is connected…" although it is
-  (`frontend/src/components/shop/OrderForm.tsx`).
 - The shop is still enquiry-only: no prices, no pickup/delivery choice, no Paystack integration.
 - Product catalogue is duplicated between frontend and backend instead of served from MongoDB.
-- No admin panel or authentication.
-- No customer confirmation emails, no spam protection or rate limiting, no file uploads, no privacy
-  notice.
+  The contact-form subject list is also duplicated (`frontend/src/data/landingContent.ts` and
+  `backend/src/validation/contactRequest.ts`).
+- No admin panel or authentication, so nobody can read saved enquiries or contact requests except
+  through the database.
+- No customer confirmation emails or staff notifications, no bot protection beyond rate limits
+  (e.g. CAPTCHA or honeypot), no file uploads, no privacy notice.
 - Product modal does not trap focus or return focus to the card when closed.
+- The order form disables its submit button while sending, which drops keyboard focus to the page
+  when submission fails. The contact form fixes this by focusing the result message; apply the same
+  pattern to the order form.
 
 **Styling**
 - `styles.css` contains many hard-coded colour values alongside the `:root` variables.

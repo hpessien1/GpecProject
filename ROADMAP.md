@@ -11,9 +11,9 @@ does. Update this file as steps are completed or the plan changes.
 
 | Step | Status |
 |---|---|
-| 1. Quick fixes | In progress |
-| 2. Groundwork: CI, hardening, tests | In progress |
-| 3. Deploy early on Coolify | Not started |
+| 1. Quick fixes | Done (2026-10-21) |
+| 2. Groundwork: CI, hardening, tests | Done (2026-10-21) |
+| 3. Deploy early on Coolify | Next |
 | 4. Products in MongoDB | Not started |
 | 5. Checkout and Paystack (test mode) | Not started — needs GPEC information |
 | 6. Admin panel | Not started |
@@ -27,20 +27,32 @@ Already done: TypeScript conversion (frontend and backend), dependency pinning, 
 
 Small, visible problems that are cheap to fix now.
 
-- [ ] Order confirmation no longer says the backend is "not connected".
-- [ ] Landing-page contact form sends to the backend and is saved (today it shows a success
-      message but sends nothing, so customer enquiries are lost).
-- [ ] Stop tracking `frontend/dist` and `.DS_Store` in git.
+- [x] Order confirmation no longer says the backend is "not connected". It now gives the reference
+      and says a GPEC representative will follow up.
+- [x] Landing-page contact form sends to the backend and is saved. New route
+      `POST /api/contact-requests` (reference `GPEC-C-YYYY-XXXXXXXX`); the form shows the reference
+      on success, keeps the entered values with a clear message on failure, and moves keyboard focus
+      to the result.
+- [x] Stop tracking `frontend/dist` and `.DS_Store` in git.
+
+Found along the way and fixed: network failures showed the browser's raw "Failed to fetch"; both
+forms now show a readable message.
 
 ## 2. Groundwork: CI, hardening, tests
 
 The safety net that has to exist before any payment code is written.
 
-- [ ] GitHub Actions CI on every push and pull request: type-checks, builds, tests, dependency
-      audit, and a secret scan.
-- [ ] Backend hardening: configuration validated at startup, security headers (`helmet`),
-      `trust proxy` for running behind Coolify, rate limits on the public form routes.
-- [ ] Automated backend tests with an in-memory MongoDB, covering the enquiry and contact routes.
+- [x] GitHub Actions CI on every push and pull request (`.github/workflows/ci.yml`): type-checks,
+      builds, tests, dependency audit, and a gitleaks secret scan. It runs for the first time on the
+      next push.
+- [x] Backend hardening: configuration validated at startup (`src/config.ts`), security headers
+      (`helmet`), `trust proxy` in production, per-IP rate limits on both form routes (10 per 15
+      minutes in production).
+- [x] Automated backend tests: 34 tests (Vitest, Supertest, in-memory MongoDB) covering
+      configuration, security headers, CORS, rate limits, and both form routes.
+
+Not done in this step (moved to "Later"): a linter, frontend tests, and bot protection beyond rate
+limits.
 
 ## 3. Deploy early on Coolify
 
@@ -104,3 +116,7 @@ These block launch, and several block steps 4 to 6. Ask early.
   Current Work, Contact) and all nine business areas.
 - Privacy notice page.
 - Linting and frontend tests.
+- A way for GPEC staff to read enquiries and contact requests (today only through the database;
+  part of the admin panel in step 6).
+- Bot protection for the public forms beyond rate limits (honeypot field or CAPTCHA).
+- Order form: move focus to the error message after a failed submission, as the contact form does.
