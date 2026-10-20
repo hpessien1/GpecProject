@@ -21,6 +21,9 @@ does. Update this file as steps are completed or the plan changes.
 Already done: TypeScript conversion (frontend and backend), dependency pinning, root `.gitignore`,
 `gpec_dev` / `gpec` database split with a production startup guard, backup remote on `kworlanyo`.
 
+CI's first run on GitHub passed (2026-10-20). Session handover notes are in
+[`HANDOVER.md`](HANDOVER.md).
+
 ---
 
 ## 1. Quick fixes
@@ -43,8 +46,7 @@ forms now show a readable message.
 The safety net that has to exist before any payment code is written.
 
 - [x] GitHub Actions CI on every push and pull request (`.github/workflows/ci.yml`): type-checks,
-      builds, tests, dependency audit, and a gitleaks secret scan. It runs for the first time on the
-      next push.
+      builds, tests, dependency audit, and a gitleaks secret scan. First run on GitHub passed.
 - [x] Backend hardening: configuration validated at startup (`src/config.ts`), security headers
       (`helmet`), `trust proxy` in production, per-IP rate limits on both form routes (10 per 15
       minutes in production).

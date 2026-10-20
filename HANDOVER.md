@@ -1,62 +1,58 @@
 # Next-session handover
 
-> **Superseded in part (2026-10-20):** Online payment through Paystack is now in scope, with fixed prices managed in a planned admin panel and a pickup or delivery choice at checkout. The "enquiries only, no payments" note below is out of date. See `CLAUDE.md` and `ECOMMERCE_REQUIREMENTS.md`. Paths and Homebrew steps below are from the previous developer's macOS machine; the project now lives on a Linux machine.
-
-Copy this prompt into next session:
+Last updated: 2026-10-21. Start a new session with:
 
 ```text
-Continue work on GPEC website at /Users/happinessessien/GP-website.
-
-Read AGENTS.md, README.md, and HANDOVER.md first. Preserve existing design and behavior unless I request changes.
-
-Project state:
-- Frontend: React/Vite in frontend/.
-- Backend: Express/MongoDB in backend/.
-- Shop uses hash routes: #shop and #shop/order.
-- Catalogue has 14 sample products with 6 products per page and pagination.
-- Product cards open modal with fixed image panel and independently scrollable details panel.
-- Cart uses localStorage key gpec-order-cart. It supports add, quantity changes, and remove.
-- Orders are enquiries only. No payments.
-- Frontend order form sends POST request through frontend/src/services/enquiryApi.js.
-- Backend endpoint: POST /api/enquiries. It validates data, validates product IDs server-side, saves MongoDB enquiry, and returns an enquiry reference.
-- Backend health route: GET /api/health.
-- API default port is 5001. Port 5000 is occupied by macOS Control Center.
-- MongoDB local URL: mongodb://127.0.0.1:27017/gpec.
-
-Important files:
-- frontend/src/pages/StorePage.jsx
-- frontend/src/services/enquiryApi.js
-- frontend/src/data/catalogueProducts.js
-- backend/src/server.js
-- backend/src/app.js
-- backend/src/routes/enquiries.js
-- backend/src/models/Enquiry.js
-- backend/src/validation/enquiry.js
-- backend/src/data/catalogue.js
-
-Run locally:
-1. MongoDB should be running: brew services start mongodb-community@8.0
-2. Backend: cd backend && npm run dev
-3. Frontend: cd frontend && npm run dev
-4. Health check: curl http://localhost:5001/api/health
-
-MongoDB configuration was repaired manually because Homebrew did not create it:
-- /opt/homebrew/etc/mongod.conf
-- dbPath: /opt/homebrew/var/mongodb
-- log: /opt/homebrew/var/log/mongodb/mongo.log
-- bind IP: 127.0.0.1,::1
-- port: 27017
-- timezone path: /usr/share/zoneinfo
-
-Checks already passed:
-- Frontend npm run build
-- Backend syntax checks
-- Backend enquiry validation check
-- MongoDB ping returned { ok: 1 }
-- Backend health endpoint returned {"status":"ok"}
-
-Recommended next step: submit an order through browser, then confirm saved enquiry:
-mongosh gpec --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5)'
-
-After this: replace sample products with approved data; then move catalogue data into MongoDB and add product API routes.
+Continue work on the GPEC website at /home/worlanyo/Desktop/GpecProject.
+Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first. Steps 1 and 2 of the roadmap are done;
+step 3 (deploy early on Coolify) is next.
 ```
+
+## Where things stand
+
+- **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1 (quick fixes) and 2 (CI, hardening,
+  tests) are done. Next is step 3, deploying the current site on Coolify, followed by products in
+  MongoDB, Paystack checkout, and the admin panel.
+- **Rules and conventions:** [`CLAUDE.md`](CLAUDE.md), including the Paystack rules (Section 4.1),
+  deployment checklist (Section 7), and known gaps (Section 14).
+- **Scope change (2026-10-20):** online payment through Paystack's hosted checkout is in scope, with
+  fixed prices from a planned admin panel and pickup or delivery. See
+  [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md). The shop is still enquiry-only in code.
+
+## What exists
+
+- **Frontend** (`frontend/`): React 19 + Vite 8, strict TypeScript. Landing page with a working
+  contact form, and a shop (`#shop`, `#shop/order`) with 14 sample products, cart in
+  `localStorage`, and an order enquiry form.
+- **Backend** (`backend/`): Express 5 + Mongoose 8, strict TypeScript.
+  - Routes: `GET /api/health`, `POST /api/enquiries`, `POST /api/contact-requests`.
+  - Zod-validated config, helmet, per-IP rate limits, production database guard.
+  - 34 Vitest tests on an in-memory MongoDB.
+- **CI:** `.github/workflows/ci.yml` runs type-checks, builds, tests, `npm audit`, and gitleaks on
+  every push to `main`. First run on GitHub passed on 2026-10-20 (commit `254b449`).
+
+## Environment
+
+- **Database:** one MongoDB Atlas cluster. `gpec_dev` for local development (`backend/.env`), `gpec`
+  for production (Coolify). Never paste the connection string into a chat.
+- **Run locally:** `cd backend && npm run dev` (port 5001) and `cd frontend && npm run dev`
+  (port 5173). Health check: `curl http://localhost:5001/api/health`.
+- **Git:** commit on `main`. Push to both remotes over SSH (the SSH key is the `kworlanyo` account):
+  - `git push origin main` → `hpessien1/GpecProject`
+  - `git push backup main` → `kworlanyo/GpecProject`
+- **Hosting:** Hetzner Cloud via Coolify, deployed by the project owner only.
+
+## Open items for the next session
+
+1. Make sure the latest commit is pushed to both remotes and CI is still green.
+2. Roadmap step 3: Dockerfiles, nginx config, Coolify setup, Atlas users and network access, and
+   a short runbook. **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`, and that
+   `NODE_ENV=production` is set.**
+3. Ask GPEC for the information in ROADMAP.md, "Needed from GPEC" (prices, currency, Paystack
+   account, delivery and pickup details, policies, contact details).
+
+## History
+
+The project was started on another developer's macOS machine (`/Users/happinessessien/GP-website`)
+and moved to this Linux machine on 2026-10-20. The macOS-specific setup notes (Homebrew MongoDB,
+port 5000 conflict) no longer apply; the port 5001 choice is recorded in CLAUDE.md's lessons learned.

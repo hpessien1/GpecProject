@@ -305,7 +305,7 @@ name), and logs which database it found. The guard only works if production sets
 ├── README.md                 # Company brief: services, pages, launch requirements (source of truth)
 ├── ECOMMERCE_REQUIREMENTS.md # Shop, checkout, and payment behaviour
 ├── ROADMAP.md                # Order of work to launch, with status; update as steps finish
-├── HANDOVER.md               # Historical notes from the previous developer (macOS paths)
+├── HANDOVER.md               # Current state and next steps for a new session; update at session end
 ├── .github/workflows/ci.yml  # CI: type-checks, builds, tests, audit, secret scan
 ├── backend/                  # Express 5 + Mongoose API (TypeScript, compiled to dist/)
 │   ├── tsconfig.json
@@ -723,8 +723,6 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 **Repository**
 - No linter in either package, and no frontend tests.
 - `webDevPractice` is an empty file at the root.
-- `HANDOVER.md` and `.serena/memories/project_handover.md` describe the previous developer's macOS
-  setup (`/Users/happinessessien/...`, Homebrew MongoDB).
 
 **Deployment**
 - No Dockerfiles, nginx config, or Coolify resources yet.
