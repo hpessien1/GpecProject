@@ -240,8 +240,13 @@ Orders and enquiries hold names, emails, phone numbers, and addresses. Collect o
 | `gpec_dev` | Local development and testing | Test data only; safe to clear |
 | `gpec` | Production (Coolify) | Real customer data; never written to from a developer machine |
 
-The database name comes from the `MONGODB_URI` path (`.../gpec_dev?...`). Mixing them up fails
-silently — the app connects either way — so check the name whenever the variable is set.
+The database name comes from the `MONGODB_URI` path (`.../gpec_dev?...`). The app connects to
+whichever database the URI names, so check the name whenever the variable is set.
+
+**Startup guard:** when `NODE_ENV=production`, `backend/src/server.ts` refuses to start unless the
+connected database is exactly `gpec` (this also catches Atlas's default `test` when the URI has no
+name), and logs which database it found. The guard only works if production sets
+`NODE_ENV=production`. Do not remove or weaken it.
 
 **Current entities:**
 
@@ -436,7 +441,8 @@ the last good one. This rolls back code only — data written by a bad release n
 workflows as an unreviewed path to production.
 
 **Docker images (to be created):** multi-stage builds, base images pinned to an exact version,
-`npm ci`, run as the non-root `node` user, a `HEALTHCHECK`. The frontend image serves the build with
+`npm ci`, run as the non-root `node` user, a `HEALTHCHECK`. The backend image sets
+`ENV NODE_ENV=production`, which the database startup guard (Section 5) depends on. The frontend image serves the build with
 nginx, sending security headers (Content-Security-Policy, `X-Frame-Options: DENY`,
 `X-Content-Type-Options: nosniff`, `Referrer-Policy`), long caching for `/assets/`, `no-cache` for
 `index.html`, and falling back to `index.html` for unknown paths. Never bake secrets into an image.
