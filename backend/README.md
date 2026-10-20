@@ -2,10 +2,16 @@
 
 ## Local setup
 
-1. Start local MongoDB.
-2. Copy `.env.example` to `.env`.
-3. Run `npm install`.
-4. Run `npm run dev`.
+1. Copy `.env.example` to `.env` and set `MONGODB_URI` to a non-production database (a separate
+   Atlas database or a local MongoDB). Never use the production cluster locally.
+2. Run `npm install`.
+3. Run `npm run dev` (runs the TypeScript source with `tsx` and restarts on changes).
+
+Other scripts:
+
+- `npm run typecheck` — type-check without emitting files.
+- `npm run build` — compile `src/` to `dist/`.
+- `npm start` — run the compiled server (`dist/server.js`).
 
 API base URL: `http://localhost:5001/api`
 

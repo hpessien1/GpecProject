@@ -40,7 +40,8 @@ buyers want to identify a part without calling first; less technical customers n
 guidance and an easy way to ask for a recommendation or quote.
 
 **How it is built:** A React + Vite single-page frontend (`frontend/`) with hash-based routing,
-talking to an Express 5 REST API (`backend/`) backed by MongoDB through Mongoose. Product checkout
+talking to an Express 5 REST API (`backend/`) backed by MongoDB through Mongoose. Both are written
+in strict TypeScript. Product checkout
 will redirect customers to Paystack's hosted payment page; the site never handles card details.
 Production runs in Docker containers managed by Coolify on a Hetzner Cloud VPS, with the database
 on MongoDB Atlas.
@@ -166,12 +167,12 @@ Paystack flow; the *Why* notes record the failure each one prevents.
 Fields like `price`, `amount`, `deliveryFee`, `status`, `paid`, `reference`, `role`, `isAdmin` are
 decided by the server. Do not include them in input validation at all — use allowlists. The enquiry
 route already does this: it takes `{ productId, quantity }` and looks up name and reference in
-`backend/src/data/catalogue.js`. Keep that pattern for orders.
+`backend/src/data/catalogue.ts`. Keep that pattern for orders.
 
 ### 4.3 Validate every input
 
 Every route validates body, params, and query before any logic runs (see
-`backend/src/validation/enquiry.js`). Unknown fields are rejected — the Mongoose schemas use
+`backend/src/validation/enquiry.ts`). Unknown fields are rejected — the Mongoose schemas use
 `strict: 'throw'`. A route that accepts ad-hoc, unvalidated data is a bug.
 
 ### 4.4 Every UI restriction needs a matching server check
@@ -234,11 +235,11 @@ Orders and enquiries hold names, emails, phone numbers, and addresses. Collect o
 
 **Current entities:**
 
-- **Enquiry** (`backend/src/models/Enquiry.js`) — `reference` (unique, `GPEC-YYYY-XXXXXXXX`),
+- **Enquiry** (`backend/src/models/Enquiry.ts`) — `reference` (unique, `GPEC-YYYY-XXXXXXXX`),
   `customer { fullName, company, email, phone }`, `location`, `notes`,
   `items [{ productId, name, reference, quantity }]`, `status` (`'new'` only), timestamps.
 - **Product catalogue** — not in the database yet. It exists **twice**:
-  `frontend/src/data/catalogueProducts.js` (display data) and `backend/src/data/catalogue.js` (the
+  `frontend/src/data/catalogueProducts.ts` (display data) and `backend/src/data/catalogue.ts` (the
   server's canonical ID → name/reference list). **The `id` values must match in both files.**
   Product `id` (e.g. `panel-001`) is the internal key; `reference` (e.g. `GPEC-CP-001`) is the
   customer-facing product code. Do not confuse them.
@@ -277,28 +278,33 @@ Orders and enquiries hold names, emails, phone numbers, and addresses. Collect o
 ├── README.md                 # Company brief: services, pages, launch requirements (source of truth)
 ├── ECOMMERCE_REQUIREMENTS.md # Shop, checkout, and payment behaviour
 ├── HANDOVER.md               # Historical notes from the previous developer (macOS paths)
-├── backend/                  # Express 5 + Mongoose API
+├── backend/                  # Express 5 + Mongoose API (TypeScript, compiled to dist/)
+│   ├── tsconfig.json
 │   └── src/
-│       ├── server.js         # Loads env, connects MongoDB, starts the server
-│       ├── app.js            # CORS, JSON parsing, routes, 404 and central error handler
-│       ├── routes/           # HTTP wiring (enquiries.js)
-│       ├── validation/       # Hand-written input validators (enquiry.js)
-│       ├── models/           # Mongoose schemas (Enquiry.js)
-│       └── data/             # Server-side canonical catalogue (catalogue.js)
-└── frontend/                 # React + Vite SPA
+│       ├── server.ts         # Loads env, connects MongoDB, starts the server
+│       ├── app.ts            # CORS, JSON parsing, routes, 404 and central error handler
+│       ├── routes/           # HTTP wiring (enquiries.ts)
+│       ├── validation/       # Hand-written input validators (enquiry.ts)
+│       ├── models/           # Mongoose schemas (Enquiry.ts)
+│       └── data/             # Server-side canonical catalogue (catalogue.ts)
+└── frontend/                 # React + Vite SPA (TypeScript)
+    ├── vite.config.ts
+    ├── tsconfig*.json        # tsconfig.app.json (src/) and tsconfig.node.json (vite.config.ts)
     ├── public/assets/        # Images and videos served at /assets/...
     └── src/
-        ├── App.jsx           # Hash router: #shop, #shop/order, else landing page
-        ├── pages/            # LandingPage.jsx, StorePage.jsx
+        ├── main.tsx          # Entry point
+        ├── App.tsx           # Hash router: #shop, #shop/order, else landing page
+        ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, enquiry API
+        ├── pages/            # LandingPage.tsx, StorePage.tsx
         ├── components/       # Header, Footer, LogoLockup, Arrow; shop/ for store components
-        ├── data/             # Site copy (landingContent.js) and catalogue (catalogueProducts.js)
-        ├── services/         # API client (enquiryApi.js)
+        ├── data/             # Site copy (landingContent.ts) and catalogue (catalogueProducts.ts)
+        ├── services/         # API client (enquiryApi.ts)
         └── styles.css        # All styles, one global stylesheet
 ```
 
 ### 6.2 Layering
 
-- **Today:** route → validator → model. `routes/enquiries.js` validates, then calls
+- **Today:** route → validator → model. `routes/enquiries.ts` validates, then calls
   `Enquiry.create` directly. Acceptable at this size.
 - **As the backend grows (orders, payments, admin):** add a `services/` layer for business logic
   (pricing, Paystack calls, order state changes). Routes stay thin: authenticate → authorize →
@@ -316,7 +322,7 @@ by code.
 
 ### 6.4 Responses and errors
 
-- The central error handler in `backend/src/app.js` maps JSON syntax errors and Mongoose validation
+- The central error handler in `backend/src/app.ts` maps JSON syntax errors and Mongoose validation
   errors to 400 and everything else to 500. Extend it; do not hand-roll error JSON in routes.
 - Error responses use `{ message, errors? }`. Keep that shape for new routes, and add a stable
   machine-readable `code` (e.g. `PAYMENT_CONFIG_ERROR`, `ORDER_ALREADY_PAID`) when the frontend
@@ -336,26 +342,37 @@ by code.
 
 ## 7. Tech Stack & Commands
 
-**Stack:** JavaScript (ES modules, no TypeScript). React + Vite frontend. Node.js 22, Express 5,
-Mongoose 8, MongoDB. Payments: Paystack (planned, hosted redirect checkout).
+**Stack:** TypeScript 7 in strict mode on both sides (ES modules). React 19 + Vite 8 frontend.
+Node.js 22, Express 5, Mongoose 8, MongoDB. Payments: Paystack (planned, hosted redirect checkout).
+
+- Frontend: Vite compiles the TypeScript; `tsc -b` only type-checks (`tsconfig.app.json` for
+  `src/`, `tsconfig.node.json` for `vite.config.ts`).
+- Backend: `tsx` runs TypeScript directly in development; `tsc` compiles to `backend/dist/` for
+  production. Relative imports end in `.js` even though the files are `.ts` — Node's ES module
+  resolution requires it.
+- Shared shapes live in `frontend/src/types.ts`. The backend has its own types until a shared
+  package is introduced with the orders work.
 
 ```bash
 # Install
 cd backend && npm install
 cd frontend && npm install
 
-# Run locally (MongoDB must be running first; on this Linux machine: sudo systemctl start mongod)
-cd backend && npm run dev      # node --watch src/server.js
+# Run locally. backend/.env must set MONGODB_URI — locally this points to a separate,
+# non-production Atlas database, never the production cluster.
+cd backend && npm run dev      # tsx watch src/server.ts
 cd frontend && npm run dev     # Vite dev server
 
-# Checks — NONE are set up yet: no lint, no type-check, no tests (see Known Gaps).
-# Until they exist, the minimum before calling a change done is:
-cd frontend && npm run build   # must succeed
+# Checks — all must pass before a change is "done". No lint or tests exist yet (see Known Gaps).
+cd frontend && npm run typecheck   # tsc -b
+cd backend && npm run typecheck    # tsc --noEmit
+cd frontend && npm run build       # type-checks, then builds
 curl http://localhost:5001/api/health   # must return {"status":"ok"}
 # ...plus the browser verification in Section 10.
 
-# Build / preview
+# Build / run production output
 cd frontend && npm run build && npm run preview
+cd backend && npm run build && npm start   # node dist/server.js
 
 # Inspect saved enquiries
 mongosh gpec --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5)'
@@ -427,8 +444,8 @@ MongoDB. A green health check does not mean the database is reachable.
 
 ### Continuous integration (planned)
 
-GitHub Actions on every push and pull request to `main`: `npm ci`, frontend build and lint, backend
-tests, `npm audit --omit=dev --audit-level=high`, and a gitleaks secret scan. Pin third-party
+GitHub Actions on every push and pull request to `main`: `npm ci`, `npm run typecheck` in both
+packages, frontend build and lint, backend build and tests, `npm audit --omit=dev --audit-level=high`, and a gitleaks secret scan. Pin third-party
 actions to a commit SHA. CI never deploys.
 
 ---
@@ -441,7 +458,7 @@ actions to a commit SHA. CI never deploys.
 - Use the central error handler and the `{ message, errors? }` shape.
 - Return only the fields the client needs (the enquiry route returns `reference` and `createdAt`).
 - Paginate list endpoints and cap page size server-side (admin lists).
-- Name files by resource (`routes/orders.js`, `validation/order.js`, `models/Order.js`).
+- Name files by resource (`routes/orders.ts`, `validation/order.ts`, `models/Order.ts`).
 
 ### DO NOT
 - Accept prices, totals, fees, statuses, or references from the client (Section 4.2).
@@ -450,7 +467,7 @@ actions to a commit SHA. CI never deploys.
 - Swallow errors silently. If you deliberately ignore one, log it and comment why.
 
 ### Payments (Paystack) — planned
-All Paystack HTTP calls live in one module (e.g. `services/paystack.js`); the rules are in
+All Paystack HTTP calls live in one module (e.g. `services/paystack.ts`); the rules are in
 Section 4.1.
 1. `POST` order route: validate items and fulfilment choice → compute subtotal, delivery fee,
    Paystack fee, and total on the server → create order `pending_payment` → call Initialize
@@ -484,7 +501,10 @@ raw public URL on the record.
 ### Structure
 - One component per file. Pages in `pages/`, shared components in `components/`, store components
   in `components/shop/`.
-- Routing is hash-based in `App.jsx`. Any new route must be added there.
+- Props are typed with an `interface <Component>Props` directly above the component. Data shapes
+  used in more than one file go in `src/types.ts`; use `import type` for type-only imports.
+- Form submit handlers take React's `SubmitEvent<HTMLFormElement>` (`FormEvent` is deprecated).
+- Routing is hash-based in `App.tsx`. Any new route must be added there.
 - **Before creating a new page, read the existing pages and match their shell** (skip link, header,
   `main` with an id, footer).
 
@@ -531,8 +551,10 @@ raw public URL on the record.
 
 ### 10.1 "Done" means verified, not "the code looks right"
 
-1. `npm run build` in `frontend/` succeeds. Lint, type-check, and tests do not exist yet — when they
-   are added, they become mandatory here.
+1. `npm run typecheck` passes in both `frontend/` and `backend/`, and `npm run build` succeeds in
+   `frontend/`. Do not silence a type error with `any`, `as`, or `!` unless the value is genuinely
+   known (e.g. the `#root` element) — fix the type. Lint and tests do not exist yet — when they are
+   added, they become mandatory here.
 2. **For any UI change, drive the real app in a browser** at 390px and desktop width. Rereading
    JSX/CSS is not verification.
 3. **For the shop:** catalogue → open product → add to cart → change quantity → order form → submit
@@ -566,19 +588,19 @@ raw public URL on the record.
 ### Adding a new backend route
 1. Validator in `backend/src/validation/` (server-controlled fields excluded).
 2. Model/schema with indexes on filter/sort fields; `strict: 'throw'`.
-3. Route in `backend/src/routes/`, registered in `app.js`.
+3. Route in `backend/src/routes/`, registered in `app.ts`.
 4. If admin-only: auth + role middleware (Section 4.5) and audit record for mutations (Section 4.6).
 5. Client function in `frontend/src/services/`.
 6. Add any new env variable to `.env.example`.
 7. Update `backend/README.md` route list and, if behaviour changed, `ECOMMERCE_REQUIREMENTS.md`.
 
 ### Changing the product catalogue (until it moves to MongoDB)
-1. Edit **both** `frontend/src/data/catalogueProducts.js` and `backend/src/data/catalogue.js`.
+1. Edit **both** `frontend/src/data/catalogueProducts.ts` and `backend/src/data/catalogue.ts`.
 2. Keep `id` values identical in both.
 3. Use only GPEC-supplied product data; mark anything else as a placeholder.
 
 ### Adding a new frontend page
-1. Match the existing page shell; add the hash route in `App.jsx` and the navigation link.
+1. Match the existing page shell; add the hash route in `App.tsx` and the navigation link.
 2. Copy in `frontend/src/data/`, layout in the component.
 3. Loading, empty, and error states; accessible labels.
 4. Verify in a browser at 390px and desktop.
@@ -648,8 +670,7 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 **Repository**
 - `frontend/dist` and `.DS_Store` are still committed (`node_modules` and `.env` are now covered by
   the root `.gitignore`).
-- `frontend/package.json` pins every dependency to `"latest"`, so installs are not reproducible.
-- No lint, type-check, or automated tests in either package.
+- No lint or automated tests in either package.
 - No GitHub Actions CI workflow yet.
 
 **Deployment**
@@ -673,9 +694,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
 **Functionality**
 - The landing-page contact form does not submit anywhere; it only shows a success message
-  (`frontend/src/pages/LandingPage.jsx`).
+  (`frontend/src/pages/LandingPage.tsx`).
 - The order confirmation text still says "When GPEC backend is connected…" although it is
-  (`frontend/src/components/shop/OrderForm.jsx`).
+  (`frontend/src/components/shop/OrderForm.tsx`).
 - The shop is still enquiry-only: no prices, no pickup/delivery choice, no Paystack integration.
 - Product catalogue is duplicated between frontend and backend instead of served from MongoDB.
 - No admin panel or authentication.
