@@ -10,6 +10,6 @@ try {
   await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 })
   app.listen(port, () => console.log(`GPEC enquiry API listening on http://localhost:${port}`))
 } catch (error) {
-  console.error('MongoDB connection failed.', error.message)
+  console.error('MongoDB connection failed.', error instanceof Error ? error.message : error)
   process.exit(1)
 }

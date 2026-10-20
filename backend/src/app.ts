@@ -1,4 +1,5 @@
 import express from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import cors from 'cors'
 import enquiriesRouter from './routes/enquiries.js'
 
@@ -12,9 +13,9 @@ export default function createApp() {
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
   app.use('/api/enquiries', enquiriesRouter)
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
-  app.use((error, _req, res, _next) => {
+  app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof SyntaxError && 'body' in error) return res.status(400).json({ message: 'Request body must be valid JSON.' })
-    if (error.name === 'ValidationError' || error.name === 'StrictModeError') return res.status(400).json({ message: 'Check enquiry details and try again.' })
+    if (error instanceof Error && (error.name === 'ValidationError' || error.name === 'StrictModeError')) return res.status(400).json({ message: 'Check enquiry details and try again.' })
     console.error(error)
     return res.status(500).json({ message: 'Unable to save enquiry. Please try again.' })
   })

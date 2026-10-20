@@ -1,19 +1,24 @@
 import { catalogue } from '../data/catalogue.js'
+import type { CatalogueProduct } from '../data/catalogue.js'
+
+// Request bodies are untrusted: read their fields as unknown and narrow each one.
+type Fields = Record<string, unknown>
+export type EnquiryErrors = Record<string, string>
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const productById = new Map(catalogue.map((product) => [product.id, product]))
 
-function text(value, maxLength, field, errors, required = false) {
+function text(value: unknown, maxLength: number, field: string, errors: EnquiryErrors, required = false) {
   const normalized = typeof value === 'string' ? value.trim() : ''
   if (required && !normalized) errors[field] = `${field} is required.`
   if (normalized.length > maxLength) errors[field] = `${field} must be ${maxLength} characters or fewer.`
   return normalized
 }
 
-export function validateEnquiry(body) {
-  const errors = {}
-  const source = body && typeof body === 'object' ? body : {}
-  const customerSource = source.customer && typeof source.customer === 'object' ? source.customer : {}
+export function validateEnquiry(body: unknown) {
+  const errors: EnquiryErrors = {}
+  const source = (body && typeof body === 'object' ? body : {}) as Fields
+  const customerSource = (source.customer && typeof source.customer === 'object' ? source.customer : {}) as Fields
   const customer = {
     fullName: text(customerSource.fullName, 120, 'fullName', errors, true),
     company: text(customerSource.company, 120, 'company', errors),
@@ -24,12 +29,13 @@ export function validateEnquiry(body) {
   if (customer.email && !emailPattern.test(customer.email)) errors.email = 'email must be valid.'
   const location = text(source.location, 180, 'location', errors)
   const notes = text(source.notes, 5000, 'notes', errors)
-  const sourceItems = Array.isArray(source.items) ? source.items : []
+  const sourceItems: unknown[] = Array.isArray(source.items) ? source.items : []
   if (sourceItems.length === 0) errors.items = 'At least one product is required.'
   if (sourceItems.length > 50) errors.items = 'A maximum of 50 product types is allowed per enquiry.'
 
-  const uniqueItems = new Map()
-  sourceItems.forEach((item) => {
+  const uniqueItems = new Map<string, { product: CatalogueProduct, quantity: number }>()
+  sourceItems.forEach((sourceItem) => {
+    const item = sourceItem as Fields | null | undefined
     const productId = typeof item?.productId === 'string' ? item.productId : ''
     const quantity = Number(item?.quantity)
     const product = productById.get(productId)

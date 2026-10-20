@@ -1,4 +1,10 @@
-export const catalogue = [
+export interface CatalogueProduct {
+  id: string
+  name: string
+  reference: string
+}
+
+export const catalogue: CatalogueProduct[] = [
   { id: 'panel-001', name: 'Custom control panel', reference: 'GPEC-CP-001' },
   { id: 'protection-001', name: 'Circuit protection assembly', reference: 'GPEC-CPA-014' },
   { id: 'solar-001', name: 'Solar power package', reference: 'GPEC-SOL-020' },

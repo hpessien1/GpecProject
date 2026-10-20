@@ -17,7 +17,7 @@ const enquirySchema = new mongoose.Schema({
   },
   location: { type: String, trim: true, maxlength: 180, default: '' },
   notes: { type: String, trim: true, maxlength: 5000, default: '' },
-  items: { type: [itemSchema], required: true, validate: [(items) => items.length > 0, 'At least one product is required.'] },
+  items: { type: [itemSchema], required: true, validate: [(items: unknown[]) => items.length > 0, 'At least one product is required.'] },
   status: { type: String, enum: ['new'], default: 'new' },
 }, { timestamps: true, strict: 'throw' })
 
