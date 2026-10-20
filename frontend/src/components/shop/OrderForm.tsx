@@ -13,7 +13,7 @@ interface OrderFormProps {
 }
 
 export default function OrderForm({ cartItems, itemCount, orderReference, isSubmitting, submissionError, onSubmit, onGoToCatalogue }: OrderFormProps) {
-  if (orderReference) return <div className="shop-confirmation" role="status"><p className="eyebrow"><span /> Enquiry confirmed</p><h1>Thank you.<br /><em>We have your request.</em></h1><p>Your frontend enquiry reference is <strong>{orderReference}</strong>. Payment has not been requested. When GPEC backend is connected, this same form will send your order details to the enquiry team.</p><button type="button" className="button button-primary" onClick={onGoToCatalogue}>Browse products <Arrow /></button></div>
+  if (orderReference) return <div className="shop-confirmation" role="status"><p className="eyebrow"><span /> Enquiry confirmed</p><h1>Thank you.<br /><em>We have your request.</em></h1><p>Your enquiry reference is <strong>{orderReference}</strong>. No payment has been taken. A GPEC representative will contact you to confirm availability, pricing, and next steps.</p><button type="button" className="button button-primary" onClick={onGoToCatalogue}>Browse products <Arrow /></button></div>
 
   return <>
     <div className="shop-order-heading"><div><p className="eyebrow"><span /> Order enquiry</p><h1>Tell us what<br /><em>you need.</em></h1><p>No payment is taken online. GPEC will confirm availability, pricing, and next steps after receiving your enquiry.</p></div><button type="button" className="text-link" onClick={onGoToCatalogue}>Back to catalogue <Arrow /></button></div>
