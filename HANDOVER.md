@@ -29,7 +29,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   the admin screens). Rules in CLAUDE.md Section 9. Formatted by Prettier 3.9.9
   (`frontend/.prettierrc.json`, `npm run format`; CI runs `npm run format:check`); the root
   `.prettierignore` limits Prettier to those files.
-- **Last session (2026-10-21), latest work:**
+- **Last session (2026-10-21), latest work** (commit `eb436d7`, pushed; CI green):
   - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
     became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
     styles, 6.7 kB, load only with #admin). Removed: 103 selectors for an older design, 153
@@ -46,8 +46,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   element's computed style (with `::before`, `::after`, `::placeholder`) and position were compared,
   with hover and focus forced on each element the CSS styles in those states, and full-page
   screenshots were compared pixel for pixel. The comparison was first proven deterministic
-  (original against itself) and shown to catch a planted hover-only bug. The tool lived in the
-  session scratchpad, not the repository; ask if you want it kept as a test.
+  (original against itself) and shown to catch a planted hover-only bug. It caught three real
+  regressions in a first attempt (caused by a bug in the cleanup tooling), which were fixed before
+  the commit. The tool lived in the session scratchpad, not the repository; ask the user if they
+  want it kept as a test for future CSS changes.
 
 ## What exists
 
@@ -64,8 +66,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
   - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
   - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 152 backend tests (Vitest, in-memory MongoDB replica set). 86 frontend Playwright tests (2 run at one width only)
-  in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
+- **Tests:** 152 backend tests (Vitest, in-memory MongoDB replica set). 86 frontend Playwright
+  tests (2 run at one width only) in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
   build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
   contrast, Docker builds, `npm audit`, gitleaks. Never deploys.
@@ -83,9 +85,11 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Open items for the next session
 
-1. Ask whether the latest commits are pushed and CI is green.
-2. Step 3: help the project owner set up Atlas and Coolify from `docs/RUNBOOK.md` if asked; never
-   deploy. **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`, and that
+1. Everything up to `eb436d7` is pushed and CI is green. For later commits, ask.
+2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and
+   Coolify from `docs/RUNBOOK.md`; never deploy. Coolify's health check now depends on the
+   database (`/api/health` returns 503 if MongoDB does not answer), so a wrong `MONGODB_URI` shows
+   as an unhealthy API. **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`, and that
    `NODE_ENV=production` is set.**
 3. When GPEC creates its AWS account: walk through RUNBOOK 1.6 (SES domain, production access,
    sending-only key, Coolify settings), then fill in the email region in the privacy notice.
