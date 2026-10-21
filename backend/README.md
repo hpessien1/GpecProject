@@ -15,6 +15,9 @@ Other scripts:
 
 API base URL: `http://localhost:5001/api`
 
+Production runs the `Dockerfile` in this folder (`docker build -t gpec-api backend` from the repository
+root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
+
 ## Routes
 
 - `GET /api/health`

@@ -5,14 +5,16 @@ Last updated: 2026-10-21. Start a new session with:
 ```text
 Continue work on the GPEC website at /home/worlanyo/Desktop/GpecProject.
 Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first. Steps 1 and 2 of the roadmap are done;
-step 3 (deploy early on Coolify) is next.
+step 3's files (Dockerfiles, runbook) are ready and waiting on the project owner's Coolify setup.
 ```
 
 ## Where things stand
 
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1 (quick fixes) and 2 (CI, hardening,
-  tests) are done. Next is step 3, deploying the current site on Coolify, followed by products in
-  MongoDB, Paystack checkout, and the admin panel.
+  tests) are done. Step 3 (deploy on Coolify): Dockerfiles and [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
+  are done and checked locally; the Coolify and Atlas setup and first deploy are the project
+  owner's, and need domain names from GPEC. Then products in MongoDB, Paystack checkout, and the
+  admin panel.
 - **Rules and conventions:** [`CLAUDE.md`](CLAUDE.md), including the Paystack rules (Section 4.1),
   deployment checklist (Section 7), and known gaps (Section 14).
 - **Scope change (2026-10-20):** online payment through Paystack's hosted checkout is in scope, with
@@ -28,6 +30,8 @@ step 3 (deploy early on Coolify) is next.
   - Routes: `GET /api/health`, `POST /api/enquiries`, `POST /api/contact-requests`.
   - Zod-validated config, helmet, per-IP rate limits, production database guard.
   - 34 Vitest tests on an in-memory MongoDB.
+- **Docker:** `backend/Dockerfile` (port 5001) and `frontend/Dockerfile` (nginx, port 8080, needs
+  the `VITE_API_BASE_URL` build argument). Setup and deploy steps in `docs/RUNBOOK.md`.
 - **CI:** `.github/workflows/ci.yml` runs type-checks, builds, tests, `npm audit`, and gitleaks on
   every push to `main`. First run on GitHub passed on 2026-10-20 (commit `254b449`).
 
@@ -45,11 +49,13 @@ step 3 (deploy early on Coolify) is next.
 ## Open items for the next session
 
 1. Make sure the latest commit is pushed to both remotes and CI is still green.
-2. Roadmap step 3: Dockerfiles, nginx config, Coolify setup, Atlas users and network access, and
-   a short runbook. **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`, and that
-   `NODE_ENV=production` is set.**
-3. Ask GPEC for the information in ROADMAP.md, "Needed from GPEC" (prices, currency, Paystack
-   account, delivery and pickup details, policies, contact details).
+2. Roadmap step 3, remaining: the project owner sets up Atlas users and Coolify by following
+   `docs/RUNBOOK.md`, then deploys. **Check that Coolify's `MONGODB_URI` uses `gpec`, not
+   `gpec_dev`, and that `NODE_ENV=production` is set.** Help with that if asked; never deploy.
+3. Ask GPEC for the information in ROADMAP.md, "Needed from GPEC" (domain names, prices, currency,
+   Paystack account, delivery and pickup details, policies, contact details).
+4. If waiting on step 3, step 4 (products in MongoDB) can start without GPEC's real product data,
+   using the existing sample products marked as placeholders.
 
 ## History
 

@@ -1,0 +1,7 @@
+# Keep secrets and local builds out of the image build context.
+.env
+.env.*
+node_modules
+dist
+Dockerfile
+.dockerignore

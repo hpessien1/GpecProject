@@ -26,7 +26,17 @@ try {
     await mongoose.disconnect()
     process.exit(1)
   }
-  app.listen(config.port, () => console.log(`GPEC enquiry API listening on http://localhost:${config.port} (database: ${databaseName})`))
+  const server = app.listen(config.port, () => console.log(`GPEC enquiry API listening on http://localhost:${config.port} (database: ${databaseName})`))
+  // Docker stops a container with SIGTERM. Node running as the container's main process ignores it
+  // unless handled, so Docker would wait 10 seconds and kill the API mid-request on every redeploy.
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(signal, () => {
+      console.log(`${signal} received; finishing open requests and shutting down.`)
+      server.close(() => {
+        mongoose.disconnect().finally(() => process.exit(0))
+      })
+    })
+  }
 } catch (error) {
   console.error('MongoDB connection failed.', error instanceof Error ? error.message : error)
   process.exit(1)

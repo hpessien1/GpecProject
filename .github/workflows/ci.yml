@@ -48,6 +48,18 @@ jobs:
       # Tests use an in-memory MongoDB (mongodb-memory-server); no database secrets are needed.
       - run: npm test
 
+  docker:
+    name: Docker images (build only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # Catches a broken Dockerfile here instead of at deploy time. Images are built, never pushed.
+      - name: Build API image
+        run: docker build -t gpec-api:ci backend
+      # The real API address is set in Coolify; any https address satisfies the build check.
+      - name: Build website image
+        run: docker build --build-arg VITE_API_BASE_URL=https://api.example.com/api -t gpec-web:ci frontend
+
   security:
     name: Security (dependency audit and secret scan)
     runs-on: ubuntu-latest

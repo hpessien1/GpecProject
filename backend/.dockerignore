@@ -1,0 +1,10 @@
+# Keep secrets, local builds, and tests out of the image build context.
+.env
+.env.*
+node_modules
+dist
+tests
+vitest.config.ts
+*.md
+Dockerfile
+.dockerignore

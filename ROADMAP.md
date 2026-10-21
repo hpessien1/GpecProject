@@ -13,7 +13,7 @@ does. Update this file as steps are completed or the plan changes.
 |---|---|
 | 1. Quick fixes | Done (2026-10-21) |
 | 2. Groundwork: CI, hardening, tests | Done (2026-10-21) |
-| 3. Deploy early on Coolify | Next |
+| 3. Deploy early on Coolify | In progress — files ready; Coolify and Atlas setup by the project owner |
 | 4. Products in MongoDB | Not started |
 | 5. Checkout and Paystack (test mode) | Not started — needs GPEC information |
 | 6. Admin panel | Not started |
@@ -60,13 +60,19 @@ limits.
 
 Prove the deployment path before payments. Paystack's webhook also needs a public HTTPS address.
 
-- [ ] Dockerfiles (backend, frontend with nginx and security headers).
-- [ ] Coolify on the Hetzner VPS: resources, environment variables, HTTPS, replica count 1.
+- [x] Dockerfiles (2026-10-21): `backend/Dockerfile` and `frontend/Dockerfile` with nginx, security
+      headers, and a Content-Security-Policy. Both built and checked locally: database guard, health
+      checks, non-root users, clean shutdown, and both forms working through the containers.
+- [x] CI builds both Docker images on every push, so a broken Dockerfile fails before deploy.
+- [x] Short runbook: [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — Atlas and Coolify setup, deploy, roll
+      back, common problems. The payments section is filled in during step 5.
+- [ ] Coolify on the Hetzner VPS: resources, environment variables, HTTPS, replica count 1
+      (runbook Section 1). Needs the domain names.
 - [ ] **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`.** (The startup guard will
       refuse to start otherwise, as long as `NODE_ENV=production` is set.)
 - [ ] Atlas: separate database users for `gpec_dev` and `gpec`; network access limited to the
       Hetzner IP and the developer's IP; a cluster tier with backups before launch.
-- [ ] Short runbook: deploy, roll back, what to do if payments fail.
+- [ ] First deploy and the post-deploy checks in runbook Section 2.
 
 The project owner deploys; the AI assistant prepares files and instructions only.
 
@@ -107,6 +113,9 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Delivery fee rules and delivery areas; pickup location and hours.
 - [ ] Refund, cancellation, and returns policy.
 - [ ] Phone, email, address, business hours, and social links for the site.
+- [ ] Domain names for the website and the API (blocks the first deploy).
+- [ ] Named owners and logins for Coolify, Atlas, GitHub, Paystack, and the domain registrar
+      (runbook Section 5).
 - [ ] Who receives order and enquiry notifications.
 - [ ] Permission to name Afrizone, and approved real project photos.
 

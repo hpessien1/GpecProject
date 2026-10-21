@@ -307,7 +307,9 @@ name), and logs which database it found. The guard only works if production sets
 ├── ROADMAP.md                # Order of work to launch, with status; update as steps finish
 ├── HANDOVER.md               # Current state and next steps for a new session; update at session end
 ├── .github/workflows/ci.yml  # CI: type-checks, builds, tests, audit, secret scan
+├── docs/RUNBOOK.md           # Coolify and Atlas setup, deploy, rollback, incidents (for the owner)
 ├── backend/                  # Express 5 + Mongoose API (TypeScript, compiled to dist/)
+│   ├── Dockerfile            # Production image (build context: backend/)
 │   ├── tsconfig.json
 │   ├── vitest.config.ts
 │   ├── tests/                # Vitest + Supertest; helpers.ts gives testApp() and an in-memory DB
@@ -321,6 +323,8 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── utils/            # reference.ts: customer-facing reference numbers
 │       └── data/             # Server-side canonical catalogue (catalogue.ts)
 └── frontend/                 # React + Vite SPA (TypeScript)
+    ├── Dockerfile            # Builds the site, serves it with nginx (build context: frontend/)
+    ├── nginx/                # nginx server config and security headers (incl. the CSP)
     ├── vite.config.ts
     ├── tsconfig*.json        # tsconfig.app.json (src/) and tsconfig.node.json (vite.config.ts)
     ├── public/assets/        # Images and videos served at /assets/...
@@ -332,6 +336,7 @@ name), and logs which database it found. The guard only works if production sets
         ├── components/       # Header, Footer, LogoLockup, Arrow; shop/ for store components
         ├── data/             # Site copy (landingContent.ts) and catalogue (catalogueProducts.ts)
         ├── services/         # apiClient.ts (all HTTP), enquiryApi.ts, contactApi.ts
+        ├── fonts/            # Self-hosted font files and their licences (no Google Fonts calls)
         └── styles.css        # All styles, one global stylesheet
 ```
 
@@ -444,7 +449,7 @@ deploys.
 | MongoDB | MongoDB Atlas (external) | Network access limited to the Hetzner server IP |
 | HTTPS | Coolify's proxy (Traefik) with Let's Encrypt | Auto-renewing certificates |
 
-**Release steps (manual, by the project owner):**
+**Release steps (manual, by the project owner; full detail in [`docs/RUNBOOK.md`](docs/RUNBOOK.md)):**
 1. Confirm GitHub Actions CI is green on the `main` commit to ship.
 2. In the Coolify dashboard, open the resource and press **Deploy**. On the first deploy, and
    whenever the variable is edited, check that `MONGODB_URI` ends in **`/gpec?`** — never
@@ -459,12 +464,26 @@ the last good one. This rolls back code only — data written by a bad release n
 **Do not add auto-deploy** (a workflow that deploys on push). Vision 25 removed its auto-deploy
 workflows as an unreviewed path to production.
 
-**Docker images (to be created):** multi-stage builds, base images pinned to an exact version,
-`npm ci`, run as the non-root `node` user, a `HEALTHCHECK`. The backend image sets
-`ENV NODE_ENV=production`, which the database startup guard (Section 5) depends on. The frontend image serves the build with
-nginx, sending security headers (Content-Security-Policy, `X-Frame-Options: DENY`,
-`X-Content-Type-Options: nosniff`, `Referrer-Policy`), long caching for `/assets/`, `no-cache` for
-`index.html`, and falling back to `index.html` for unknown paths. Never bake secrets into an image.
+**Docker images** (`backend/Dockerfile`, `frontend/Dockerfile`): multi-stage builds, base images
+pinned to an exact version **and** digest (upgrade steps in each file's header), `npm ci`, non-root
+users (`node` for the API; `nginx` on port 8080 via `nginx-unprivileged` for the site), a
+`HEALTHCHECK`. Never bake secrets into an image.
+
+- The backend image sets `ENV NODE_ENV=production`, which the database startup guard (Section 5)
+  depends on. `server.ts` handles `SIGTERM` so a redeploy finishes open requests instead of being
+  killed after Docker's 10-second timeout.
+- `VITE_API_BASE_URL` is compiled into the site, so it is a **build** argument. The frontend build
+  refuses a missing or non-https value, and the same value sets the CSP's `connect-src`. A new
+  external source (Paystack script, analytics, another font host) needs a CSP change in
+  `frontend/nginx/security-headers.conf`.
+- nginx sends the security headers from `frontend/nginx/security-headers.conf` (CSP,
+  `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS), `no-cache`
+  for `index.html`, and falls back to `index.html` for unknown paths. **Caching:** `/assets/` mixes
+  Vite's hashed bundles with GPEC's unhashed photos and videos from `public/assets/`, so only the
+  hashed `.js`/`.css` files are cached for a year (immutable); media is cached for a day, so a
+  replaced photo with the same name still shows up.
+- Checked locally on 2026-10-21 by building both images, running them against a throwaway MongoDB
+  container, and driving the site in a browser (no CSP violations, both forms saved).
 
 **Health check limits:** `/api/health` only proves the Node process is running; it does not check
 MongoDB. A green health check does not mean the database is reachable.
@@ -492,6 +511,8 @@ permissions:
 
 - **Frontend:** `npm ci`, `npm run build` (type-checks first).
 - **Backend:** `npm ci`, `npm run typecheck` (source and tests), `npm run build`, `npm test`.
+- **Docker:** builds both production images (never pushes them), so a broken Dockerfile fails here
+  rather than at deploy.
 - **Security:** `npm audit --omit=dev --audit-level=high` in both packages, and a checksum-verified
   gitleaks scan of the full history.
 
@@ -725,8 +746,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - `webDevPractice` is an empty file at the root.
 
 **Deployment**
-- No Dockerfiles, nginx config, or Coolify resources yet.
+- Coolify resources and Atlas users not set up yet (Dockerfiles and runbook exist).
 - `/api/health` does not check the database.
+- No domain names chosen yet; the runbook uses `<site-domain>` and `<api-domain>`.
 
 **Content (AGENTS.md rules)**
 - Sample products in both catalogue files have invented references and specs (e.g. "415 V",
