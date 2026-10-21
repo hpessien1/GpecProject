@@ -1,0 +1,237 @@
+/* Site header and footer (components/Header.tsx, components/Footer.tsx), on the home page and the
+   privacy notice. The shop and admin screens have their own header (shop.css). */
+
+/* Header: fixed to the top while visitors scroll. */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5vw;
+  color: #fff;
+  min-height: 100px;
+  position: fixed;
+  z-index: 100;
+  inset: 0 0 auto;
+  background: rgba(6, 29, 99, 0.97);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+}
+.topbar .brand-logo {
+  transform: translateY(8px);
+}
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.navigation > a:not(.nav-cta) {
+  opacity: 0.86;
+  transition: opacity 0.2s;
+}
+.navigation > a:not(.nav-cta):hover {
+  opacity: 1;
+}
+.nav-cta {
+  margin-left: 0.35rem;
+  color: var(--lime);
+}
+.menu-toggle {
+  display: none;
+}
+/* Up to 1100px the eight menu items no longer fit beside the logo, so the Menu button takes over
+   and the menu opens below the header. */
+@media (max-width: 1100px) {
+  .navigation {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 1.2rem 1.5rem 1.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.15rem;
+    background: var(--deep);
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+  }
+  .navigation.is-open {
+    display: flex;
+  }
+  .nav-cta {
+    margin-left: 0;
+  }
+  .menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0;
+    color: #fff;
+    border: 0;
+    background: transparent;
+    font: 600 0.65rem var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+  }
+  /* Three lines: the <i> and its ::before and ::after. */
+  .menu-toggle i,
+  .menu-toggle i::before {
+    width: 17px;
+    height: 1px;
+    display: block;
+    background: var(--lime);
+    content: "";
+  }
+  .menu-toggle i {
+    position: relative;
+  }
+  .menu-toggle i::before,
+  .menu-toggle i::after {
+    position: absolute;
+    left: 0;
+    width: 17px;
+    height: 1px;
+    background: var(--lime);
+    content: "";
+  }
+  .menu-toggle i::before {
+    top: -5px;
+  }
+  .menu-toggle i::after {
+    top: 5px;
+  }
+}
+@media (max-width: 820px) {
+  .topbar {
+    min-height: 84px;
+    padding: 0 1.5rem;
+  }
+  .topbar .brand-logo {
+    transform: translateY(6px);
+  }
+  .navigation {
+    top: 84px;
+  }
+}
+
+/* Footer: link tiles, then the copyright line with the contact details. */
+.footer {
+  color: #fff;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto;
+  gap: 0;
+  padding: 3.5rem 4vw 1.35rem;
+  background: var(--ink);
+}
+.footer-links {
+  display: grid;
+  align-content: start;
+  font-size: 0.77rem;
+  font-weight: 700;
+  grid-column: 1;
+  grid-row: 1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.footer-links a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 70px;
+  padding: 1.2rem 1.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 0.95rem;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.footer-links a::after {
+  content: "↗";
+  color: #ff8b1f;
+  font-size: 1.1rem;
+}
+.footer-links a:hover {
+  background: rgba(255, 118, 0, 0.12);
+  color: #fff;
+}
+.footer-note {
+  display: flex;
+  justify-content: space-between;
+  font: 0.54rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  grid-column: 1;
+  grid-row: 2;
+  margin-top: 2.2rem;
+  padding: 1.2rem 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.62);
+  align-items: center;
+}
+/* Contact details: larger and brighter than the copyright line, because people need to read and
+   tap them. */
+.footer-contact {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem 1.4rem;
+  color: rgba(255, 255, 255, 0.85);
+  font: 0.72rem/1.5 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.footer-contact a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer-contact a:hover {
+  color: var(--lime-soft);
+}
+@media (max-width: 820px) {
+  .footer {
+    padding: 3rem 1.5rem 1.3rem;
+  }
+  .footer-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .footer-links a {
+    min-height: 64px;
+    padding: 1rem 1.1rem;
+    font-size: 0.9rem;
+  }
+  .footer-note {
+    align-items: flex-start;
+  }
+  .footer-contact {
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+}
+@media (max-width: 540px) {
+  .footer {
+    padding: 2.8rem 1.1rem 1.3rem;
+  }
+  .footer-links {
+    gap: 0.5rem;
+  }
+  .footer-links a {
+    min-height: 58px;
+    padding: 0.9rem 0.8rem;
+  }
+  .footer-note {
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    font-size: 0.48rem;
+  }
+}

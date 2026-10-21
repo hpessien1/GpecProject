@@ -382,7 +382,7 @@ name), and logs which database it found. The guard only works if production sets
         ├── services/         # apiClient.ts (all HTTP), *Api.ts per resource, cartStorage.ts
         ├── utils/            # money.ts: price input and display (no floating-point maths)
         ├── fonts/            # Self-hosted font files and their licences (no Google Fonts calls)
-        └── styles.css        # All styles, one global stylesheet
+        └── styles/           # CSS by area: base, site (header/footer), home, shop, privacy, admin
 ```
 
 ### 6.2 Layering
@@ -462,7 +462,7 @@ cd backend && npm test             # Vitest, in-memory MongoDB
 cd frontend && npm run build       # type-checks, then builds
 cd frontend && npm test            # Playwright browser tests, desktop and phone (builds and serves the site itself)
 cd frontend && npm run check:contrast   # WCAG text contrast, every page and state (about a minute)
-curl http://localhost:5001/api/health   # must return {"status":"ok"}
+curl http://localhost:5001/api/health   # must return {"status":"ok"} (503 if MongoDB is unreachable)
 # ...plus the browser verification in Section 10.
 
 # Build / run production output
@@ -544,8 +544,10 @@ users (`node` for the API; `nginx` on port 8080 via `nginx-unprivileged` for the
 - Checked locally on 2026-10-21 by building both images, running them against a throwaway MongoDB
   container, and driving the site in a browser (no CSP violations, both forms saved).
 
-**Health check limits:** `/api/health` only proves the Node process is running; it does not check
-MongoDB. A green health check does not mean the database is reachable.
+**Health check:** `/api/health` returns `200 {"status":"ok"}` only when MongoDB answers a ping within
+2 seconds (`services/health.ts`); otherwise `503`, and Docker marks the container unhealthy. During a
+database outage the proxy may then stop sending traffic to the API, so the site's forms show their
+"could not reach GPEC" message either way.
 
 **Before launch (infrastructure checklist):**
 - Atlas cluster on a tier with **automated backups** (the free M0 tier has none), and one backup
@@ -675,18 +677,30 @@ raw public URL on the record.
 - Client validation is UX only; the server validates again (Section 4.4).
 
 ### Styling
-- One global stylesheet: `frontend/src/styles.css`. Do not add CSS frameworks, CSS-in-JS, or UI
-  component libraries without discussing it first.
-- `styles.css` is formatted by Prettier (`frontend/.prettierrc.json`): run `npm run format` in
-  `frontend/` after editing it; CI runs `npm run format:check`. Prettier touches **only** that file
-  (root `.prettierignore`); the TypeScript keeps the project's own style (single quotes, no
+- Plain CSS in `frontend/src/styles/`, one file per area. Do not add CSS frameworks, CSS-in-JS, or
+  UI component libraries without discussing it first.
+  - `base.css`: fonts, the colour and font variables, page defaults, accessibility helpers, and
+    pieces several areas share (buttons, eyebrow labels, form messages).
+  - `site.css`: the public header and footer (home page and privacy notice).
+  - `home.css`, `shop.css`, `privacy.css`: one area each. The admin screens reuse the shop header,
+    page buttons, and status messages from `shop.css`.
+  - `admin.css`: imported by `pages/AdminPage.tsx`, so it loads only with the admin screens.
+- **Load order matters.** `main.tsx` imports base, site, home, shop, privacy in that order;
+  `admin.css` arrives last. With equal specificity the later rule wins, so a rule belongs in the
+  file of the one area whose classes it uses (two areas: `base.css`), and admin rules must only
+  match admin markup, because `admin.css` stays loaded if an admin then visits the public pages.
+- Each file is in sections with a comment header, in page order; a section's `@media` rules follow
+  its other rules. **One rule per selector per media query:** before adding one, search for the
+  selector (`grep -rn "^\.name {" frontend/src/styles/`) and extend the existing rule. The three
+  deliberate exceptions (`.panel-feature`, `.component-list`, `.process.section`) say why in a comment.
+- The stylesheets are formatted by Prettier (`frontend/.prettierrc.json`): run `npm run format` in
+  `frontend/` after editing them; CI runs `npm run format:check`. Prettier touches **only** these
+  files (root `.prettierignore`); the TypeScript keeps the project's own style (single quotes, no
   semicolons).
-- **Before changing a CSS rule, search for every rule with that selector** (`grep -n "^\.name {"`).
-  The stylesheet has later duplicates that override earlier ones (see Known Gaps).
-- Brand colours and fonts are CSS custom properties on `:root` (`--ink`, `--forest`, `--deep`,
-  `--lime`, `--lime-soft`, `--cream`, `--sand`, `--muted`, `--placeholder`, `--line`, `--mono`,
-  `--sans`, `--serif`). **New code uses these variables**, not new hex values. (Existing code has
-  many hard-coded colours — see Known Gaps.)
+- Brand colours and fonts are CSS custom properties on `:root` in `base.css` (`--ink`, `--forest`,
+  `--deep`, `--lime`, `--lime-soft`, `--cream`, `--sand`, `--muted`, `--placeholder`, `--line`,
+  `--mono`, `--sans`, `--serif`). **New code uses these variables**, not new hex values. Existing
+  hex values are white and one-off shades in gradients (see Known Gaps).
 - **Text contrast (WCAG AA): 4.5:1 for normal text, 3:1 for large text (24px+, or 18.66px+ bold),
   in every state: hover, focus, error, disabled, and phone width.** Audited on 2026-10-21 across all
   pages; keep it that way:
@@ -867,19 +881,14 @@ status), or add a new failure path. No update needed for pure refactors or styli
 
 Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
-**Repository**
-- `webDevPractice` is an empty file at the root.
-
 **Deployment**
 - Coolify resources and Atlas users not set up yet (Dockerfiles and runbook exist).
-- `/api/health` does not check the database.
 - No domain names chosen yet; the runbook uses `<site-domain>` and `<api-domain>`.
 
 **Content (AGENTS.md rules)**
 - The 14 products are samples with invented references and specs (e.g. "415 V", "IP54
   enclosure"). The shop labels each one "Sample listing · details to be confirmed by GPEC" until
   GPEC's real product list replaces them. No prices exist yet.
-- Portfolio cards label images "Illustrative visual" but also say "Built by the GPEC team".
 - The client name "Afrizone" is published; permission is unconfirmed.
 - About and Current Work (home page) contain **mock content**, added at the project owner's request
   (2026-10-21). It avoids specific claims (no years, numbers, certifications, client names, or
@@ -910,10 +919,12 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   (legal name, privacy contact, retention, hosting regions, legal wording) and approve it.
 
 **Styling**
-- `styles.css` contains many hard-coded colour values alongside the `:root` variables (163 hex
-  values on 2026-10-21), 102 duplicate rule blocks that override earlier ones, and about 37 classes
-  from an older design that nothing uses. Cleanup is an open discussion (HANDOVER.md, item 6).
+- About 68 hex colours remain outside `:root` (2026-10-21; 163 before the cleanup): 45 are white
+  (`#fff`), the rest one-off shades, mostly in gradients. Only `#ff8b1f` (bright orange, 4 uses) and
+  `#0a225f` (navy gradient end, 3 uses) repeat; they could become variables.
 - Breakpoints are desktop-first with several one-off widths (1100, 980, 900, 820, 650, 600, 540px).
+  Aligning them to 1100/820/540 would change layouts between the old and new widths, so it needs a
+  design decision and a browser check, not a cleanup.
 - No favicon: every page load requests `/favicon.ico` and gets a 404. Needs GPEC's logo mark.
 
 **Open business decisions (needed from GPEC)**
@@ -965,3 +976,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   database name, so the verification enquiry was written to Atlas's default `test` database.
   The project then settled on one cluster with `gpec_dev` (local) and `gpec` (production).
   **Rule:** confirm the connected database name (not the URI) after any `MONGODB_URI` change.
+- **2026-10-21 — Refactoring CSS without changing the look.** The stylesheet cleanup was checked by
+  comparing every element's computed style in the old and new builds, in every page state, at many
+  widths, with hover and focus forced, plus screenshots. A planted hover-only bug was caught by the
+  computed styles but not by the screenshots, and the comparison also caught the build minifier
+  rewriting `background` with `background-size` in one rule. **Rule:** for a CSS refactor, compare
+  computed styles across states and widths; screenshots alone miss hover and focus states.

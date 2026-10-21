@@ -11,8 +11,8 @@
     "check:contrast": "playwright test --project=contrast",
     "test": "playwright test --project=desktop --project=phone",
     "lint": "oxlint --deny-warnings",
-    "format": "prettier --write --ignore-path ../.prettierignore src/styles.css",
-    "format:check": "prettier --check --ignore-path ../.prettierignore src/styles.css"
+    "format": "prettier --write --ignore-path ../.prettierignore \"src/styles/*.css\"",
+    "format:check": "prettier --check --ignore-path ../.prettierignore \"src/styles/*.css\""
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.1.1",

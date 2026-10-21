@@ -81,4 +81,15 @@ test.describe('home page sections', () => {
     await expect(first.locator('time')).toHaveAttribute('datetime', /^\d{4}-\d{2}-\d{2}$/)
     await expect(first.locator('time')).toHaveText(/^\d{1,2} [A-Z][a-z]{2} \d{4}$/)
   })
+
+  test('project cards with illustrative images do not claim to be GPEC work', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#projects')
+    const illustrative = page.locator('.work-card').filter({ has: page.locator('.work-image-note', { hasText: 'Illustrative visual' }) })
+    await expect(illustrative).toHaveCount(2)
+    for (const card of await illustrative.all()) {
+      await expect(card).toContainText('Illustrative example of this service, not a GPEC project')
+      await expect(card).not.toContainText(/built by|delivered by|project portfolio/i)
+    }
+  })
 })

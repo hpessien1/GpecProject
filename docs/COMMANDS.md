@@ -52,7 +52,7 @@ Stop it and run `npm --prefix frontend run dev` from the repository root.
 | Admin | http://localhost:5173/#admin |
 | Admin: order enquiries | http://localhost:5173/#admin/enquiries |
 | Admin: contact requests | http://localhost:5173/#admin/contact-requests |
-| API health | http://localhost:5001/api/health (should show `{"status":"ok"}`) |
+| API health | http://localhost:5001/api/health (should show `{"status":"ok"}`; `503` means MongoDB cannot be reached) |
 
 If the site shows a blank page with "504 Outdated Optimize Dep" in the browser console after
 installing packages, stop the frontend (`Ctrl+C`) and start it again.
@@ -75,7 +75,7 @@ cd frontend && npm test                          # behaviour tests, desktop and 
 cd frontend && npm run check:contrast            # every page and state (about a minute)
 ```
 
-After editing `frontend/src/styles.css`, format it (Prettier formats only that file):
+After editing a stylesheet in `frontend/src/styles/`, format it (Prettier formats only those files):
 
 ```bash
 cd frontend && npm run format

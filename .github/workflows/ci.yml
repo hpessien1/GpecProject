@@ -28,7 +28,8 @@ jobs:
       - run: npm ci
       # oxlint: likely bugs (e.g. hooks called conditionally), not style. Any finding fails CI.
       - run: npm run lint
-      # styles.css must stay in the Prettier format (frontend/.prettierrc.json; only that file is formatted).
+      # The stylesheets (src/styles/*.css) must stay in the Prettier format (frontend/.prettierrc.json;
+      # only they are formatted).
       - run: npm run format:check
       # npm run build runs tsc -b first, so a type error fails this step.
       - run: npm run build

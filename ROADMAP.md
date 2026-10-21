@@ -30,7 +30,10 @@ hamburger menu on tablets and phones and new About and Current Work sections awa
 notifications through Amazon SES (staff notification and customer confirmation for each enquiry and
 contact message), built and off until GPEC's SES account exists. Then: an interactive Services
 showcase (choose any of the nine areas to feature it; "Learn more" opens the contact form with its
-topic chosen) and one contact-form topic per business area.
+topic chosen) and one contact-form topic per business area. Last that day: the stylesheet cleaned
+and split by area (`frontend/src/styles/`, admin styles loaded only with the admin screens),
+checked for zero visual change; `/api/health` now checks the database; the illustrative portfolio
+cards no longer claim to be GPEC's work.
 
 CI's first run on GitHub passed (2026-10-20). Session handover notes are in
 [`HANDOVER.md`](HANDOVER.md).

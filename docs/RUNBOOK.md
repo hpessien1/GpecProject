@@ -164,8 +164,9 @@ simply off**: everything else works, and the API log says `Email notifications a
    API refuses to start on any other database and the deployment log says so:
    `Refusing to start: production must use the "gpec" database ...`
 4. Right after deploying, check:
-   - `https://<api-domain>/api/health` returns `{"status":"ok"}`. This only proves the API process
-     is running, not that the database is reachable — so also:
+   - `https://<api-domain>/api/health` returns `{"status":"ok"}`, which means the API is running and
+     the database answers. (`503` with `"status":"unavailable"` means MongoDB cannot be reached: see
+     Section 4.) Then also:
    - Submit the contact form on the live site with `[TEST]` in the name and confirm a reference is
      shown. Delete the test record from the `gpec` database afterwards.
    - The home page and the shop (`/#shop`) load on a phone and a desktop.
@@ -187,7 +188,8 @@ database separately (or restored from an Atlas backup).
 |---|---|---|
 | API deployment exits straight away | Configuration problem | Read the deployment log: it lists every invalid variable (`Invalid configuration: ...`) or the wrong database name. Fix the variable in Coolify and redeploy. |
 | `MongoDB connection failed` in the API log | Atlas network access, wrong password, or Atlas outage | Check the Hetzner IP is allowed in Atlas, the `gpec-prod` password, and [status.mongodb.com](https://status.mongodb.com). |
-| Forms say they cannot reach GPEC | API down, or the site was built with the wrong API address | Check `/api/health`. If it is fine, check `VITE_API_BASE_URL` on the website resource and rebuild. The browser console will show a Content-Security-Policy or CORS error if the addresses do not match `CLIENT_ORIGIN`. |
+| Coolify shows the API as unhealthy | `/api/health` returns `503`: the database does not answer | As for `MongoDB connection failed` above. The health check turns healthy again by itself once the database answers. |
+| Forms say they cannot reach GPEC | API down, database unreachable, or the site was built with the wrong API address | Check `/api/health` (`503` means the database cannot be reached: see the row above). If it is fine, check `VITE_API_BASE_URL` on the website resource and rebuild. The browser console will show a Content-Security-Policy or CORS error if the addresses do not match `CLIENT_ORIGIN`. |
 | An admin cannot log in | Wrong password, account deactivated, or too many failed attempts | Wait 15 minutes after "Too many failed login attempts". Otherwise reset the password (Section 1.4). |
 | Admin cannot set prices ("currency is configured") | `CURRENCY` is unset on the API | Expected until GPEC confirms the currency. Then set `CURRENCY` in Coolify and redeploy the API. |
 | Forms say "Too many requests" for everyone | Proxy trust broken, so all visitors share one limit | Confirm `NODE_ENV=production` on the API. Report it to the developer. |

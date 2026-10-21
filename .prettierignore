@@ -1,4 +1,4 @@
-# Prettier formats only the website stylesheet (frontend/src/styles.css, settings in
+# Prettier formats only the website stylesheets (frontend/src/styles/*.css, settings in
 # frontend/.prettierrc.json). Everything else is ignored: the TypeScript and TSX code follows the
 # project's own style (CLAUDE.md: single quotes, no semicolons), which Prettier's defaults would
 # rewrite. This file sits at the repository root because editors (e.g. VS Code's Prettier extension)
@@ -8,4 +8,4 @@
 /frontend/*
 !/frontend/src/
 /frontend/src/*
-!/frontend/src/styles.css
+!/frontend/src/styles/

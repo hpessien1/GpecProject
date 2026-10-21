@@ -26,7 +26,8 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
 
 ## Routes
 
-- `GET /api/health`
+- `GET /api/health`: `200 {"status":"ok"}` when MongoDB answers a ping within 2 seconds, otherwise
+  `503 {"status":"unavailable"}` (also used by the Docker health check)
 - `GET /api/products`
 - `POST /api/enquiries`
 - `POST /api/contact-requests`

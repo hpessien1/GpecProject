@@ -25,13 +25,29 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   products are labelled samples. Services areas 2–9 show existing photos labelled "Illustrative
   image" (three are Afrizone stills, at the owner's request). All must be replaced with GPEC's real
   content before launch.
-- **Formatting:** `frontend/src/styles.css` is formatted by Prettier 3.9.9 (`frontend/.prettierrc.json`,
-  `npm run format`; CI runs `npm run format:check`). The root `.prettierignore` limits Prettier to
-  that one file, so editors' format-on-save cannot reformat the TypeScript code.
-- **Last session (2026-10-21), latest work:** all nine business areas; an interactive Services
-  showcase (choose a card to feature it; cards swap places; "Learn more" opens the contact form with
-  that area's topic chosen); one contact-form topic per business area; email notifications through
-  Amazon SES (built, off until GPEC has an AWS account).
+- **Stylesheets:** `frontend/src/styles/` (base, site, home, shop, privacy; admin loads only with
+  the admin screens). Rules in CLAUDE.md Section 9. Formatted by Prettier 3.9.9
+  (`frontend/.prettierrc.json`, `npm run format`; CI runs `npm run format:check`); the root
+  `.prettierignore` limits Prettier to those files.
+- **Last session (2026-10-21), latest work:**
+  - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
+    became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
+    styles, 6.7 kB, load only with #admin). Removed: 103 selectors for an older design, 153
+    declarations always overridden by a later copy of the same rule, 54 that repeated a value
+    already set, 69 overridden by newer rules or with no effect; 57 duplicate rule blocks merged;
+    42 hex colours became variables.
+    Verified with no visual change: see "How the CSS cleanup was checked" below.
+  - `/api/health` now checks MongoDB (503 when it does not answer in 2 seconds).
+  - The two portfolio cards with illustrative images no longer say "Built by the GPEC team".
+  - The empty `webDevPractice` file is gone.
+- **How the CSS cleanup was checked:** the original and the cleaned site were built and driven into
+  the same 45 states (every page, form error, sending and sent states, cart, product window, menu
+  open, every admin screen, public pages after visiting admin). In each state, at 21 widths, every
+  element's computed style (with `::before`, `::after`, `::placeholder`) and position were compared,
+  with hover and focus forced on each element the CSS styles in those states, and full-page
+  screenshots were compared pixel for pixel. The comparison was first proven deterministic
+  (original against itself) and shown to catch a planted hover-only bug. The tool lived in the
+  session scratchpad, not the repository; ask if you want it kept as a test.
 
 ## What exists
 
@@ -48,7 +64,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
   - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
   - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 149 backend tests (Vitest, in-memory MongoDB replica set). 84 frontend Playwright tests
+- **Tests:** 152 backend tests (Vitest, in-memory MongoDB replica set). 86 frontend Playwright tests (2 run at one width only)
   in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
   build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
@@ -78,29 +94,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
    contains speech (captions).
 5. When GPEC sends its real product list, load it with `isPlaceholder: false` and archive the
    samples (CLAUDE.md Section 11).
-6. **For discussion with the user: is a ~5,000-line `styles.css` right for a site this size?**
-   Facts measured on 2026-10-21 (`frontend/src/styles.css`):
-   - Most of the growth is formatting: the same rules were about 1,060 lines (one rule per line)
-     before Prettier put one property per line (now 5,173 lines, 867 rule blocks).
-   - **102 rule blocks repeat a selector already defined in the same scope** (82 selectors), and the
-     later copy silently overrides the earlier one. This caused a bug on 2026-10-21: edits to the
-     earlier `.service-feature-card` rules had no effect.
-   - **About 37 classes from an older design are no longer used anywhere** (e.g. `cabinet-*`,
-     `schematic-*`, `label-*`, `sun-ring`, `product-slab`, `service-grid`, `intro-*`). Careful:
-     `admin-status-*`, `icon-0*`, and `symbol-*` look unused but are built in code.
-   - 163 hard-coded hex colours alongside 296 uses of the colour variables; 8 different breakpoints
-     where CLAUDE.md wants 3 main ones (1100, 820, 540).
-   Options, for the user to choose:
-   - **A. Clean up, keep one file:** delete unused rules, merge each duplicate into one rule, replace
-     hard-coded colours with variables, align breakpoints. Likely a much smaller file with the same
-     structure (CLAUDE.md's "one global stylesheet" rule unchanged).
-   - **B. Split by area:** after A, split into a few files (base, home, shop, admin, privacy). Easier
-     to find things; admin styles could load only with the admin page (it is already lazy-loaded).
-     Needs CLAUDE.md's one-stylesheet rule updated.
-   - **C. CSS Modules per component:** styles next to each component; biggest change, and a new
-     convention to agree first.
-   Suggested: **A, then B.** The safety net is in place: `npm run check:contrast` and the browser
-   tests catch visual and behaviour regressions, and `npm run format:check` keeps the formatting.
+6. Stylesheet follow-ups, each needing a decision (CLAUDE.md Known Gaps, Styling): align the
+   breakpoints (980, 900, 650, 600 to 1100/820/540), which changes layouts at some widths and so
+   needs a browser check; optionally turn the two repeated hex colours into variables.
 7. Without GPEC, remaining options are in CLAUDE.md's Known Gaps. Ask the user before choosing.
 
 ## History

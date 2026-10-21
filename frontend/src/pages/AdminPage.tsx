@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+// Only the admin screens use these styles, so they load with this page (lazy-loaded in App.tsx).
+import '../styles/admin.css'
 import AdminHeader from '../components/admin/AdminHeader'
 import AdminLogin from '../components/admin/AdminLogin'
 import AdminPasswordForm from '../components/admin/AdminPasswordForm'

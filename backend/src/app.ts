@@ -6,6 +6,7 @@ import { rateLimit } from 'express-rate-limit'
 import type { Config, RateLimitSettings } from './config.js'
 import { HttpError } from './errors.js'
 import { sesMailer } from './services/email.js'
+import { databaseIsReachable } from './services/health.js'
 import type { Mailer } from './services/email.js'
 import { createNotifier } from './services/notifications.js'
 import { requireAdmin } from './middleware/requireAdmin.js'
@@ -42,7 +43,11 @@ export default function createApp(config: AppConfig, mailer: Mailer | null = con
   app.use(cors({ origin: config.clientOrigins, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type'] }))
   app.use(express.json({ limit: '32kb' }))
 
-  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
+  // 503 when MongoDB does not answer, so the health check reflects whether the API can do its job.
+  app.get('/api/health', async (_req, res) => {
+    if (await databaseIsReachable()) return res.json({ status: 'ok' })
+    return res.status(503).json({ status: 'unavailable', message: 'The database cannot be reached.' })
+  })
   app.use('/api/products', productsRouter)
   app.use('/api/enquiries', formLimiter(config.formRateLimit), enquiriesRouter(notifier))
   app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter(notifier))

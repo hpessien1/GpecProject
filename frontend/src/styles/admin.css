@@ -1,0 +1,425 @@
+/* Admin panel (#admin). Loaded only with the admin screens (pages/AdminPage.tsx), after the other
+   stylesheets. Text uses --ink rather than --muted, which is below WCAG AA on cream.
+
+   Page, header additions, and headings */
+.admin-main {
+  padding: clamp(3rem, 6vw, 5rem) 9vw;
+  outline: none;
+}
+.admin-main h1:focus {
+  outline: none;
+}
+.admin-user {
+  color: rgba(255, 255, 255, 0.82);
+}
+.admin-login {
+  max-width: 460px;
+}
+.admin-login h1,
+.admin-heading h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+.admin-login h1 {
+  margin-bottom: 1.5rem;
+}
+.admin-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+.admin-heading .eyebrow,
+.admin-login .eyebrow {
+  margin-bottom: 1rem;
+}
+.admin-notice {
+  max-width: 640px;
+  margin: 0 0 1.5rem;
+  padding: 0.8rem 1rem;
+  border-left: 3px solid var(--lime);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.admin-help,
+.admin-count {
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.admin-main section > .success-message,
+.admin-main section > .form-error {
+  max-width: 640px;
+  margin: 0 0 1.5rem;
+}
+@media (max-width: 650px) {
+  .admin-main {
+    padding: 3rem 1.1rem;
+  }
+  .admin-user {
+    display: none;
+  }
+  .shop-navigation > a.admin-account-link {
+    display: inline;
+  }
+}
+/* Forms */
+.admin-form {
+  display: grid;
+  gap: 1.2rem;
+  max-width: 640px;
+}
+.admin-form > label,
+.admin-field > label {
+  display: grid;
+  gap: 0.5rem;
+  color: var(--ink);
+  font: 0.66rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.admin-field {
+  display: grid;
+  gap: 0.45rem;
+}
+.admin-form input:not([type="checkbox"]),
+.admin-form select,
+.admin-form textarea {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--ink);
+  font: 500 0.9rem/1.5 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.admin-form textarea {
+  resize: vertical;
+}
+.admin-form input:focus-visible,
+.admin-form select:focus-visible,
+.admin-form textarea:focus-visible,
+.admin-edit-link:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+.admin-form input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.admin-form button {
+  justify-self: start;
+}
+.admin-form button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+.admin-field small {
+  color: var(--ink);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.admin-field .admin-field-error {
+  padding-left: 0.5rem;
+  border-left: 3px solid var(--lime);
+  font-weight: 700;
+}
+.admin-checkbox label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  color: var(--ink);
+  font: 0.85rem/1.5 var(--sans);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.admin-checkbox input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 0.15rem;
+  accent-color: var(--forest);
+}
+/* Section links (components/admin/AdminSectionNav.tsx) and status filters (AdminRequestList.tsx) */
+.admin-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.6rem;
+  margin: 0 0 2.5rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+.admin-sections a {
+  padding: 0.3rem 0;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 2px solid transparent;
+}
+.admin-sections a[aria-current="page"] {
+  border-bottom-color: var(--lime);
+}
+.admin-sections a:focus-visible,
+.admin-filters button:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1.5rem;
+}
+.admin-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font: 700 0.75rem var(--sans);
+  cursor: pointer;
+}
+.admin-filters button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--cream);
+}
+.admin-filters button span {
+  font: 0.65rem var(--mono);
+}
+/* Product list (components/admin/AdminProductList.tsx) */
+.admin-product-list {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.admin-product-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 150px auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.admin-product-main {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.admin-product-main span {
+  font: 0.65rem var(--mono);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+.admin-product-price {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.admin-tag {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--ink);
+  font: 0.6rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.admin-edit-link {
+  color: var(--forest);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+@media (max-width: 650px) {
+  .admin-product-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.6rem 1rem;
+  }
+  .admin-product-main {
+    grid-column: 1 / -1;
+  }
+}
+/* Product editor and change history */
+.admin-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) minmax(260px, 1fr);
+  align-items: start;
+  gap: 3rem;
+}
+.admin-history h2 {
+  margin: 0 0 1rem;
+  font-size: 1.4rem;
+  letter-spacing: -0.04em;
+}
+.admin-history ol {
+  display: grid;
+  gap: 1.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-history-meta {
+  margin: 0 0 0.4rem;
+  font: 0.65rem/1.5 var(--mono);
+  letter-spacing: 0.03em;
+}
+.admin-history ul {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.admin-history > p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+@media (max-width: 980px) {
+  .admin-editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+/* Enquiries and contact requests: status labels, lists, and detail pages */
+.admin-status {
+  display: inline-block;
+  justify-self: start;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  font: 0.62rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.admin-status-new {
+  border-color: var(--lime);
+  background: var(--lime);
+}
+.admin-status-in_progress {
+  border-color: var(--forest);
+  color: var(--forest);
+}
+.admin-request-list {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.admin-request-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.admin-request-main {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.admin-request-main strong span {
+  font-weight: 500;
+}
+.admin-request-main p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.admin-request-main small {
+  font: 0.65rem var(--mono);
+  letter-spacing: 0.03em;
+}
+.admin-request-detail h2,
+.admin-request-side h2 {
+  margin: 1.8rem 0 0.7rem;
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+}
+.admin-request-detail h2:first-of-type {
+  margin-top: 1.2rem;
+}
+.admin-request-received {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 0.85rem;
+}
+.admin-request-detail dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.5rem 1.2rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.admin-request-detail dt {
+  font: 0.65rem/1.9 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.admin-request-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.admin-request-detail dd a {
+  color: var(--forest);
+  font-weight: 700;
+  text-decoration: underline;
+}
+.admin-request-items {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+.admin-request-items small {
+  font: 0.65rem var(--mono);
+}
+.admin-request-message {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.admin-request-side {
+  display: grid;
+  gap: 1rem;
+}
+.admin-status-form {
+  gap: 0.8rem;
+}
+.admin-request-side .admin-history h2 {
+  margin-top: 1rem;
+}
+@media (max-width: 650px) {
+  .admin-request-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .admin-request-main {
+    grid-column: 1 / -1;
+  }
+  .admin-request-detail dl {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+  .admin-request-detail dd {
+    margin-bottom: 0.6rem;
+  }
+}

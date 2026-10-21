@@ -5,10 +5,11 @@ import { testApp } from './helpers.js'
 describe('app', () => {
   const app = testApp()
 
+  // No database is connected in this file; tests/health.test.ts covers the connected case.
   it('answers the health check with security headers and no x-powered-by', async () => {
     const res = await request(app).get('/api/health')
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ status: 'ok' })
+    expect(res.status).toBe(503)
+    expect(res.body).toEqual({ status: 'unavailable', message: 'The database cannot be reached.' })
     expect(res.headers['x-content-type-options']).toBe('nosniff')
     expect(res.headers['x-powered-by']).toBeUndefined()
   })

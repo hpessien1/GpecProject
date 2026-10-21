@@ -39,7 +39,8 @@ USER node
 
 EXPOSE 5001
 
-# Proves the process is serving HTTP. It does not check MongoDB (CLAUDE.md, Section 7).
+# Healthy only when the process serves HTTP and MongoDB answers a ping within 2 seconds
+# (src/services/health.ts); otherwise /api/health returns 503.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://127.0.0.1:5001/api/health || exit 1
 
