@@ -62,7 +62,7 @@ installing packages, stop the frontend (`Ctrl+C`) and start it again.
 All must pass (CI runs the same on GitHub):
 
 ```bash
-cd frontend && npm run lint && npm run typecheck && npm run build && cd ..
+cd frontend && npm run lint && npm run format:check && npm run typecheck && npm run build && cd ..
 cd backend && npm run lint && npm run typecheck && npm test && cd ..
 ```
 
@@ -73,6 +73,12 @@ answering the API with sample data, so neither `npm run dev`, the API, nor the d
 cd frontend && npx playwright install chromium   # first time on a machine only (about 150 MB)
 cd frontend && npm test                          # behaviour tests, desktop and phone (about 10 s)
 cd frontend && npm run check:contrast            # every page and state (about a minute)
+```
+
+After editing `frontend/src/styles.css`, format it (Prettier formats only that file):
+
+```bash
+cd frontend && npm run format
 ```
 
 Useful extras:

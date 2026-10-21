@@ -677,6 +677,12 @@ raw public URL on the record.
 ### Styling
 - One global stylesheet: `frontend/src/styles.css`. Do not add CSS frameworks, CSS-in-JS, or UI
   component libraries without discussing it first.
+- `styles.css` is formatted by Prettier (`frontend/.prettierrc.json`): run `npm run format` in
+  `frontend/` after editing it; CI runs `npm run format:check`. Prettier touches **only** that file
+  (root `.prettierignore`); the TypeScript keeps the project's own style (single quotes, no
+  semicolons).
+- **Before changing a CSS rule, search for every rule with that selector** (`grep -n "^\.name {"`).
+  The stylesheet has later duplicates that override earlier ones (see Known Gaps).
 - Brand colours and fonts are CSS custom properties on `:root` (`--ink`, `--forest`, `--deep`,
   `--lime`, `--lime-soft`, `--cream`, `--sand`, `--muted`, `--placeholder`, `--line`, `--mono`,
   `--sans`, `--serif`). **New code uses these variables**, not new hex values. (Existing code has
@@ -904,7 +910,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   (legal name, privacy contact, retention, hosting regions, legal wording) and approve it.
 
 **Styling**
-- `styles.css` contains many hard-coded colour values alongside the `:root` variables.
+- `styles.css` contains many hard-coded colour values alongside the `:root` variables (163 hex
+  values on 2026-10-21), 102 duplicate rule blocks that override earlier ones, and about 37 classes
+  from an older design that nothing uses. Cleanup is an open discussion (HANDOVER.md, item 6).
 - Breakpoints are desktop-first with several one-off widths (1100, 980, 900, 820, 650, 600, 540px).
 - No favicon: every page load requests `/favicon.ico` and gets a 404. Needs GPEC's logo mark.
 

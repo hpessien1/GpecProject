@@ -25,6 +25,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   products are labelled samples. Services areas 2–9 show existing photos labelled "Illustrative
   image" (three are Afrizone stills, at the owner's request). All must be replaced with GPEC's real
   content before launch.
+- **Formatting:** `frontend/src/styles.css` is formatted by Prettier 3.9.9 (`frontend/.prettierrc.json`,
+  `npm run format`; CI runs `npm run format:check`). The root `.prettierignore` limits Prettier to
+  that one file, so editors' format-on-save cannot reformat the TypeScript code.
 - **Last session (2026-10-21), latest work:** all nine business areas; an interactive Services
   showcase (choose a card to feature it; cards swap places; "Learn more" opens the contact form with
   that area's topic chosen); one contact-form topic per business area; email notifications through
@@ -75,13 +78,29 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
    contains speech (captions).
 5. When GPEC sends its real product list, load it with `isPlaceholder: false` and archive the
    samples (CLAUDE.md Section 11).
-6. **Undecided: code formatting.** The user's editor reformatted `frontend/src/styles.css` with
-   Prettier (multi-line rules, double quotes; about 5,100 lines). It was committed as is. Ask whether
-   to add a Prettier config (and format the rest of the code the same way) or keep formatting
-   manual. Until then, match the file's current multi-line style when editing it. Note: the
-   stylesheet has later duplicate rules that override earlier ones (e.g. the featured service card
-   under "Electrical panels visual in featured Solutions card"); search for every rule for a
-   selector before changing it.
+6. **For discussion with the user: is a ~5,000-line `styles.css` right for a site this size?**
+   Facts measured on 2026-10-21 (`frontend/src/styles.css`):
+   - Most of the growth is formatting: the same rules were about 1,060 lines (one rule per line)
+     before Prettier put one property per line (now 5,173 lines, 867 rule blocks).
+   - **102 rule blocks repeat a selector already defined in the same scope** (82 selectors), and the
+     later copy silently overrides the earlier one. This caused a bug on 2026-10-21: edits to the
+     earlier `.service-feature-card` rules had no effect.
+   - **About 37 classes from an older design are no longer used anywhere** (e.g. `cabinet-*`,
+     `schematic-*`, `label-*`, `sun-ring`, `product-slab`, `service-grid`, `intro-*`). Careful:
+     `admin-status-*`, `icon-0*`, and `symbol-*` look unused but are built in code.
+   - 163 hard-coded hex colours alongside 296 uses of the colour variables; 8 different breakpoints
+     where CLAUDE.md wants 3 main ones (1100, 820, 540).
+   Options, for the user to choose:
+   - **A. Clean up, keep one file:** delete unused rules, merge each duplicate into one rule, replace
+     hard-coded colours with variables, align breakpoints. Likely a much smaller file with the same
+     structure (CLAUDE.md's "one global stylesheet" rule unchanged).
+   - **B. Split by area:** after A, split into a few files (base, home, shop, admin, privacy). Easier
+     to find things; admin styles could load only with the admin page (it is already lazy-loaded).
+     Needs CLAUDE.md's one-stylesheet rule updated.
+   - **C. CSS Modules per component:** styles next to each component; biggest change, and a new
+     convention to agree first.
+   Suggested: **A, then B.** The safety net is in place: `npm run check:contrast` and the browser
+   tests catch visual and behaviour regressions, and `npm run format:check` keeps the formatting.
 7. Without GPEC, remaining options are in CLAUDE.md's Known Gaps. Ask the user before choosing.
 
 ## History
