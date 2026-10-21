@@ -4,8 +4,8 @@ Last updated: 2026-10-21. Start a new session with:
 
 ```text
 Continue work on the GPEC website at /home/worlanyo/Desktop/GpecProject.
-Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first. Roadmap steps 1, 2, and 4 are done, step 6
-(admin panel) is half done, and step 3's files wait on the project owner's Coolify setup.
+Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first. Roadmap steps 1, 2, 4, and 6 (for now) are
+done; step 3 waits on the project owner's Coolify setup and step 5 on GPEC.
 ```
 
 ## Where things stand
@@ -14,8 +14,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first. Roadmap steps 1, 2, and 4 are
   tests) are done. Step 3 (deploy on Coolify): Dockerfiles and [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
   are done and checked locally; the Coolify and Atlas setup and first deploy are the project
   owner's, and need domain names from GPEC. Step 4 (products in MongoDB) is done. Step 6: admin
-  login and product/price editing with change history are done; enquiry lists are next. Step 5
-  (Paystack) waits on GPEC.
+  login, product/price editing, own-password changes, and enquiry and contact-request lists with
+  a recorded follow-up status are done; order lists come with step 5 (Paystack), which waits on
+  GPEC.
 - **Commands:** [`docs/COMMANDS.md`](docs/COMMANDS.md) lists every command (setup, admin accounts,
   checks, git, production).
 - **Rules and conventions:** [`CLAUDE.md`](CLAUDE.md), including the Paystack rules (Section 4.1),
@@ -29,18 +30,19 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first. Roadmap steps 1, 2, and 4 are
 - **Frontend** (`frontend/`): React 19 + Vite 8, strict TypeScript. Landing page with a working
   contact form, and a shop (`#shop`, `#shop/order`) that loads its products from the API, a cart
   in `localStorage`, and an order enquiry form. The 14 products are labelled samples. Admin panel
-  at `#admin` (lazy-loaded): login, product list, create/edit/archive, change history, change
-  own password.
+  at `#admin` (lazy-loaded): login; products (create/edit/archive, change history); order
+  enquiries and contact requests (lists, details, follow-up status with history); change own
+  password.
 - **Backend** (`backend/`): Express 5 + Mongoose 8, strict TypeScript.
   - Routes: `GET /api/health`, `GET /api/products`, `POST /api/enquiries`,
-    `POST /api/contact-requests`, and `/api/admin/session` and `/api/admin/products` (see
-    `backend/README.md`).
+    `POST /api/contact-requests`, and the admin routes under `/api/admin/` (session, products,
+    enquiries, contact-requests; see `backend/README.md`).
   - Admin accounts by command only: `npm run admin:create`. No admin exists in `gpec_dev` yet;
     the user creates their own. `CURRENCY` is unset everywhere until GPEC confirms it.
   - Product model with price (empty for now), placeholder flag, and archiving; seed script
     `npm run seed:products` (already run on `gpec_dev`).
   - Zod-validated config, helmet, per-IP rate limits, production database guard.
-  - 95 Vitest tests on an in-memory MongoDB replica set (admin changes use transactions).
+  - 115 Vitest tests on an in-memory MongoDB replica set (admin changes use transactions).
 - **Docker:** `backend/Dockerfile` (port 5001) and `frontend/Dockerfile` (nginx, port 8080, needs
   the `VITE_API_BASE_URL` build argument). Setup and deploy steps in `docs/RUNBOOK.md`.
 - **CI:** `.github/workflows/ci.yml` runs type-checks, builds, tests, `npm audit`, and gitleaks on
@@ -67,8 +69,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first. Roadmap steps 1, 2, and 4 are
 3. Ask GPEC for the information in ROADMAP.md, "Needed from GPEC" (domain names, prices, currency,
    Paystack account, delivery and pickup details, policies, contact details).
 4. Step 5 (Paystack) is blocked on GPEC: currency, Paystack account and fee rule, delivery fees.
-   Suggested next: step 6 part 2, read-only enquiry and contact-request lists in the admin panel
-   (paginated, admin-only; ask "can an anonymous visitor see this?" of every route).
+   Without GPEC, the useful next work is in CLAUDE.md's Known Gaps: spam protection for the public
+   forms (honeypot), the product modal's focus trap, the order form's focus after an error, the
+   `--muted` contrast on cream, and a privacy notice page (needs GPEC's wording approval).
 5. When GPEC sends its real product list, load it with `isPlaceholder: false` and archive the
    samples (CLAUDE.md Section 11).
 

@@ -41,11 +41,16 @@ cd backend && npm run dev                  # API on http://localhost:5001 (resta
 cd frontend && npm run dev                 # site on http://localhost:5173
 ```
 
+If a page shows "404 Not Found" from the frontend, the server was started from the wrong folder.
+Stop it and run `npm --prefix frontend run dev` from the repository root.
+
 | Page | Address |
 |---|---|
 | Home | http://localhost:5173/ |
 | Shop | http://localhost:5173/#shop |
 | Admin | http://localhost:5173/#admin |
+| Admin: order enquiries | http://localhost:5173/#admin/enquiries |
+| Admin: contact requests | http://localhost:5173/#admin/contact-requests |
 | API health | http://localhost:5001/api/health (should show `{"status":"ok"}`) |
 
 If the site shows a blank page with "504 Outdated Optimize Dep" in the browser console after

@@ -9,8 +9,8 @@ const changeSchema = new mongoose.Schema({
 }, { _id: false })
 
 const auditRecordSchema = new mongoose.Schema({
-  action: { type: String, required: true, enum: ['product.create', 'product.update'] },
-  targetType: { type: String, required: true, enum: ['product'] },
+  action: { type: String, required: true, enum: ['product.create', 'product.update', 'enquiry.status', 'contactRequest.status'] },
+  targetType: { type: String, required: true, enum: ['product', 'enquiry', 'contactRequest'] },
   targetId: { type: String, required: true },
   // Copied at the time, so the record still names the person if the account changes later.
   actor: {

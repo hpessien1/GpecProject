@@ -7,6 +7,7 @@ import type { Config, RateLimitSettings } from './config.js'
 import { HttpError } from './errors.js'
 import { requireAdmin } from './middleware/requireAdmin.js'
 import adminProductsRouter from './routes/adminProducts.js'
+import adminRequestsRouter from './routes/adminRequests.js'
 import adminSessionRouter from './routes/adminSession.js'
 import contactRequestsRouter from './routes/contactRequests.js'
 import enquiriesRouter from './routes/enquiries.js'
@@ -44,6 +45,8 @@ export default function createApp(config: AppConfig) {
   app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
   app.use('/api/admin/session', adminSessionRouter(config))
   app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
+  app.use('/api/admin/enquiries', requireAdmin(config.clientOrigins), adminRequestsRouter('enquiry'))
+  app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest'))
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof HttpError) return res.status(error.status).json({ message: error.message, code: error.code, errors: error.errors })

@@ -902,6 +902,36 @@ main section[id] { scroll-margin-top: 100px; }
 .admin-history ul { margin: 0; padding-left: 1rem; font-size: .85rem; line-height: 1.6; overflow-wrap: anywhere; }
 .admin-history > p { font-size: .85rem; line-height: 1.6; }
 .success-message:focus, .form-error:focus { outline: 2px solid var(--forest); outline-offset: 2px; }
+.admin-sections { display: flex; flex-wrap: wrap; gap: .4rem 1.6rem; margin: 0 0 2.5rem; padding-bottom: .8rem; border-bottom: 1px solid var(--line); }
+.admin-sections a { padding: .3rem 0; color: var(--ink); font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; border-bottom: 2px solid transparent; }
+.admin-sections a[aria-current="page"] { border-bottom-color: var(--lime); }
+.admin-sections a:focus-visible, .admin-filters button:focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
+.admin-filters { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1.5rem; }
+.admin-filters button { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem .8rem; border: 1px solid var(--ink); background: transparent; color: var(--ink); font: 700 .75rem var(--sans); cursor: pointer; }
+.admin-filters button[aria-pressed="true"] { background: var(--ink); color: var(--cream); }
+.admin-filters button span { font: .65rem var(--mono); }
+.admin-status { display: inline-block; justify-self: start; padding: .2rem .5rem; border: 1px solid var(--ink); color: var(--ink); font: .62rem var(--mono); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+.admin-status-new { border-color: var(--lime); background: var(--lime); }
+.admin-status-in_progress { border-color: var(--forest); color: var(--forest); }
+.admin-request-list { margin: 0 0 1.5rem; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.admin-request-list li { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 1rem 1.5rem; padding: 1rem 0; border-bottom: 1px solid var(--line); }
+.admin-request-main { display: grid; gap: .3rem; min-width: 0; }
+.admin-request-main strong span { font-weight: 500; }
+.admin-request-main p { margin: 0; font-size: .85rem; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-request-main small { font: .65rem var(--mono); letter-spacing: .03em; }
+.admin-request-detail h2, .admin-request-side h2 { margin: 1.8rem 0 .7rem; font-size: 1.2rem; letter-spacing: -.03em; }
+.admin-request-detail h2:first-of-type { margin-top: 1.2rem; }
+.admin-request-received { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0; font-size: .85rem; }
+.admin-request-detail dl { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: .5rem 1.2rem; margin: 0; font-size: .9rem; }
+.admin-request-detail dt { font: .65rem/1.9 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.admin-request-detail dd { margin: 0; overflow-wrap: anywhere; }
+.admin-request-detail dd a { color: var(--forest); font-weight: 700; text-decoration: underline; }
+.admin-request-items { margin: 0; padding-left: 1.1rem; font-size: .9rem; line-height: 1.8; }
+.admin-request-items small { font: .65rem var(--mono); }
+.admin-request-message { margin: 0; font-size: .9rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-request-side { display: grid; gap: 1rem; }
+.admin-status-form { gap: .8rem; }
+.admin-request-side .admin-history h2 { margin-top: 1rem; }
 
 /* Loading, error, and empty states for the catalogue. */
 .shop-status-page { padding: clamp(3.5rem,6vw,6rem) 9vw; }
@@ -929,6 +959,10 @@ main section[id] { scroll-margin-top: 100px; }
   .shop-navigation > a.admin-account-link { display: inline; }
   .admin-product-list li { grid-template-columns: minmax(0,1fr) auto; gap: .6rem 1rem; }
   .admin-product-main { grid-column: 1 / -1; }
+  .admin-request-list li { grid-template-columns: minmax(0,1fr) auto; }
+  .admin-request-main { grid-column: 1 / -1; }
+  .admin-request-detail dl { grid-template-columns: 1fr; gap: .1rem; }
+  .admin-request-detail dd { margin-bottom: .6rem; }
   .shop-section-heading, .shop-order-heading { align-items: start; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
   .shop-product-grid { grid-template-columns: 1fr; }
   .shop-order-form .field-row { grid-template-columns: 1fr; gap: 0; }

@@ -1,5 +1,5 @@
 import { requestJson } from './apiClient'
-import type { AdminProduct, AdminProductsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry } from '../types'
+import type { AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestStatus } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -41,4 +41,17 @@ export async function updateProduct(id: string, changes: Partial<EditableProduct
 export async function getProductHistory(id: string) {
   const { history } = await requestJson<{ history: ProductHistoryEntry[] }>(`/admin/products/${encodeURIComponent(id)}/history`, 'Unable to load the change history.', admin)
   return history
+}
+
+export function listRequests(kind: AdminRequestKind, page: number, status: RequestStatus | null) {
+  const query = new URLSearchParams({ page: String(page), ...(status ? { status } : {}) })
+  return requestJson<AdminRequestsPage>(`/admin/${kind}?${query}`, 'Unable to load the list.', admin)
+}
+
+export function getRequest(kind: AdminRequestKind, reference: string) {
+  return requestJson<AdminRequestResponse>(`/admin/${kind}/${encodeURIComponent(reference)}`, 'Unable to load this request.', admin)
+}
+
+export function setRequestStatus(kind: AdminRequestKind, reference: string, status: RequestStatus) {
+  return requestJson<AdminRequestResponse>(`/admin/${kind}/${encodeURIComponent(reference)}`, 'Unable to update the status.', { ...admin, method: 'PATCH', payload: { status } })
 }

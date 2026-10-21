@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { productFieldLabels, productStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { getProductHistory } from '../../services/adminApi'
+import { formatDateTime } from '../../utils/dates'
 import { formatPrice } from '../../utils/money'
 import type { CurrencyInfo, ProductHistoryEntry } from '../../types'
 
@@ -10,8 +11,6 @@ interface AdminProductHistoryProps {
   currency: CurrencyInfo | null
   onSessionEnded: () => void
 }
-
-const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 
 function describeValue(field: ProductHistoryEntry['changes'][number]['field'], value: unknown, currency: CurrencyInfo | null) {
   if (value === null || value === undefined || value === '') return '(empty)'
@@ -45,7 +44,7 @@ export default function AdminProductHistory({ productId, currency, onSessionEnde
       : !history ? <p className="admin-loading" role="status">Loading history…</p>
       : history.length === 0 ? <p>No changes recorded yet. Sample products added by the seed script have no history until someone edits them.</p>
       : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
-        <p className="admin-history-meta"><time dateTime={entry.createdAt}>{dateFormat.format(new Date(entry.createdAt))}</time> · {entry.actor.name} ({entry.actor.email}) · {entry.action === 'product.create' ? 'Created' : 'Changed'}</p>
+        <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email}) · {entry.action === 'product.create' ? 'Created' : 'Changed'}</p>
         <ul>{entry.changes.filter((change) => entry.action === 'product.update' || change.to !== null).map((change) => <li key={change.field}>
           <strong>{productFieldLabels[change.field]}</strong>{entry.action === 'product.update' && <>: {describeValue(change.field, change.from, currency)} →</>} {describeValue(change.field, change.to, currency)}
         </li>)}</ul>

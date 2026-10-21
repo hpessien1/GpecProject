@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { REQUEST_STATUSES } from './requestStatus.js'
 
 const itemSchema = new mongoose.Schema({
   productId: { type: String, required: true, trim: true },
@@ -18,7 +19,11 @@ const enquirySchema = new mongoose.Schema({
   location: { type: String, trim: true, maxlength: 180, default: '' },
   notes: { type: String, trim: true, maxlength: 5000, default: '' },
   items: { type: [itemSchema], required: true, validate: [(items: unknown[]) => items.length > 0, 'At least one product is required.'] },
-  status: { type: String, enum: ['new'], default: 'new' },
+  status: { type: String, enum: REQUEST_STATUSES, default: 'new' },
 }, { timestamps: true, strict: 'throw' })
+
+// The admin list filters by status and shows newest first.
+enquirySchema.index({ status: 1, createdAt: -1 })
+enquirySchema.index({ createdAt: -1 })
 
 export default mongoose.model('Enquiry', enquirySchema)

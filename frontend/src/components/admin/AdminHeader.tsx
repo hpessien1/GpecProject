@@ -8,7 +8,6 @@ export default function AdminHeader({ adminName, isLoggingOut, onLogOut }: Admin
   return <header className="shop-topbar admin-topbar">
     <a className="shop-brand" href="#admin"><span>GPEC</span><small>Admin</small></a>
     {adminName && <nav className="shop-navigation" aria-label="Admin navigation">
-      <a href="#admin">Products</a>
       <a href="#shop">View shop</a>
       <span className="admin-user">{adminName}</span>
       <a className="admin-account-link" href="#admin/password">Change password</a>

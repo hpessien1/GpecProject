@@ -16,7 +16,7 @@ does. Update this file as steps are completed or the plan changes.
 | 3. Deploy early on Coolify | In progress — files ready; Coolify and Atlas setup by the project owner |
 | 4. Products in MongoDB | Done (2026-10-21) |
 | 5. Checkout and Paystack (test mode) | Not started — needs GPEC information |
-| 6. Admin panel | In progress — products and prices done; enquiry lists next |
+| 6. Admin panel | Done for now (2026-10-21) — order lists come with step 5 |
 
 Already done: TypeScript conversion (frontend and backend), dependency pinning, root `.gitignore`,
 `gpec_dev` / `gpec` database split with a production startup guard, backup remote on `kworlanyo`.
@@ -108,7 +108,9 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
       stays unset until GPEC confirms the currency.
 - [x] Each admin changes their own password in the panel (other sessions end); every command is
       listed in [`docs/COMMANDS.md`](docs/COMMANDS.md).
-- [ ] Enquiry and contact-request lists for GPEC staff (read-only).
+- [x] Order enquiries and contact requests for GPEC staff: newest-first lists with status filters
+      and counts, detail pages with email and phone links, and a follow-up status (New, In
+      progress, Closed) whose every change is recorded (who, from, to, when).
 - [ ] Order lists (with step 5).
 - [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
 

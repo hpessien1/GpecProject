@@ -4,22 +4,43 @@ import AdminLogin from '../components/admin/AdminLogin'
 import AdminPasswordForm from '../components/admin/AdminPasswordForm'
 import AdminProductEditor from '../components/admin/AdminProductEditor'
 import AdminProductList from '../components/admin/AdminProductList'
+import AdminRequestDetail from '../components/admin/AdminRequestDetail'
+import AdminRequestList from '../components/admin/AdminRequestList'
+import AdminSectionNav from '../components/admin/AdminSectionNav'
 import { ApiError } from '../services/apiClient'
 import { getAdminSession, logOut } from '../services/adminApi'
-import type { AdminSessionInfo } from '../types'
+import type { AdminRequestKind, AdminSessionInfo } from '../types'
 
 interface AdminPageProps {
-  // #admin, #admin/new, #admin/products/<id>, or #admin/password
+  // #admin, #admin/new, #admin/products/<id>, #admin/password,
+  // #admin/enquiries[/<reference>], or #admin/contact-requests[/<reference>]
   route: string
 }
 
-type AdminView = { kind: 'list' } | { kind: 'new' } | { kind: 'edit', productId: string } | { kind: 'password' }
+type AdminView =
+  | { kind: 'list' }
+  | { kind: 'new' }
+  | { kind: 'edit', productId: string }
+  | { kind: 'password' }
+  | { kind: 'requests', requestKind: AdminRequestKind }
+  | { kind: 'request', requestKind: AdminRequestKind, reference: string }
 
 function parseView(route: string): AdminView {
   if (route === '#admin/new') return { kind: 'new' }
   if (route === '#admin/password') return { kind: 'password' }
-  const match = /^#admin\/products\/([^/]+)$/.exec(route)
-  return match ? { kind: 'edit', productId: decodeURIComponent(match[1]) } : { kind: 'list' }
+  const product = /^#admin\/products\/([^/]+)$/.exec(route)
+  if (product) return { kind: 'edit', productId: decodeURIComponent(product[1]) }
+  const request = /^#admin\/(enquiries|contact-requests)(?:\/([^/]+))?$/.exec(route)
+  if (request) {
+    const requestKind = request[1] === 'enquiries' ? 'enquiries' : 'contact-requests'
+    return request[2] ? { kind: 'request', requestKind, reference: decodeURIComponent(request[2]) } : { kind: 'requests', requestKind }
+  }
+  return { kind: 'list' }
+}
+
+function sectionOf(view: AdminView) {
+  if (view.kind === 'requests' || view.kind === 'request') return view.requestKind
+  return view.kind === 'password' ? null : 'products'
 }
 
 // Staff-only area. The browser only shows these screens; every admin request is checked by the server.
@@ -84,9 +105,14 @@ export default function AdminPage({ route }: AdminPageProps) {
     <main id="admin-main" className="admin-main" tabIndex={-1}>
       {isCheckingSession ? <p className="admin-loading" role="status">Checking your login…</p>
         : !session ? <AdminLogin notice={notice} onLoggedIn={handleLoggedIn} />
-        : view.kind === 'list' ? <AdminProductList currency={session.currency} onSessionEnded={handleSessionEnded} />
+        : <>
+        <AdminSectionNav current={sectionOf(view)} />
+        {view.kind === 'list' ? <AdminProductList currency={session.currency} onSessionEnded={handleSessionEnded} />
         : view.kind === 'password' ? <AdminPasswordForm onSessionEnded={handleSessionEnded} />
+        : view.kind === 'requests' ? <AdminRequestList key={view.requestKind} kind={view.requestKind} onSessionEnded={handleSessionEnded} />
+        : view.kind === 'request' ? <AdminRequestDetail key={route} kind={view.requestKind} reference={view.reference} onSessionEnded={handleSessionEnded} />
         : <AdminProductEditor key={route} productId={view.kind === 'edit' ? view.productId : undefined} currency={session.currency} flash={flashMessage} onCreated={handleCreated} onSessionEnded={handleSessionEnded} />}
+        </>}
     </main>
   </div>
 }

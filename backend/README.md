@@ -33,7 +33,8 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
 - Admin (login required; see below): `POST`, `GET`, `DELETE /api/admin/session`;
   `POST /api/admin/session/password`;
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
-  `GET /api/admin/products/:id/history`
+  `GET /api/admin/products/:id/history`; `GET /api/admin/enquiries`, `GET`, `PATCH /api/admin/enquiries/:reference`;
+  `GET /api/admin/contact-requests`, `GET`, `PATCH /api/admin/contact-requests/:reference`
 
 `GET /api/products` returns `{ products: [...] }`: every active product in display order, with `id`,
 `name`, `reference`, `description`, `specs`, `image`, `alt`, and `isPlaceholder` (true for sample
@@ -68,3 +69,9 @@ All admin responses are sent with `Cache-Control: no-store`.
   `409 PRODUCT_CONFLICT`; a price while `CURRENCY` is unset gets `409 CURRENCY_NOT_CONFIGURED`.
   There is no delete: set `status` to `archived`.
 - `GET /:id/history` returns the last 50 changes: who, when, and each field's old and new value.
+- `GET /api/admin/enquiries?page=N&status=new|in_progress|closed` (both optional) lists order
+  enquiries newest first, 25 per page, with `counts` per status. `GET /:reference` returns
+  everything the customer sent plus the status history. `PATCH /:reference` with `{ status }` (and
+  nothing else) changes the follow-up status and records who, from, to, and when. Unknown or
+  malformed references get `404`. `/api/admin/contact-requests` works the same way.
+  New requests are always `new`; customer details cannot be edited or deleted here.

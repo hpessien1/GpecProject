@@ -208,8 +208,9 @@ Every price change, product change, and order status change made by an admin rec
 **what** (old and new value), and **when**. *Why:* prices appear on the live site and drive real
 payments; GPEC must be able to answer "who changed this price and when?"
 
-Implemented for products (`models/AuditRecord.ts`, `services/adminProducts.ts`): the change and
-its record are written in **one MongoDB transaction**, so a product cannot change without a record.
+Implemented for products and for enquiry and contact-request status (`models/AuditRecord.ts`,
+`services/adminProducts.ts`, `services/adminRequests.ts`): the change and its record are written in
+**one MongoDB transaction**, so nothing changes without a record.
 Only fields whose value actually changes are recorded. Transactions need a replica set: Atlas is
 one, and the tests use an in-memory replica set.
 
@@ -281,7 +282,14 @@ name), and logs which database it found. The guard only works if production sets
 
 - **Enquiry** (`backend/src/models/Enquiry.ts`) — `reference` (unique, `GPEC-YYYY-XXXXXXXX`),
   `customer { fullName, company, email, phone }`, `location`, `notes`,
-  `items [{ productId, name, reference, quantity }]`, `status` (`'new'` only), timestamps.
+  `items [{ productId, name, reference, quantity }]`, `status`, timestamps.
+- **ContactRequest** (`backend/src/models/ContactRequest.ts`) — `reference` (unique,
+  `GPEC-C-YYYY-XXXXXXXX`), `fullName`, `company`, `email`, `phone`, `subject`, `message`, `status`,
+  timestamps.
+- **Request status** (both of the above, `models/requestStatus.ts`; same list in the frontend's
+  `RequestStatus`): `new` → `in_progress` → `closed`. Every request starts as `new` (never taken
+  from the customer); admins may move it to any status, including reopening. Admins read requests
+  and change status only; they cannot edit or delete them.
 - **Product** (`backend/src/models/Product.ts`) — the single source of the catalogue. `_id` is the
   short internal key (e.g. `panel-001`, lowercase letters, digits, hyphens), used in carts and
   enquiry items; `reference` (unique, e.g. `GPEC-CP-001`) is the customer-facing product code. Do
@@ -346,7 +354,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── routes/           # HTTP wiring: public (products, enquiries, contact) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # Enquiry, ContactRequest, Product, AdminUser, AdminSession, AuditRecord
-│       ├── services/         # Business logic: products, adminProducts, adminAuth, passwords, currency
+│       ├── services/         # Business logic: products, adminProducts, adminRequests, adminAuth, passwords, currency
 │       ├── scripts/          # Commands: seedProducts.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers
 │       └── data/             # sampleProducts.ts: placeholder products for the seed script
@@ -813,8 +821,8 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - The shop is still enquiry-only: no prices, no pickup/delivery choice, no Paystack integration.
 - The contact-form subject list is duplicated (`frontend/src/data/landingContent.ts` and
   `backend/src/validation/contactRequest.ts`).
-- The admin panel has products only: nobody can read saved enquiries or contact requests except
-  through the database (step 6, part 2).
+- No internal notes on enquiries or contact requests, and no search; staff reply by email or
+  phone outside the site (the detail page links to both).
 - No admin 2FA, no admin account management in the panel (create, reset, and deactivate are by
   command or database only; each admin can change their own password), and no image uploads (product images must already be in
   `public/assets/`).
