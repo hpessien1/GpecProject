@@ -1,0 +1,10 @@
+{
+  // oxlint (not ESLint: typescript-eslint cannot run on TypeScript 7, which oxlint does not need).
+  // Run with `npm run lint`; CI fails on any finding. Rules here catch likely bugs, not style.
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "unicorn", "oxc", "node", "vitest"],
+  "categories": {
+    "correctness": "error"
+  },
+  "ignorePatterns": ["dist"]
+}

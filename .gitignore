@@ -4,6 +4,10 @@ node_modules/
 # Build output (rebuilt by npm run build and in the Docker images)
 dist/
 
+# Browser test output (frontend: npm test, npm run check:contrast)
+test-results/
+playwright-report/
+
 # macOS folder metadata
 .DS_Store
 

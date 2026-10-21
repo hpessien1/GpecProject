@@ -367,7 +367,8 @@ name), and logs which database it found. The guard only works if production sets
 └── frontend/                 # React + Vite SPA (TypeScript)
     ├── Dockerfile            # Builds the site, serves it with nginx (build context: frontend/)
     ├── nginx/                # nginx server config and security headers (incl. the CSP)
-    ├── scripts/              # contrast-audit.mjs: WCAG text-contrast check (npm run check:contrast)
+    ├── e2e/                  # Playwright browser tests and the contrast check; support/sampleApi.ts
+    ├── playwright.config.ts  # Projects: desktop, phone, contrast; serves the production build itself
     ├── vite.config.ts
     ├── tsconfig*.json        # tsconfig.app.json (src/) and tsconfig.node.json (vite.config.ts)
     ├── public/assets/        # Images and videos served at /assets/...
@@ -452,12 +453,15 @@ cd backend && npm run admin:create -- --email you@example.com --reset           
 cd backend && npm run dev      # tsx watch src/server.ts
 cd frontend && npm run dev     # Vite dev server
 
-# Checks — all must pass before a change is "done" (CI runs the same). No linter yet.
-cd frontend && npm run typecheck   # tsc -b
+# Checks — all must pass before a change is "done" (CI runs the same).
+cd frontend && npm run lint        # oxlint
+cd backend && npm run lint         # oxlint
+cd frontend && npm run typecheck   # tsc -b (site, browser tests, configs)
 cd backend && npm run typecheck    # source and tests
 cd backend && npm test             # Vitest, in-memory MongoDB
 cd frontend && npm run build       # type-checks, then builds
-cd frontend && npm run check:contrast   # after any style or layout change; needs `npm run dev` running
+cd frontend && npm test            # Playwright browser tests, desktop and phone (builds and serves the site itself)
+cd frontend && npm run check:contrast   # WCAG text contrast, every page and state (about a minute)
 curl http://localhost:5001/api/health   # must return {"status":"ok"}
 # ...plus the browser verification in Section 10.
 
@@ -562,15 +566,23 @@ MongoDB. A green health check does not mean the database is reachable.
 `.github/workflows/ci.yml` runs on every push and pull request to `main`, with read-only
 permissions:
 
-- **Frontend:** `npm ci`, `npm run build` (type-checks first).
-- **Backend:** `npm ci`, `npm run typecheck` (source and tests), `npm run build`, `npm test`.
+- **Frontend:** `npm ci`, `npm run lint`, `npm run build` (type-checks first).
+- **Browser:** `npm ci`, installs Chromium, then `npx playwright test`: behaviour tests at desktop
+  and phone width and the text-contrast check, against the production build with sample API data.
+- **Backend:** `npm ci`, `npm run typecheck` (source and tests), `npm run lint`, `npm run build`,
+  `npm test`.
 - **Docker:** builds both production images (never pushes them), so a broken Dockerfile fails here
   rather than at deploy.
 - **Security:** `npm audit --omit=dev --audit-level=high` in both packages, and a checksum-verified
   gitleaks scan of the full history.
 
 Third-party actions are pinned to a commit SHA with the version in a comment. CI never deploys.
-Linting is not in CI yet (no linter configured).
+
+**Linting is oxlint, not ESLint.** typescript-eslint needs the TypeScript compiler's JavaScript API,
+which TypeScript 7 (native) does not ship, and it supports TypeScript only up to 6.0. oxlint parses
+TypeScript itself. Config: `.oxlintrc.json` in each package; only the "correctness" category (likely
+bugs) plus React hook and accessibility rules. Every switched-off rule and every
+`oxlint-disable-next-line` carries its reason.
 
 ---
 
@@ -674,11 +686,14 @@ raw public URL on the record.
     hero's "GPEC / SYSTEM READY") is exempt.
   - Minimum text size for labels is about `.55rem`; smaller text is unreadable whatever its contrast.
   - **Run `cd frontend && npm run check:contrast` after any change to colours, styles, or layout**
-    (with `npm run dev` running). It checks every page and state at both widths, including hover,
-    with sample data (no API or database needed), and exits with an error if any text fails. It is
-    plain JavaScript run by Node (a development tool, not part of the site), using Playwright and
-    axe-core. A new page or state must be added to its list in `frontend/scripts/contrast-audit.mjs`.
-    Exemptions go in its `EXEMPT` list, each with a reason.
+    (CI runs it too). It checks every page and state at both widths, including hover, against the
+    production build with sample API data, using axe-core and a pixel comparison. A new page or
+    state must be added to `frontend/e2e/contrast.spec.ts`. Exemptions go in `EXEMPT` in
+    `e2e/support/contrast.ts`, each with a reason.
+- **Navigation:** the menu items live in `data/landingContent.ts` (`navigationLinks`), in the brief's
+  order, with Shop as the highlighted button. Above 1100px the full menu sits in the header; at
+  1100px and below it collapses into the hamburger ("Menu") button, because the eight items no
+  longer fit. Adding an item means checking the 1101–1440px header still fits on one line.
 - The existing CSS is desktop-first (`max-width` media queries). Reuse the existing breakpoints
   (1100, 820, 540px are the main ones) rather than inventing new ones.
 - No inline styles except genuinely dynamic values. Respect the existing
@@ -705,7 +720,8 @@ raw public URL on the record.
 1. `npm run typecheck` passes in both `frontend/` and `backend/`, and `npm run build` succeeds in
    `frontend/`. Do not silence a type error with `any`, `as`, or `!` unless the value is genuinely
    known (e.g. the `#root` element) — fix the type. `npm test` passes in `backend/`, and backend
-   changes come with tests. There is no linter yet — when one is added, it becomes mandatory here.
+   changes come with tests. `npm run lint` passes in both. `npm test` passes in `frontend/`, and
+   user-visible frontend changes come with browser tests in `frontend/e2e/`.
 2. **For any UI change, drive the real app in a browser** at 390px and desktop width. Rereading
    JSX/CSS is not verification.
    For style or layout changes, also run `npm run check:contrast` in `frontend/`.
@@ -721,7 +737,11 @@ raw public URL on the record.
 - Backend tests: Vitest + Supertest in `backend/tests/`, run with `npm test`. Each test file gets
   an in-memory MongoDB via `useTestDatabase()` and an app via `testApp()` (`tests/helpers.ts`);
   collections are emptied after every test. Tests never connect to Atlas.
-- Planned: Playwright with `@axe-core/playwright` for browser flows and accessibility checks.
+- Frontend tests: Playwright in `frontend/e2e/`, run with `npm test` (desktop and phone projects).
+  `support/sampleApi.ts` answers every API call inside the browser with sample data (same routes and
+  shapes as the real API; keep it in step) and records what the site sent, so tests check payloads
+  and can make the "server" fail. No backend or database. Prefer roles and labels
+  (`getByRole`, `getByLabel`) over CSS classes, so tests follow what users see.
 - Check that a new test can fail: temporarily break the code it protects and confirm the test turns
   red.
 - Cover unhappy paths: missing fields, unknown product ID, quantity out of range, empty cart,
@@ -829,7 +849,6 @@ status), or add a new failure path. No update needed for pure refactors or styli
 Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
 **Repository**
-- No linter in either package, and no frontend tests.
 - `webDevPractice` is an empty file at the root.
 
 **Deployment**
@@ -843,9 +862,11 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   GPEC's real product list replaces them. No prices exist yet.
 - Portfolio cards label images "Illustrative visual" but also say "Built by the GPEC team".
 - The client name "Afrizone" is published; permission is unconfirmed.
-- Navigation (About, Services, Products, Shop, Work, Portfolio) does not match the required
-  Home · About · Services · Products · Projects · Current Work · Contact; "Work" and "Portfolio"
-  both point to `#work`. No Current Work section.
+- About and Current Work (home page) are placeholders: GPEC must supply company background,
+  registrations, location, and approved current-project updates (each with status and date).
+- The first project video (`portfolio-electrical-components.mp4`) has a sound track and no captions.
+  GPEC must confirm whether it contains speech; if so, add captions (a `<track>`), otherwise mute it
+  or remove the track. Marked in `LandingPage.tsx` with an `oxlint-disable` comment.
 - Only six of the nine business areas are shown; the accessory categories are merged.
 - Footer says "Company contact details to be added"; no phone, email, or address anywhere.
 
@@ -901,6 +922,13 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   where they fit GPEC's size (Sections 4.1, 4.7, 4.8, 4.10, 7). Heavier pieces (job queues,
   malware scanning, metrics dashboards, recurring charges) were deliberately left out. **Rule:**
   keep this file short; a very large instruction file gets rules missed.
+- **2026-10-21 — TypeScript 7 and linting.** typescript-eslint could not run: the native TypeScript 7
+  package has no JavaScript compiler API. oxlint was used instead. **Rule:** before adding a tool
+  that reads TypeScript, check it supports the project's TypeScript version.
+- **2026-10-21 — A test tool needs testing too.** The first contrast checker compared text against
+  the wrong pixels (full-page screenshots resize the window) and its hover pass skipped most
+  elements, yet it reported "all clear". **Rule:** plant a known problem and confirm a check catches
+  it before trusting a passing result.
 - **2026-10-21 — Invisible text found only by measuring.** A contrast audit found the order form's
   error message was white on a white form (invisible since it was written), dark-on-dark hover text,
   and orange-on-cream labels. Reading the CSS had not caught them. **Rule:** check contrast by

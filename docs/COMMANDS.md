@@ -61,20 +61,28 @@ installing packages, stop the frontend (`Ctrl+C`) and start it again.
 All must pass (CI runs the same on GitHub):
 
 ```bash
-cd frontend && npm run typecheck && npm run build && cd ..
-cd backend && npm run typecheck && npm test && cd ..
+cd frontend && npm run lint && npm run typecheck && npm run build && cd ..
+cd backend && npm run lint && npm run typecheck && npm test && cd ..
 ```
 
-After changing colours, styles, or layout, check text contrast (needs the site running with
-`npm run dev`; the API and database are not needed):
+Browser tests and the text-contrast check. They build the site and serve it themselves (port 4173),
+answering the API with sample data, so neither `npm run dev`, the API, nor the database is needed:
 
 ```bash
 cd frontend && npx playwright install chromium   # first time on a machine only (about 150 MB)
-cd frontend && npm run check:contrast            # about a minute; "All text meets WCAG AA contrast."
+cd frontend && npm test                          # behaviour tests, desktop and phone (about 10 s)
+cd frontend && npm run check:contrast            # every page and state (about a minute)
 ```
 
-If it lists failures, each line shows the contrast found, the minimum needed, the text, and where it
-appears. `--headed` (`node scripts/contrast-audit.mjs --headed`) shows the browser while it runs.
+Useful extras:
+
+```bash
+cd frontend && npx playwright test e2e/shop.spec.ts --headed   # one file, with the browser visible
+cd frontend && npx playwright test --ui                         # pick and watch tests interactively
+```
+
+A failing test prints what it expected and what it found. A failing contrast check lists each
+piece of text with the contrast found, the minimum needed, and where it appears.
 
 Optional, the same Docker builds CI runs:
 

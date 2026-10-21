@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   frontend:
-    name: Frontend (type-check and build)
+    name: Frontend (lint, type-check, and build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -26,11 +26,34 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      # oxlint: likely bugs (e.g. hooks called conditionally), not style. Any finding fails CI.
+      - run: npm run lint
       # npm run build runs tsc -b first, so a type error fails this step.
       - run: npm run build
 
+  browser:
+    name: Frontend (browser tests and text contrast)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # The browser Playwright drives, plus the system libraries it needs on Ubuntu.
+      - run: npx playwright install --with-deps chromium
+      # Builds the site, serves it with vite preview, and runs every project: behaviour tests at
+      # desktop and phone width, and the WCAG text-contrast check. The API is answered with sample
+      # data inside the browser, so no backend or database is needed. Failures print in this log.
+      - run: npx playwright test
+
   backend:
-    name: Backend (type-check, build, and tests)
+    name: Backend (type-check, lint, build, and tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -44,6 +67,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm run build
       # Tests use an in-memory MongoDB (mongodb-memory-server); no database secrets are needed.
       - run: npm test

@@ -44,6 +44,8 @@ done; step 3 waits on the project owner's Coolify setup and step 5 on GPEC.
     `npm run seed:products` (already run on `gpec_dev`).
   - Zod-validated config, helmet, per-IP rate limits, production database guard.
   - 121 Vitest tests on an in-memory MongoDB replica set (admin changes use transactions).
+- **Frontend tests:** 64 Playwright tests (`frontend/e2e/`, `npm test` and `npm run check:contrast`)
+  against the production build with sample API data. Linting with oxlint in both packages.
   - Spam trap on both public forms (hidden `website` field; filled-in submissions are discarded).
 - **Docker:** `backend/Dockerfile` (port 5001) and `frontend/Dockerfile` (nginx, port 8080, needs
   the `VITE_API_BASE_URL` build argument). Setup and deploy steps in `docs/RUNBOOK.md`.
@@ -72,9 +74,9 @@ done; step 3 waits on the project owner's Coolify setup and step 5 on GPEC.
    Paystack account, delivery and pickup details, policies, contact details).
 4. Step 5 (Paystack) is blocked on GPEC: currency, Paystack account and fee rule, delivery fees.
    Done 2026-10-21: contrast audit and fixes, spam trap, shop focus fixes, draft privacy notice,
-   and `npm run check:contrast` in `frontend/` (run it after any style change).
-   Without GPEC, remaining options are in CLAUDE.md's Known Gaps (e.g. navigation to match the
-   brief, a linter and frontend tests). Ask the user before choosing.
+   oxlint, Playwright browser tests (`frontend/e2e/`), the contrast check and browser tests in CI,
+   and the brief's menu with a hamburger menu at 1100px and below.
+   Without GPEC, remaining options are in CLAUDE.md's Known Gaps. Ask the user before choosing.
 5. When GPEC sends its real product list, load it with `isPlaceholder: false` and archive the
    samples (CLAUDE.md Section 11).
 

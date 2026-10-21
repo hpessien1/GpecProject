@@ -5,3 +5,5 @@ node_modules
 dist
 Dockerfile
 .dockerignore
+test-results
+playwright-report

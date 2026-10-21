@@ -124,8 +124,27 @@ h1 em, h2 em { font-family: var(--serif); font-weight: 500; letter-spacing: -.07
 /* Override later section styles with GPEC blue and orange. */
 .product-slab { background: repeating-linear-gradient(135deg, rgba(255,255,255,.03) 0 5px, transparent 5px 10px), linear-gradient(135deg, #0a3da5, #061747); }.sun-ring { border-color: rgba(255,118,0,.52); box-shadow: inset 0 0 50px rgba(255,118,0,.18); }.sun-ring::after { border-color: rgba(255,118,0,.52); }.electric .work-image { background: radial-gradient(circle at 70% 30%, #356bd5, #0a3da5 32%, #061747 75%); }.solar .work-image { background: radial-gradient(circle at 68% 15%, #ff9d24, #ff7600 21%, #0a3da5 49%, #061747 75%); }.success-message { background: #fff0df; color: #8f3a00; }
 
+/* Up to 1100px, eight menu items no longer fit beside the logo, so the Menu button (as on phones)
+   takes over, and the six capability cards use three columns instead of overflowing the page. Placed
+   before the 820px rules, which still apply below that width. */
+@media (max-width: 1100px) {
+  .navigation { display: none; position: absolute; top: 100%; left: 0; right: 0; padding: 1.2rem 1.5rem 1.5rem; flex-direction: column; align-items: flex-start; gap: 1.15rem; background: var(--deep); border-top: 1px solid rgba(255,255,255,.16); }
+  .navigation.is-open { display: flex; }
+  .nav-cta { margin-left: 0; }
+  .menu-toggle { display: inline-flex; align-items: center; gap: .55rem; padding: 0; color: #fff; border: 0; background: transparent; font: 600 .65rem var(--mono); text-transform: uppercase; letter-spacing: .09em; }
+  .menu-toggle i, .menu-toggle i::before { width: 17px; height: 1px; display: block; background: var(--lime); content: ''; }
+  .menu-toggle i { position: relative; }
+  .menu-toggle i::before, .menu-toggle i::after { position: absolute; left: 0; width: 17px; height: 1px; background: var(--lime); content: ''; }
+  .menu-toggle i::before { top: -5px; }
+  .menu-toggle i::after { top: 5px; }
+  .panel-capability-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 @media (max-width: 820px) {
-  .topbar { min-height: 84px; padding: 0 1.5rem; }.brand-logo { width: 124px; }.topbar .brand-logo { transform: translateY(6px); }.navigation { display: none; position: absolute; top: 84px; left: 0; right: 0; padding: 1.2rem 1.5rem 1.5rem; flex-direction: column; align-items: flex-start; gap: 1.15rem; background: var(--deep); border-top: 1px solid rgba(255,255,255,.16); }.navigation.is-open { display: flex; }.nav-cta { margin-left: 0; }.menu-toggle { display: inline-flex; align-items: center; gap: .55rem; padding: 0; color: #fff; border: 0; background: transparent; font: 600 .65rem var(--mono); text-transform: uppercase; letter-spacing: .09em; }.menu-toggle i, .menu-toggle i::before { width: 17px; height: 1px; display: block; background: var(--lime); content: ''; }.menu-toggle i::before { transform: translateY(-5px); }.hero { min-height: 720px; height: auto; padding: 142px 1.5rem 105px; align-items: flex-start; }.hero-copy { max-width: 85%; }.hero-art { width: 67vw; height: 72vw; right: -2vw; top: 55%; transform: translateY(-15%); opacity: .75; }.hero-footer { inset: auto 1.5rem 27px; }.section { padding: 5.8rem 1.5rem; }.intro { grid-template-columns: 1fr; gap: 2rem; }.section-marker { display: none; }.intro-content, .products, .contact { grid-template-columns: 1fr; gap: 3rem; }.section-heading, .work-top { align-items: start; flex-direction: column; gap: 1.3rem; }.service-grid { grid-template-columns: 1fr 1fr; }.product-visual { min-height: 300px; aspect-ratio: 1.6; max-width: 530px; }.sun-ring { width: 300px; }.work-cards { gap: 1rem; }.work-image { height: 255px; }.contact { gap: 2.7rem; }.footer { padding: 3rem 1.5rem 1.3rem; }
+  .topbar { min-height: 84px; padding: 0 1.5rem; }.brand-logo { width: 124px; }.topbar .brand-logo { transform: translateY(6px); }.navigation { display: none; position: absolute; top: 84px; left: 0; right: 0; padding: 1.2rem 1.5rem 1.5rem; flex-direction: column; align-items: flex-start; gap: 1.15rem; background: var(--deep); border-top: 1px solid rgba(255,255,255,.16); }.navigation.is-open { display: flex; }.nav-cta { margin-left: 0; }.menu-toggle { display: inline-flex; align-items: center; gap: .55rem; padding: 0; color: #fff; border: 0; background: transparent; font: 600 .65rem var(--mono); text-transform: uppercase; letter-spacing: .09em; }.menu-toggle i, .menu-toggle i::before { width: 17px; height: 1px; display: block; background: var(--lime); content: ''; }.menu-toggle i { position: relative; }
+  .menu-toggle i::before, .menu-toggle i::after { position: absolute; left: 0; width: 17px; height: 1px; background: var(--lime); content: ''; }
+  .menu-toggle i::before { top: -5px; }
+  .menu-toggle i::after { top: 5px; }.hero { min-height: 720px; height: auto; padding: 142px 1.5rem 105px; align-items: flex-start; }.hero-copy { max-width: 85%; }.hero-art { width: 67vw; height: 72vw; right: -2vw; top: 55%; transform: translateY(-15%); opacity: .75; }.hero-footer { inset: auto 1.5rem 27px; }.section { padding: 5.8rem 1.5rem; }.intro { grid-template-columns: 1fr; gap: 2rem; }.section-marker { display: none; }.intro-content, .products, .contact { grid-template-columns: 1fr; gap: 3rem; }.section-heading, .work-top { align-items: start; flex-direction: column; gap: 1.3rem; }.service-grid { grid-template-columns: 1fr 1fr; }.product-visual { min-height: 300px; aspect-ratio: 1.6; max-width: 530px; }.sun-ring { width: 300px; }.work-cards { gap: 1rem; }.work-image { height: 255px; }.contact { gap: 2.7rem; }.footer { padding: 3rem 1.5rem 1.3rem; }
 }
 
 @media (max-width: 540px) {
@@ -167,7 +186,7 @@ h1 em, h2 em { font-family: var(--serif); font-weight: 500; letter-spacing: -.07
 }
 
 @media (max-width: 540px) {
-  .panel-feature-copy h2 { font-size: 3rem; }
+  .panel-feature-copy h2 { font-size: clamp(2.4rem, 12.5vw, 3rem); }
   .panel-feature { padding-top: 4.2rem; }
   .panel-visual { min-height: 300px; }
   .panel-visual > img { width: 78%; right: 11%; }
@@ -952,6 +971,18 @@ main section[id] { scroll-margin-top: 100px; }
 .admin-status-form { gap: .8rem; }
 .admin-request-side .admin-history h2 { margin-top: 1rem; }
 
+/* About and Current Work sections on the home page (copy in data/landingContent.ts). */
+.about { display: grid; grid-template-columns: .9fr 1.1fr; gap: 10%; background: var(--cream); }
+.about h2, .current-work h2 { margin: 0; font-size: clamp(2.6rem,5vw,4.2rem); line-height: .95; letter-spacing: -.06em; }
+.about-body p { max-width: 620px; margin: 0 0 1rem; color: var(--ink); font-size: 1rem; line-height: 1.75; }
+.current-work { background: var(--cream); }
+.current-work-empty { max-width: 760px; padding: clamp(1.5rem,4vw,2.5rem); border: 1px dashed var(--ink); }
+.current-work-empty p { margin: 0 0 1rem; color: var(--ink); line-height: 1.7; }
+.current-work-empty .button { margin-top: .5rem; }
+@media (max-width: 820px) {
+  .about { grid-template-columns: 1fr; gap: 2rem; }
+}
+
 /* Privacy notice (#privacy). The dark band keeps the white site header readable, as on the home page. */
 .privacy-page { outline: none; }
 .privacy-hero { padding: 170px 9vw clamp(3rem,6vw,4.5rem); background: var(--deep); color: #fff; }
@@ -1010,7 +1041,8 @@ main section[id] { scroll-margin-top: 100px; }
   .shop-lightbox-details { min-height: 0; padding: 1.4rem 1.2rem 1.5rem; }
 }
 
-@media (max-width: 540px) {
+/* Was 540px: between 541 and about 800px these one-line texts ran off the side of the page. */
+@media (max-width: 820px) {
   .work-top h2 { white-space: normal; }
   .work-intro-card { margin: -1rem 0 1.8rem; }
   .work-intro-card p { white-space: normal; }

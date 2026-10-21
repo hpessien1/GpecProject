@@ -33,3 +33,35 @@ export const steps: [number: string, title: string, text: string][] = [
   ['02', 'Get the right solution', 'GPEC reviews technical needs and confirms the most suitable service or product path.'],
   ['03', 'Move your work forward', 'Receive a clear quote and next steps from the GPEC team.'],
 ]
+
+// Main menu, in the order the brief requires (README.md, "Recommended Website Structure"). The shop
+// is reached from the highlighted button beside the menu.
+export const navigationLinks: [href: string, label: string][] = [
+  ['#home', 'Home'],
+  ['#about', 'About'],
+  ['#services', 'Services'],
+  ['#products', 'Products'],
+  ['#projects', 'Projects'],
+  ['#current-work', 'Current Work'],
+  ['#contact', 'Contact'],
+]
+
+// Text inside [[double brackets]] is a placeholder GPEC must supply (shown highlighted on the page).
+export const aboutContent = {
+  eyebrow: 'About GPEC',
+  title: 'Engineering, energy, and supply.',
+  paragraphs: [
+    'GPEC is an engineering company based in Nigeria, working on electrical control and distribution panels and solar energy, and supplying electrical, solar, electronic, and industrial products.',
+    '[[Company background: when GPEC was founded, who leads it, and the experience of its team]]',
+    '[[Registrations, certifications, or memberships GPEC can show evidence for]]',
+    '[[Office or workshop location and the areas GPEC serves]]',
+  ],
+}
+
+export const currentWorkContent = {
+  eyebrow: 'Current work',
+  title: 'Work in progress.',
+  intro: 'Updates on active GPEC projects will appear here, each marked with its status and the date it was last updated.',
+  empty: 'No current work has been published yet.',
+  placeholder: '[[Approved updates on active projects: what the project is, its current stage, the last-updated date, and only photos the customer has approved for publication]]',
+}

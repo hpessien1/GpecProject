@@ -1,0 +1,19 @@
+{
+  // oxlint (not ESLint: typescript-eslint cannot run on TypeScript 7, which oxlint does not need).
+  // Run with `npm run lint`; CI fails on any finding. Rules here catch likely bugs, not style.
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "jsx-a11y", "import", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    // Hooks called conditionally, or effects that read a value without listing it (stale data).
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    // Off: a preference, not a bug. The site's role="status" / "alert" / "group" / "img" on ordinary
+    // elements are correct ARIA patterns, and swapping in <output>, <fieldset>, or <dialog> changes
+    // behaviour.
+    "jsx-a11y/prefer-tag-over-role": "off"
+  },
+  "ignorePatterns": ["dist", "test-results", "playwright-report"]
+}
