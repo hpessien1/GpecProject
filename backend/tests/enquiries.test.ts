@@ -1,5 +1,5 @@
 import request from 'supertest'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Enquiry from '../src/models/Enquiry.js'
 import Product from '../src/models/Product.js'
 import { seedSampleProducts } from '../src/services/products.js'
@@ -107,5 +107,29 @@ describe('POST /api/enquiries', () => {
     const res = await request(app).post('/api/enquiries').send({ ...validEnquiry(), customer: { email: 'not-an-email' } })
     expect(res.status).toBe(400)
     expect(res.body.errors).toMatchObject({ fullName: 'fullName is required.', phone: 'phone is required.', email: 'email must be valid.' })
+  })
+})
+
+describe('spam trap on order enquiries', () => {
+  it('answers as if saved but stores nothing when the hidden field is filled in', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const res = await request(app).post('/api/enquiries').send({ ...validEnquiry(), website: 'https://spam.example' })
+    info.mockRestore()
+    expect(res.status).toBe(201)
+    expect(res.body.reference).toMatch(/^GPEC-\d{4}-[0-9A-F]{8}$/)
+    expect(await Enquiry.countDocuments()).toBe(0)
+  })
+
+  it('treats a non-text value in the hidden field as spam too', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    await request(app).post('/api/enquiries').send({ ...validEnquiry(), website: { $ne: '' } })
+    info.mockRestore()
+    expect(await Enquiry.countDocuments()).toBe(0)
+  })
+
+  it.each([['empty', ''], ['absent', undefined]])('saves normally when the hidden field is %s', async (_label, website) => {
+    const res = await request(app).post('/api/enquiries').send({ ...validEnquiry(), website })
+    expect(res.status).toBe(201)
+    expect(await Enquiry.countDocuments()).toBe(1)
   })
 })

@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
+import SpamTrapField from '../SpamTrapField'
 import type { CartLine } from '../../types'
 
 interface OrderFormProps {
@@ -13,7 +15,12 @@ interface OrderFormProps {
 }
 
 export default function OrderForm({ cartItems, itemCount, orderReference, isSubmitting, submissionError, onSubmit, onGoToCatalogue }: OrderFormProps) {
-  if (orderReference) return <div className="shop-confirmation" role="status"><p className="eyebrow"><span /> Enquiry confirmed</p><h1>Thank you.<br /><em>We have your request.</em></h1><p>Your enquiry reference is <strong>{orderReference}</strong>. No payment has been taken. A GPEC representative will contact you to confirm availability, pricing, and next steps.</p><button type="button" className="button button-primary" onClick={onGoToCatalogue}>Browse products <Arrow /></button></div>
+  const resultRef = useRef<HTMLElement>(null)
+  // The submit button is disabled while sending, which drops keyboard focus; move it to the error or
+  // the confirmation instead, so keyboard and screen-reader users hear the outcome.
+  useEffect(() => { resultRef.current?.focus() }, [submissionError, orderReference])
+
+  if (orderReference) return <div className="shop-confirmation" role="status" tabIndex={-1} ref={(element) => { resultRef.current = element }}><p className="eyebrow"><span /> Enquiry confirmed</p><h1>Thank you.<br /><em>We have your request.</em></h1><p>Your enquiry reference is <strong>{orderReference}</strong>. No payment has been taken. A GPEC representative will contact you to confirm availability, pricing, and next steps.</p><button type="button" className="button button-primary" onClick={onGoToCatalogue}>Browse products <Arrow /></button></div>
 
   return <>
     <div className="shop-order-heading"><div><p className="eyebrow"><span /> Order enquiry</p><h1>Tell us what<br /><em>you need.</em></h1><p>No payment is taken online. GPEC will confirm availability, pricing, and next steps after receiving your enquiry.</p></div><button type="button" className="text-link" onClick={onGoToCatalogue}>Back to catalogue <Arrow /></button></div>
@@ -23,8 +30,9 @@ export default function OrderForm({ cartItems, itemCount, orderReference, isSubm
         <div className="field-row"><label>Email address<input name="email" type="email" required autoComplete="email" placeholder="you@company.com" /></label><label>Phone number<input name="phone" type="tel" required autoComplete="tel" placeholder="Your phone number" /></label></div>
         <label>Project or delivery location <input name="location" autoComplete="address-level2" placeholder="City, region, or project site" /></label>
         <label>Additional requirements <textarea name="notes" rows={5} placeholder="Technical specifications, required delivery date, drawings, or other notes." /></label>
-        <p className="shop-form-note">Submitting creates an order enquiry only. No payment details are requested or stored.</p>
-        {submissionError && <p className="shop-form-error" role="alert">{submissionError}</p>}
+        <SpamTrapField />
+        <p className="shop-form-note">Submitting creates an order enquiry only. No payment details are requested or stored. GPEC uses your details only to respond to this enquiry; see our <a href="#privacy" target="_blank" rel="noopener">privacy notice<span className="visually-hidden"> (opens in a new tab)</span></a>.</p>
+        {submissionError && <p className="shop-form-error" role="alert" tabIndex={-1} ref={(element) => { resultRef.current = element }}>{submissionError}</p>}
         <button className="button button-primary" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Submitting enquiry…' : <>Submit enquiry <Arrow /></>}</button>
       </form>
       <aside className="shop-order-summary"><p className="eyebrow"><span /> Order summary</p><ul>{cartItems.map(({ product, quantity }) => <li key={product.id}><img src={product.image} alt="" /><div><strong>{product.name}</strong><span>{product.reference} · Quantity {quantity}</span></div></li>)}</ul><p>{itemCount} item{itemCount === 1 ? '' : 's'} selected</p></aside>

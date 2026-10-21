@@ -43,6 +43,9 @@ currency.
 
 `POST /api/enquiries` accepts customer details, optional location and notes, plus order items (`productId` and `quantity`). Each product must be active in the database; its name and reference are copied from there, never from the request. It saves an enquiry only. No payment details are accepted or stored.
 
+Both public form routes have a spam trap: a request whose `website` field has a value gets a normal
+`201` with a reference but is not saved (see `validation/fields.ts`). Leave the field out or empty.
+
 `POST /api/contact-requests` accepts the landing-page contact form: `fullName`, `email`, and `message` (required), plus optional `company`, `phone`, and `subject` (one of the form's listed options). It saves the request and returns a `GPEC-C-YYYY-XXXXXXXX` reference.
 
 ### Admin routes

@@ -29,7 +29,8 @@ done; step 3 waits on the project owner's Coolify setup and step 5 on GPEC.
 
 - **Frontend** (`frontend/`): React 19 + Vite 8, strict TypeScript. Landing page with a working
   contact form, and a shop (`#shop`, `#shop/order`) that loads its products from the API, a cart
-  in `localStorage`, and an order enquiry form. The 14 products are labelled samples. Admin panel
+  in `localStorage`, and an order enquiry form. The 14 products are labelled samples. Draft privacy
+  notice at `#privacy` (placeholders highlighted, linked from the footer and both forms). Admin panel
   at `#admin` (lazy-loaded): login; products (create/edit/archive, change history); order
   enquiries and contact requests (lists, details, follow-up status with history); change own
   password.
@@ -42,7 +43,8 @@ done; step 3 waits on the project owner's Coolify setup and step 5 on GPEC.
   - Product model with price (empty for now), placeholder flag, and archiving; seed script
     `npm run seed:products` (already run on `gpec_dev`).
   - Zod-validated config, helmet, per-IP rate limits, production database guard.
-  - 115 Vitest tests on an in-memory MongoDB replica set (admin changes use transactions).
+  - 121 Vitest tests on an in-memory MongoDB replica set (admin changes use transactions).
+  - Spam trap on both public forms (hidden `website` field; filled-in submissions are discarded).
 - **Docker:** `backend/Dockerfile` (port 5001) and `frontend/Dockerfile` (nginx, port 8080, needs
   the `VITE_API_BASE_URL` build argument). Setup and deploy steps in `docs/RUNBOOK.md`.
 - **CI:** `.github/workflows/ci.yml` runs type-checks, builds, tests, `npm audit`, and gitleaks on
@@ -69,9 +71,10 @@ done; step 3 waits on the project owner's Coolify setup and step 5 on GPEC.
 3. Ask GPEC for the information in ROADMAP.md, "Needed from GPEC" (domain names, prices, currency,
    Paystack account, delivery and pickup details, policies, contact details).
 4. Step 5 (Paystack) is blocked on GPEC: currency, Paystack account and fee rule, delivery fees.
-   Without GPEC, the useful next work is in CLAUDE.md's Known Gaps: spam protection for the public
-   forms (honeypot), the product modal's focus trap, the order form's focus after an error, the
-   `--muted` contrast on cream, and a privacy notice page (needs GPEC's wording approval).
+   Done 2026-10-21: contrast audit and fixes, spam trap, shop focus fixes, draft privacy notice,
+   and `npm run check:contrast` in `frontend/` (run it after any style change).
+   Without GPEC, remaining options are in CLAUDE.md's Known Gaps (e.g. navigation to match the
+   brief, a linter and frontend tests). Ask the user before choosing.
 5. When GPEC sends its real product list, load it with `isPlaceholder: false` and archive the
    samples (CLAUDE.md Section 11).
 

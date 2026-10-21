@@ -36,6 +36,8 @@ export interface EnquiryPayload {
   location: string
   notes: string
   items: { productId: string, quantity: number }[]
+  // Spam trap (components/SpamTrapField.tsx): empty when a person fills in the form.
+  website: string
 }
 
 export interface EnquiryResponse {
@@ -50,6 +52,8 @@ export interface ContactRequestPayload {
   phone: string
   subject: string
   message: string
+  // Spam trap (components/SpamTrapField.tsx): empty when a person fills in the form.
+  website: string
 }
 
 export type ContactRequestResponse = EnquiryResponse

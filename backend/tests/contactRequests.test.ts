@@ -1,5 +1,5 @@
 import request from 'supertest'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import ContactRequest from '../src/models/ContactRequest.js'
 import { testApp, useTestDatabase } from './helpers.js'
 
@@ -59,5 +59,21 @@ describe('POST /api/contact-requests', () => {
     const saved = await ContactRequest.findOne({ reference: res.body.reference }).lean()
     expect(saved?.reference).not.toBe('MINE')
     expect(saved?.status).toBe('new')
+  })
+})
+
+describe('spam trap on contact requests', () => {
+  it('answers as if saved but stores nothing when the hidden field is filled in', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const res = await request(app).post('/api/contact-requests').send({ ...validRequest(), website: 'buy now' })
+    info.mockRestore()
+    expect(res.status).toBe(201)
+    expect(res.body.reference).toMatch(/^GPEC-C-\d{4}-[0-9A-F]{8}$/)
+    expect(await ContactRequest.countDocuments()).toBe(0)
+  })
+
+  it('saves normally when the hidden field is empty', async () => {
+    expect((await request(app).post('/api/contact-requests').send({ ...validRequest(), website: '' })).status).toBe(201)
+    expect(await ContactRequest.countDocuments()).toBe(1)
   })
 })

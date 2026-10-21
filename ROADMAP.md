@@ -21,6 +21,12 @@ does. Update this file as steps are completed or the plan changes.
 Already done: TypeScript conversion (frontend and backend), dependency pinning, root `.gitignore`,
 `gpec_dev` / `gpec` database split with a production startup guard, backup remote on `kworlanyo`.
 
+Also done (2026-10-21), outside the numbered steps: a site-wide text-contrast audit and fixes
+(WCAG AA in every page state), a spam trap on both public forms, keyboard focus fixes in the shop,
+and a draft privacy notice at `#privacy` awaiting GPEC's details. The contrast check is a project
+command (`cd frontend && npm run check:contrast`); it is not in CI yet, because it needs a browser
+and the running site.
+
 CI's first run on GitHub passed (2026-10-20). Session handover notes are in
 [`HANDOVER.md`](HANDOVER.md).
 
@@ -123,6 +129,8 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Real product list: names, specifications, photos, and **prices**.
 - [ ] Currency confirmation (NGN expected). Until then admins cannot enter prices.
 - [ ] Names and emails of the GPEC staff who need admin accounts.
+- [ ] Privacy notice details and approval: legal company name and number, address, privacy contact
+      email, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
 - [ ] Paystack business account, and confirmation that passing the Paystack fee to customers is
       allowed under GPEC's Paystack terms.
 - [ ] Delivery fee rules and delivery areas; pickup location and hours.
@@ -140,10 +148,5 @@ These block launch, and several block steps 4 to 6. Ask early.
 - File uploads on the quote form (drawings, nameplate photos).
 - Navigation and page structure to match the brief (Home, About, Services, Products, Projects,
   Current Work, Contact) and all nine business areas.
-- Privacy notice page.
 - Linting and frontend tests.
-- A way for GPEC staff to read enquiries and contact requests (today only through the database;
-  part of the admin panel in step 6).
-- Bot protection for the public forms beyond rate limits (honeypot field or CAPTCHA).
-- Order form: move focus to the error message after a failed submission, as the contact form does.
 - Image uploads for products (admins can only pick images already on the site).

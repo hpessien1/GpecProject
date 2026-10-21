@@ -91,6 +91,7 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
         location: field('location'),
         notes: field('notes'),
         items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+        website: field('website'),
       })
       setOrderReference(response.reference)
       setCart([])

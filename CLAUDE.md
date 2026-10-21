@@ -225,6 +225,12 @@ attempts only: 5 per 15 minutes in production, 50 otherwise. Still needed: order
 Paystack webhook (its own limiter). All visitors are anonymous, so key by IP. The in-memory store
 only works with one API instance (Section 6.3).
 
+**Spam trap.** Both public forms include a hidden `website` field (`components/SpamTrapField.tsx`):
+off-screen, skipped by Tab, hidden from screen readers. If it arrives with a value
+(`validation/fields.ts`, `isLikelySpam`), the route answers `201` with a normal-looking reference
+but saves nothing, so scripts get no signal. Absent or empty is normal. Any new public form uses the
+same component and check.
+
 **Behind Coolify's proxy, `trust proxy` is set to one hop in production only.** Without it every
 request appears to come from the proxy's IP, so one shared budget blocks every visitor at once.
 Outside production it stays off, so a forged `X-Forwarded-For` header cannot dodge the limit.
@@ -361,16 +367,17 @@ name), and logs which database it found. The guard only works if production sets
 └── frontend/                 # React + Vite SPA (TypeScript)
     ├── Dockerfile            # Builds the site, serves it with nginx (build context: frontend/)
     ├── nginx/                # nginx server config and security headers (incl. the CSP)
+    ├── scripts/              # contrast-audit.mjs: WCAG text-contrast check (npm run check:contrast)
     ├── vite.config.ts
     ├── tsconfig*.json        # tsconfig.app.json (src/) and tsconfig.node.json (vite.config.ts)
     ├── public/assets/        # Images and videos served at /assets/...
     └── src/
         ├── main.tsx          # Entry point
-        ├── App.tsx           # Hash router: #shop, #shop/order, #admin… (lazy-loaded), else landing
+        ├── App.tsx           # Hash router: #shop, #shop/order, #privacy, #admin… (lazy-loaded), else landing
         ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, enquiry API
-        ├── pages/            # LandingPage.tsx, StorePage.tsx, AdminPage.tsx
-        ├── components/       # Header, Footer, LogoLockup, Arrow; shop/ and admin/ subfolders
-        ├── data/             # Site copy (landingContent.ts, adminContent.ts)
+        ├── pages/            # LandingPage.tsx, StorePage.tsx, PrivacyPage.tsx, AdminPage.tsx
+        ├── components/       # Header, Footer, LogoLockup, Arrow, SpamTrapField, PlaceholderText; shop/, admin/
+        ├── data/             # Site copy (landingContent.ts, privacyContent.ts, adminContent.ts)
         ├── services/         # apiClient.ts (all HTTP), *Api.ts per resource, cartStorage.ts
         ├── utils/            # money.ts: price input and display (no floating-point maths)
         ├── fonts/            # Self-hosted font files and their licences (no Google Fonts calls)
@@ -450,6 +457,7 @@ cd frontend && npm run typecheck   # tsc -b
 cd backend && npm run typecheck    # source and tests
 cd backend && npm test             # Vitest, in-memory MongoDB
 cd frontend && npm run build       # type-checks, then builds
+cd frontend && npm run check:contrast   # after any style or layout change; needs `npm run dev` running
 curl http://localhost:5001/api/health   # must return {"status":"ok"}
 # ...plus the browser verification in Section 10.
 
@@ -645,9 +653,32 @@ raw public URL on the record.
 - One global stylesheet: `frontend/src/styles.css`. Do not add CSS frameworks, CSS-in-JS, or UI
   component libraries without discussing it first.
 - Brand colours and fonts are CSS custom properties on `:root` (`--ink`, `--forest`, `--deep`,
-  `--lime`, `--cream`, `--sand`, `--muted`, `--line`, `--mono`, `--sans`, `--serif`). **New code uses
-  these variables**, not new hex values. (Existing code has many hard-coded colours — see Known
-  Gaps.)
+  `--lime`, `--lime-soft`, `--cream`, `--sand`, `--muted`, `--placeholder`, `--line`, `--mono`,
+  `--sans`, `--serif`). **New code uses these variables**, not new hex values. (Existing code has
+  many hard-coded colours — see Known Gaps.)
+- **Text contrast (WCAG AA): 4.5:1 for normal text, 3:1 for large text (24px+, or 18.66px+ bold),
+  in every state: hover, focus, error, disabled, and phone width.** Audited on 2026-10-21 across all
+  pages; keep it that way:
+  - `--muted` (`#3f4c6b`) passes on cream, white, and the orange-tinted panels. Do not lighten it.
+  - `--lime` orange text is only for dark navy backgrounds (`--deep`, `--ink`). It fails on cream
+    (2.1:1) and on the mid-blue hover colour (3.5:1); use `--lime-soft` on mid-blue and `--ink` or
+    `--forest` on light backgrounds.
+  - Text over photos or gradients needs a solid backing or a strong overlay; check the lightest part
+    of the image, not the average.
+  - A colour set on a hover or error state must be checked against that state's background. Two
+    rules with equal specificity let the later one win, which once left the "Request a quote"
+    button's text the same colour as its hover background.
+  - Animated text must stay readable at its faintest frame (the hero tagline never drops below 70%
+    opacity).
+  - Text that is part of a decorative illustration (inside a `role="img"` element, such as the
+    hero's "GPEC / SYSTEM READY") is exempt.
+  - Minimum text size for labels is about `.55rem`; smaller text is unreadable whatever its contrast.
+  - **Run `cd frontend && npm run check:contrast` after any change to colours, styles, or layout**
+    (with `npm run dev` running). It checks every page and state at both widths, including hover,
+    with sample data (no API or database needed), and exits with an error if any text fails. It is
+    plain JavaScript run by Node (a development tool, not part of the site), using Playwright and
+    axe-core. A new page or state must be added to its list in `frontend/scripts/contrast-audit.mjs`.
+    Exemptions go in its `EXEMPT` list, each with a reason.
 - The existing CSS is desktop-first (`max-width` media queries). Reuse the existing breakpoints
   (1100, 820, 540px are the main ones) rather than inventing new ones.
 - No inline styles except genuinely dynamic values. Respect the existing
@@ -677,6 +708,7 @@ raw public URL on the record.
    changes come with tests. There is no linter yet — when one is added, it becomes mandatory here.
 2. **For any UI change, drive the real app in a browser** at 390px and desktop width. Rereading
    JSX/CSS is not verification.
+   For style or layout changes, also run `npm run check:contrast` in `frontend/`.
 3. **For the shop:** catalogue → open product → add to cart → change quantity → order form → submit
    → confirmation shown → record present in MongoDB (`mongosh` command in Section 7).
 4. **For payments:** use Paystack **test keys only**. Verify success, failure, and abandoned
@@ -826,18 +858,13 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - No admin 2FA, no admin account management in the panel (create, reset, and deactivate are by
   command or database only; each admin can change their own password), and no image uploads (product images must already be in
   `public/assets/`).
-- No customer confirmation emails or staff notifications, no bot protection beyond rate limits
-  (e.g. CAPTCHA or honeypot), no file uploads, no privacy notice.
-- Product modal does not trap focus or return focus to the card when closed.
-- The order form disables its submit button while sending, which drops keyboard focus to the page
-  when submission fails. The contact form fixes this by focusing the result message; apply the same
-  pattern to the order form.
+- No customer confirmation emails or staff notifications, and no file uploads.
+- The privacy notice (`#privacy`) is a **draft**: GPEC must supply the highlighted placeholders
+  (legal name, privacy contact, retention, hosting regions, legal wording) and approve it.
 
 **Styling**
 - `styles.css` contains many hard-coded colour values alongside the `:root` variables.
 - Breakpoints are desktop-first with several one-off widths (1100, 980, 900, 820, 650, 600, 540px).
-- `--muted` text on the `--cream` background is 4.4:1, just under WCAG AA's 4.5:1 (e.g. the shop's
-  "Showing 1–6 of 14 products"). Darken `--muted` or use `--ink` on cream.
 - No favicon: every page load requests `/favicon.ico` and gets a 404. Needs GPEC's logo mark.
 
 **Open business decisions (needed from GPEC)**
@@ -874,6 +901,10 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   where they fit GPEC's size (Sections 4.1, 4.7, 4.8, 4.10, 7). Heavier pieces (job queues,
   malware scanning, metrics dashboards, recurring charges) were deliberately left out. **Rule:**
   keep this file short; a very large instruction file gets rules missed.
+- **2026-10-21 — Invisible text found only by measuring.** A contrast audit found the order form's
+  error message was white on a white form (invisible since it was written), dark-on-dark hover text,
+  and orange-on-cream labels. Reading the CSS had not caught them. **Rule:** check contrast by
+  measuring the rendered page (all states and both widths), not by reading colour values.
 - **2026-10-21 — Database name missing from the URI.** The first local connection string had no
   database name, so the verification enquiry was written to Atlas's default `test` database.
   The project then settled on one cluster with `gpec_dev` (local) and `gpec` (production).

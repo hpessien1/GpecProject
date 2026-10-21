@@ -65,6 +65,17 @@ cd frontend && npm run typecheck && npm run build && cd ..
 cd backend && npm run typecheck && npm test && cd ..
 ```
 
+After changing colours, styles, or layout, check text contrast (needs the site running with
+`npm run dev`; the API and database are not needed):
+
+```bash
+cd frontend && npx playwright install chromium   # first time on a machine only (about 150 MB)
+cd frontend && npm run check:contrast            # about a minute; "All text meets WCAG AA contrast."
+```
+
+If it lists failures, each line shows the contrast found, the minimum needed, the text, and where it
+appears. `--headed` (`node scripts/contrast-audit.mjs --headed`) shows the browser while it runs.
+
 Optional, the same Docker builds CI runs:
 
 ```bash

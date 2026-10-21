@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { Product } from '../../types'
 
 interface ProductModalProps {
@@ -5,11 +6,44 @@ interface ProductModalProps {
   onClose: () => void
 }
 
+// Keyboard-reachable elements only: the backdrop button has tabIndex -1 (mouse only), so it is left out.
+const FOCUSABLE = ['a[href]', 'button:not([disabled])', 'input', 'select', 'textarea', '[tabindex]'].map((selector) => `${selector}:not([tabindex="-1"])`).join(', ')
+
 export default function ProductModal({ product, onClose }: ProductModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  // While open: focus starts on Close, Tab and Shift+Tab stay inside the dialog, and on closing focus
+  // returns to whatever opened it (the product card). Escape is handled by StorePage.
+  useEffect(() => {
+    if (!product) return
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    closeRef.current?.focus()
+    function keepFocusInside(event: KeyboardEvent) {
+      if (event.key !== 'Tab' || !dialogRef.current) return
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)]
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && (document.activeElement === first || !dialogRef.current.contains(document.activeElement))) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current.contains(document.activeElement))) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', keepFocusInside)
+    return () => {
+      document.removeEventListener('keydown', keepFocusInside)
+      opener?.focus()
+    }
+  }, [product])
+
   if (!product) return null
 
-  return <div className="shop-lightbox" role="dialog" aria-modal="true" aria-label={`${product.name} details`}>
-    <button type="button" className="shop-lightbox-backdrop" onClick={onClose} aria-label="Close product details" />
-    <div className="shop-lightbox-content"><button type="button" className="shop-lightbox-close" onClick={onClose}>Close ×</button><div className="shop-lightbox-media"><img src={product.image} alt={product.alt} /></div><div className="shop-lightbox-details"><p className="eyebrow"><span /> Product details</p><p className="shop-lightbox-reference">{product.reference}</p>{product.isPlaceholder && <p className="shop-sample-label">Sample listing · details to be confirmed by GPEC</p>}<h2>{product.name}</h2><span className="shop-rule" aria-hidden="true" /><p>{product.description}</p><h3>Specifications</h3><ul>{product.specs.map((specification) => <li key={specification}>{specification}</li>)}</ul><h3>Application and selection</h3><p>GPEC reviews operating duty, available installation space, supply conditions, protection requirements, and relevant site constraints before confirming a suitable configuration.</p><p>Share equipment details, drawings, nameplate photos, preferred ratings, and required delivery date in your order enquiry. This helps our team confirm compatibility and identify any accessories, modifications, or replacement parts needed.</p><p>Final scope is checked against approved specifications before supply. Availability, lead time, and final pricing are confirmed by GPEC after the technical review.</p><p className="shop-lightbox-note">Availability and final pricing will be confirmed after GPEC receives your order enquiry.</p></div></div>
+  return <div className="shop-lightbox" role="dialog" aria-modal="true" aria-label={`${product.name} details`} ref={dialogRef}>
+    <button type="button" className="shop-lightbox-backdrop" onClick={onClose} aria-label="Close product details" tabIndex={-1} />
+    <div className="shop-lightbox-content"><button type="button" className="shop-lightbox-close" onClick={onClose} ref={closeRef}>Close ×</button><div className="shop-lightbox-media"><img src={product.image} alt={product.alt} /></div><div className="shop-lightbox-details" tabIndex={0} aria-label="Product details (scrollable)"><p className="eyebrow"><span /> Product details</p><p className="shop-lightbox-reference">{product.reference}</p>{product.isPlaceholder && <p className="shop-sample-label">Sample listing · details to be confirmed by GPEC</p>}<h2>{product.name}</h2><span className="shop-rule" aria-hidden="true" /><p>{product.description}</p><h3>Specifications</h3><ul>{product.specs.map((specification) => <li key={specification}>{specification}</li>)}</ul><h3>Application and selection</h3><p>GPEC reviews operating duty, available installation space, supply conditions, protection requirements, and relevant site constraints before confirming a suitable configuration.</p><p>Share equipment details, drawings, nameplate photos, preferred ratings, and required delivery date in your order enquiry. This helps our team confirm compatibility and identify any accessories, modifications, or replacement parts needed.</p><p>Final scope is checked against approved specifications before supply. Availability, lead time, and final pricing are confirmed by GPEC after the technical review.</p><p className="shop-lightbox-note">Availability and final pricing will be confirmed after GPEC receives your order enquiry.</p></div></div>
   </div>
 }

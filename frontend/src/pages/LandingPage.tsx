@@ -3,6 +3,7 @@ import type { SubmitEvent } from 'react'
 import Arrow from '../components/Arrow'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
+import SpamTrapField from '../components/SpamTrapField'
 import { contactSubjects, panelCapabilities, panelComponents, productGroups, services, steps } from '../data/landingContent'
 import { submitContactRequest } from '../services/contactApi'
 
@@ -16,6 +17,10 @@ export default function LandingPage() {
 
   // The submit button is disabled while sending, which drops keyboard focus; move it to the result instead.
   useEffect(() => { contactResultRef.current?.focus() }, [contactReference, contactError])
+
+  // Arriving from another page with a section link (e.g. #about from the shop or privacy notice): the
+  // browser looked for the section before this page existed, so scroll to it once it does.
+  useEffect(() => { document.getElementById(window.location.hash.slice(1))?.scrollIntoView() }, [])
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -33,6 +38,7 @@ export default function LandingPage() {
         phone: field('phone'),
         subject: field('subject'),
         message: field('message'),
+        website: field('website'),
       })
       setContactReference(response.reference)
       form.reset()
@@ -59,7 +65,7 @@ export default function LandingPage() {
 
       <section className="process section"><div className="section-heading"><div><p className="eyebrow"><span /> How we work</p><h2>Clear from<br /><em>first contact.</em></h2></div><a className="button button-outline" href="#contact">Request a quote <Arrow /></a></div><ol className="steps">{steps.map(([number, title, text]) => <li key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></li>)}</ol></section>
 
-      <section className="contact section" id="contact"><div className="contact-heading"><p className="eyebrow"><span /> Start the conversation</p><h2>Tell us what<br />you are <em>building.</em></h2><p>Send an inquiry for a service, product, replacement part, or project requirement. A GPEC representative will respond using the contact details you provide.</p></div><form className="quote-form" onSubmit={handleSubmit}><div className="field-row"><label>Full name<input name="name" required placeholder="Your name" /></label><label>Company <input name="company" placeholder="Company name" /></label></div><div className="field-row"><label>Email address<input name="email" type="email" required placeholder="you@company.com" /></label><label>Phone number<input name="phone" type="tel" placeholder="Your phone number" /></label></div><label>What can we help with?<select name="subject" defaultValue=""><option value="" disabled>Select a service or product</option>{contactSubjects.map((subject) => <option key={subject}>{subject}</option>)}</select></label><label>Your requirement<textarea name="message" rows={4} required placeholder="Tell us about your project, product specification, quantity, or part number." /></label><div className="form-footer"><p>By submitting, you agree that GPEC may use these details to respond to your inquiry.</p><button className="button button-primary" type="submit" disabled={isSending}>{isSending ? 'Sending inquiry…' : <>Send inquiry <Arrow /></>}</button></div>{contactError && <p className="form-error" role="alert" tabIndex={-1} ref={contactResultRef}>{contactError}</p>}{contactReference && <p className="success-message" role="status" tabIndex={-1} ref={contactResultRef}>Thank you. Your inquiry reference is <strong>{contactReference}</strong>. A GPEC representative will respond using the contact details you provided.</p>}</form></section>
+      <section className="contact section" id="contact"><div className="contact-heading"><p className="eyebrow"><span /> Start the conversation</p><h2>Tell us what<br />you are <em>building.</em></h2><p>Send an inquiry for a service, product, replacement part, or project requirement. A GPEC representative will respond using the contact details you provide.</p></div><form className="quote-form" onSubmit={handleSubmit}><div className="field-row"><label>Full name<input name="name" required placeholder="Your name" /></label><label>Company <input name="company" placeholder="Company name" /></label></div><div className="field-row"><label>Email address<input name="email" type="email" required placeholder="you@company.com" /></label><label>Phone number<input name="phone" type="tel" placeholder="Your phone number" /></label></div><label>What can we help with?<select name="subject" defaultValue=""><option value="" disabled>Select a service or product</option>{contactSubjects.map((subject) => <option key={subject}>{subject}</option>)}</select></label><label>Your requirement<textarea name="message" rows={4} required placeholder="Tell us about your project, product specification, quantity, or part number." /></label><SpamTrapField /><div className="form-footer"><p>By submitting, you agree that GPEC may use these details to respond to your inquiry. See our <a href="#privacy" target="_blank" rel="noopener">privacy notice<span className="visually-hidden"> (opens in a new tab)</span></a>.</p><button className="button button-primary" type="submit" disabled={isSending}>{isSending ? 'Sending inquiry…' : <>Send inquiry <Arrow /></>}</button></div>{contactError && <p className="form-error" role="alert" tabIndex={-1} ref={contactResultRef}>{contactError}</p>}{contactReference && <p className="success-message" role="status" tabIndex={-1} ref={contactResultRef}>Thank you. Your inquiry reference is <strong>{contactReference}</strong>. A GPEC representative will respond using the contact details you provided.</p>}</form></section>
     </main>
     <Footer />
   </div>
