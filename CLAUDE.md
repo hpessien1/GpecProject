@@ -360,7 +360,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── routes/           # HTTP wiring: public (products, enquiries, contact) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # Enquiry, ContactRequest, Product, AdminUser, AdminSession, AuditRecord
-│       ├── services/         # Business logic: products, adminProducts, adminRequests, adminAuth, passwords, currency
+│       ├── services/         # Business logic: products, admin*, passwords, currency, email, emailTemplates, notifications
 │       ├── scripts/          # Commands: seedProducts.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers
 │       └── data/             # sampleProducts.ts: placeholder products for the seed script
@@ -377,7 +377,7 @@ name), and logs which database it found. The guard only works if production sets
         ├── App.tsx           # Hash router: #shop, #shop/order, #privacy, #admin… (lazy-loaded), else landing
         ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, enquiry API
         ├── pages/            # LandingPage.tsx, StorePage.tsx, PrivacyPage.tsx, AdminPage.tsx
-        ├── components/       # Header, Footer, LogoLockup, Arrow, SpamTrapField, PlaceholderText; shop/, admin/
+        ├── components/       # Header, Footer, ServiceShowcase, SpamTrapField, PlaceholderText, …; shop/, admin/
         ├── data/             # Site copy (landingContent.ts, privacyContent.ts, adminContent.ts)
         ├── services/         # apiClient.ts (all HTTP), *Api.ts per resource, cartStorage.ts
         ├── utils/            # money.ts: price input and display (no floating-point maths)
@@ -399,8 +399,8 @@ name), and logs which database it found. The guard only works if production sets
 
 ### 6.3 Runtime topology
 
-Run **exactly one API instance**. Nothing currently lives only in memory, but the planned rate
-limiter will. Before running two instances, move that state to a shared store. In Coolify, set the
+Run **exactly one API instance**. The rate limiters and the per-recipient email confirmation cap
+keep their counts in memory. Before running two instances, move that state to a shared store. In Coolify, set the
 API replica count to 1 and do not enable autoscaling; this is enforced only by that setting, not
 by code.
 
@@ -484,8 +484,10 @@ mongosh "<MONGODB_URI>" --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5
 **Environment:**
 - `backend/.env.example`: `PORT`, `MONGODB_URI`, `CLIENT_ORIGIN`, `CURRENCY` (ISO code such as
   `NGN`; **unset until GPEC confirms it** — admins cannot set prices and no payment can start while
-  it is unset). Payments will add `PAYSTACK_SECRET_KEY`, `FRONTEND_URL` (for the Paystack callback),
-  and the Paystack fee settings — add them to `.env.example` when implemented.
+  it is unset), `FRONTEND_URL` (the public site; links in emails, later the Paystack callback), and
+  the email settings `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `EMAIL_FROM`,
+  `STAFF_NOTIFICATION_EMAILS` (all or none). Payments will add `PAYSTACK_SECRET_KEY` and the
+  Paystack fee settings — add them to `.env.example` when implemented.
 - `frontend/.env.example`: `VITE_API_BASE_URL`. Anything prefixed `VITE_` is public; never put a
   secret there.
 - `MONGODB_URI` points to MongoDB Atlas. The database name is the path segment before `?`:
@@ -621,9 +623,20 @@ Section 4.1.
 6. Paystack API errors (e.g. a declined card) return `400` with a clear message and are not logged
    as server errors.
 
-### Email / notifications — planned
-README requires a confirmation to the customer and routing to GPEC staff. Recipients, sender
-address, and the email provider are not chosen yet. Keep templates in version control.
+### Email / notifications (Amazon SES)
+Each new enquiry and contact request emails GPEC staff (details, reply-to the customer, and a link
+to it in the admin panel) and sends the customer a plain-text confirmation with their reference.
+- `services/email.ts` is the only code that talks to SES (`@aws-sdk/client-sesv2`); `Mailer` lets
+  tests use `RecordingMailer` (`tests/helpers.ts`) instead. Templates: `services/emailTemplates.ts`.
+- `services/notifications.ts` decides who gets what. Routes call it **after** sending the response,
+  and it never throws: a failed email is logged with the reference and error type only, and the
+  customer's request stands. Spam-trapped or invalid submissions send nothing.
+- Plain text only; subjects contain only server-made references, never customer input.
+- Customer confirmations are capped at 3 per address per hour (in memory; one API instance), so
+  the forms cannot be used to flood a stranger's inbox. Staff notifications are not capped.
+- **Off until configured.** All five `SES_*`/`EMAIL_*`/`STAFF_*` settings plus `FRONTEND_URL`, or
+  none; a partial set stops the server at startup (`config.ts`). GPEC has no AWS account yet;
+  setup: `docs/RUNBOOK.md` Section 1.6. A sending-only IAM key, never the root account.
 
 ### File uploads — planned
 README asks for drawings and photos on quote forms. When built: validate type and size on the
@@ -869,21 +882,24 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - The first project video (`portfolio-electrical-components.mp4`) has a sound track and no captions.
   GPEC must confirm whether it contains speech; if so, add captions (a `<track>`), otherwise mute it
   or remove the track. Marked in `LandingPage.tsx` with an `oxlint-disable` comment.
-- Only six of the nine business areas are shown; the accessory categories are merged.
 - The footer shows **mock contact details** (owner's request, 2026-10-21): `info@example.com` (a
   domain reserved for examples) and an invalid phone number, so no customer can reach a stranger.
   Replace with GPEC's real details in `data/landingContent.ts` (`companyContact`) before launch.
 
 **Functionality**
 - The shop is still enquiry-only: no prices, no pickup/delivery choice, no Paystack integration.
-- The contact-form subject list is duplicated (`frontend/src/data/landingContent.ts` and
-  `backend/src/validation/contactRequest.ts`).
+- The contact-form topic list is duplicated (`frontend/src/data/landingContent.ts` and
+  `backend/src/validation/contactRequest.ts`); a backend test fails if the two differ.
+- Services areas 2–9 use existing photos marked "Illustrative image" (some repeat; three are
+  Afrizone project stills, at the owner's request) until GPEC supplies a photo per area.
 - No internal notes on enquiries or contact requests, and no search; staff reply by email or
   phone outside the site (the detail page links to both).
 - No admin 2FA, no admin account management in the panel (create, reset, and deactivate are by
   command or database only; each admin can change their own password), and no image uploads (product images must already be in
   `public/assets/`).
-- No customer confirmation emails or staff notifications, and no file uploads.
+- Email notifications are built but **off**: GPEC has no Amazon SES account yet (RUNBOOK 1.6).
+  No bounce or complaint handling yet (SES can report these through SNS).
+- No file uploads.
 - The privacy notice (`#privacy`) is a **draft**: GPEC must supply the highlighted placeholders
   (legal name, privacy contact, retention, hosting regions, legal wording) and approve it.
 

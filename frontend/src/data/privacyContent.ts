@@ -27,8 +27,8 @@ export const privacySections: PrivacySection[] = [
     title: 'What we collect and why',
     paragraphs: ['We only collect what you type into our forms, and only to respond to you.'],
     list: [
-      'Contact form: your name and email address (required), and your company, phone number, the topic you choose, and your message. We use these to reply to your enquiry.',
-      'Order enquiry form: your name, email address, and phone number (required), your company, project or delivery location, notes, and the products and quantities in your cart. We use these to confirm availability, pricing, and next steps with you.',
+      'Contact form: your name and email address (required), and your company, phone number, the topic you choose, and your message. We use these to reply to your enquiry and to email you a confirmation with your reference number.',
+      'Order enquiry form: your name, email address, and phone number (required), your company, project or delivery location, notes, and the products and quantities in your cart. We use these to confirm availability, pricing, and next steps with you, and to email you a confirmation with your reference number.',
       'We never ask for card or bank details on this website. If online payment is added later, payment details will be entered on our payment provider’s own secure page, and this notice will be updated before that happens.',
     ],
   },
@@ -52,7 +52,7 @@ export const privacySections: PrivacySection[] = [
     paragraphs: [
       'Your enquiries can be read only by authorised GPEC staff, through a password-protected area of the website. Each staff member has their own account, and changes they make are recorded.',
       'The information is stored in a database run for us by MongoDB Atlas ([[data storage region]]). The website runs on servers rented from Hetzner ([[server location]]). These companies store the data for us; they do not use it for their own purposes.',
-      '[[Any other organisation that receives enquiry details, for example an email service once notifications are added]]',
+      'Emails about your enquiry, a confirmation to you and a notification to GPEC staff, are sent through Amazon Web Services’ email service, Amazon SES ([[email service region]]). It sends the emails for us and does not use your details for its own purposes.',
     ],
   },
   {

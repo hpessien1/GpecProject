@@ -7,6 +7,18 @@ export interface RateLimitSettings {
   limit: number
 }
 
+// Amazon SES settings. Email is on only when every one of these is set (see loadConfig).
+export interface EmailSettings {
+  region: string
+  accessKeyId: string
+  secretAccessKey: string
+  // "GPEC <notifications@example.com>" or a bare address, on a domain verified in SES.
+  from: string
+  staffRecipients: string[]
+  // The public site (FRONTEND_URL), for links in emails (e.g. to an enquiry in the admin panel).
+  siteUrl: string
+}
+
 export interface Config {
   nodeEnv: 'development' | 'test' | 'production'
   isProduction: boolean
@@ -21,7 +33,14 @@ export interface Config {
   // ISO 4217 code (e.g. NGN) for prices, or null until GPEC confirms it. Price editing and payments
   // stay off while it is null; there is deliberately no default.
   currency: string | null
+  // null: email notifications are off (nothing is sent; everything else works).
+  email: EmailSettings | null
 }
+
+const EMAIL_PATTERN = /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/
+// "Name <address>" or "address".
+const FROM_PATTERN = /^(?:[^<>]+<)?([^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+)>?$/
+const EMAIL_SETTINGS = ['SES_REGION', 'SES_ACCESS_KEY_ID', 'SES_SECRET_ACCESS_KEY', 'EMAIL_FROM', 'STAFF_NOTIFICATION_EMAILS'] as const
 
 const knownCurrencies = new Set(Intl.supportedValuesOf('currency'))
 
@@ -31,7 +50,30 @@ const envSchema = z.object({
   MONGODB_URI: z.string().trim().regex(/^mongodb(\+srv)?:\/\//, 'must start with mongodb:// or mongodb+srv://').optional(),
   CLIENT_ORIGIN: z.string().trim().default('http://localhost:5173'),
   CURRENCY: z.string().trim().toUpperCase().refine((code) => knownCurrencies.has(code), 'must be an ISO 4217 currency code such as NGN').optional(),
+  SES_REGION: z.string().trim().regex(/^[a-z]{2}(-[a-z]+)+-\d$/, 'must be an AWS region such as eu-west-1').optional(),
+  SES_ACCESS_KEY_ID: z.string().trim().optional(),
+  SES_SECRET_ACCESS_KEY: z.string().trim().optional(),
+  EMAIL_FROM: z.string().trim().regex(FROM_PATTERN, 'must be an email address, optionally as "Name <address>"').optional(),
+  STAFF_NOTIFICATION_EMAILS: z.string().trim().refine((list) => list.split(',').every((entry) => EMAIL_PATTERN.test(entry.trim())), 'must be a comma-separated list of email addresses').optional(),
+  FRONTEND_URL: z.string().trim().optional(),
 }).superRefine((env, ctx) => {
+  // All or nothing, so a half-finished setup fails at startup instead of silently sending nothing.
+  const setEmailSettings = EMAIL_SETTINGS.filter((name) => env[name] !== undefined)
+  if (setEmailSettings.length > 0 && setEmailSettings.length < EMAIL_SETTINGS.length) {
+    for (const name of EMAIL_SETTINGS.filter((setting) => env[setting] === undefined)) {
+      ctx.addIssue({ code: 'custom', path: [name], message: 'is required when any email setting is set (email needs all of them)' })
+    }
+  }
+  // Emails link back to the site (FRONTEND_URL is also used on its own, e.g. by Paystack later).
+  if (setEmailSettings.length === EMAIL_SETTINGS.length && !env.FRONTEND_URL) {
+    ctx.addIssue({ code: 'custom', path: ['FRONTEND_URL'], message: 'is required when email is configured (emails link to the site)' })
+  }
+  if (env.FRONTEND_URL) {
+    let url: URL | null = null
+    try { url = new URL(env.FRONTEND_URL) } catch { /* reported below */ }
+    if (!url || url.origin !== env.FRONTEND_URL.replace(/\/$/, '')) ctx.addIssue({ code: 'custom', path: ['FRONTEND_URL'], message: 'must be the site\'s address only, like https://www.example.com' })
+    else if (env.NODE_ENV === 'production' && url.protocol !== 'https:') ctx.addIssue({ code: 'custom', path: ['FRONTEND_URL'], message: 'must use https in production' })
+  }
   if (env.NODE_ENV === 'production' && !env.MONGODB_URI) {
     ctx.addIssue({ code: 'custom', path: ['MONGODB_URI'], message: 'is required in production' })
   }
@@ -76,5 +118,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     formRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 10 : 100 },
     adminLoginRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 5 : 50 },
     currency: parsed.CURRENCY ?? null,
+    email: parsed.SES_REGION && parsed.SES_ACCESS_KEY_ID && parsed.SES_SECRET_ACCESS_KEY && parsed.EMAIL_FROM && parsed.STAFF_NOTIFICATION_EMAILS && parsed.FRONTEND_URL
+      ? {
+          region: parsed.SES_REGION,
+          accessKeyId: parsed.SES_ACCESS_KEY_ID,
+          secretAccessKey: parsed.SES_SECRET_ACCESS_KEY,
+          from: parsed.EMAIL_FROM,
+          staffRecipients: parsed.STAFF_NOTIFICATION_EMAILS.split(',').map((entry) => entry.trim()),
+          siteUrl: parsed.FRONTEND_URL.replace(/\/$/, ''),
+        }
+      : null,
   }
 }

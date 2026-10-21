@@ -26,7 +26,11 @@ Also done (2026-10-21), outside the numbered steps: a site-wide text-contrast au
 and a draft privacy notice at `#privacy` awaiting GPEC's details. Then: oxlint in both packages, Playwright
 browser tests for the frontend, the contrast check and browser tests in CI, and the menu matching the
 brief (Home · About · Services · Products · Projects · Current Work · Contact, plus Shop), with a
-hamburger menu on tablets and phones and new About and Current Work sections awaiting GPEC's content.
+hamburger menu on tablets and phones and new About and Current Work sections awaiting GPEC's content. Later the same day: all nine business areas on the home page, and email
+notifications through Amazon SES (staff notification and customer confirmation for each enquiry and
+contact message), built and off until GPEC's SES account exists. Then: an interactive Services
+showcase (choose any of the nine areas to feature it; "Learn more" opens the contact form with its
+topic chosen) and one contact-form topic per business area.
 
 CI's first run on GitHub passed (2026-10-20). Session handover notes are in
 [`HANDOVER.md`](HANDOVER.md).
@@ -128,6 +132,8 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 These block launch, and several block steps 4 to 6. Ask early.
 
 - [ ] Real product list: names, specifications, photos, and **prices**.
+- [ ] One photo per business area for the Services showcase (areas 2–9 show labelled illustrative
+      images until then).
 - [ ] Currency confirmation (NGN expected). Until then admins cannot enter prices.
 - [ ] Names and emails of the GPEC staff who need admin accounts.
 - [ ] Content for the About section (background, registrations, location) and approved
@@ -146,12 +152,12 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Domain names for the website and the API (blocks the first deploy).
 - [ ] Named owners and logins for Coolify, Atlas, GitHub, Paystack, and the domain registrar
       (runbook Section 5).
-- [ ] Who receives order and enquiry notifications.
+- [ ] Who receives order and enquiry notifications (`STAFF_NOTIFICATION_EMAILS`).
+- [ ] An Amazon Web Services account for email (Amazon SES), the domain verified in SES, and
+      production access approved. Email is built and stays off until then (RUNBOOK 1.6).
 - [ ] Permission to name Afrizone, and approved real project photos.
 
 ## Later / not yet scheduled
 
-- Confirmation emails to customers and notifications to GPEC staff (provider not chosen).
 - File uploads on the quote form (drawings, nameplate photos).
-- All nine business areas on the home page (accessory categories are merged today).
 - Image uploads for products (admins can only pick images already on the site).

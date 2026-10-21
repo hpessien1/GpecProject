@@ -43,6 +43,10 @@ currency.
 
 `POST /api/enquiries` accepts customer details, optional location and notes, plus order items (`productId` and `quantity`). Each product must be active in the database; its name and reference are copied from there, never from the request. It saves an enquiry only. No payment details are accepted or stored.
 
+After saving, both public form routes email GPEC staff and send the customer a confirmation, when
+Amazon SES is configured (`docs/RUNBOOK.md` Section 1.6); otherwise email is off and nothing is sent.
+Email never delays or breaks the response.
+
 Both public form routes have a spam trap: a request whose `website` field has a value gets a normal
 `201` with a reference but is not saved (see `validation/fields.ts`). Leave the field out or empty.
 

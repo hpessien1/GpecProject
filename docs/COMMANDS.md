@@ -22,7 +22,8 @@ cp -n frontend/.env.example frontend/.env   # the default API address works loca
 ```
 
 In `backend/.env`, set `MONGODB_URI` to the `gpec_dev` database (the part before `?` must end in
-`/gpec_dev`). To try price editing locally, also set `CURRENCY=NGN`.
+`/gpec_dev`). To try price editing locally, also set `CURRENCY=NGN`. Leave the email settings unset
+locally (email stays off) unless you are testing Amazon SES itself.
 
 ```bash
 cd backend && npm run seed:products        # adds the 14 sample products (safe to repeat)

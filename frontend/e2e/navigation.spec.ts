@@ -55,6 +55,13 @@ test.describe('main menu', () => {
 })
 
 test.describe('home page sections', () => {
+  test('Services shows all nine of GPEC\'s business areas', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#services')
+    await expect(page.locator('#service-feature h3')).toHaveText('Electrical panels')
+    await expect(page.locator('.service-select')).toHaveText(['Solar energy', 'Electrical sales', 'Solar sales', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories'].map((title) => `Show ${title} in the panel above`))
+  })
+
   test('About and Current Work show their text, with no "sample" label', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#about')

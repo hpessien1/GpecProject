@@ -71,4 +71,38 @@ describe('loadConfig', () => {
     expect(loadConfig({}).adminLoginRateLimit.limit).toBe(50)
     expect(loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://db/gpec', CLIENT_ORIGIN: 'https://gpec.example.com' }).adminLoginRateLimit.limit).toBe(5)
   })
+
+  it('leaves email off when no email setting is given', () => {
+    expect(loadConfig({}).email).toBeNull()
+  })
+
+  it('turns email on only when every setting is given, and parses them', () => {
+    const config = loadConfig({
+      SES_REGION: 'eu-west-1', SES_ACCESS_KEY_ID: 'AKIAEXAMPLE', SES_SECRET_ACCESS_KEY: 'secret',
+      EMAIL_FROM: 'GPEC <notifications@example.com>', STAFF_NOTIFICATION_EMAILS: 'a@example.com, b@example.com',
+      FRONTEND_URL: 'http://localhost:5173/',
+    })
+    expect(config.email).toEqual({ region: 'eu-west-1', accessKeyId: 'AKIAEXAMPLE', secretAccessKey: 'secret', from: 'GPEC <notifications@example.com>', staffRecipients: ['a@example.com', 'b@example.com'], siteUrl: 'http://localhost:5173' })
+  })
+
+  it('refuses a partial email setup and names what is missing', () => {
+    const load = () => loadConfig({ SES_REGION: 'eu-west-1', EMAIL_FROM: 'notifications@example.com' })
+    expect(load).toThrow('SES_ACCESS_KEY_ID is required when any email setting is set')
+    expect(load).toThrow('STAFF_NOTIFICATION_EMAILS is required')
+  })
+
+  it('requires FRONTEND_URL once email is configured, and https in production', () => {
+    const email = { SES_REGION: 'eu-west-1', SES_ACCESS_KEY_ID: 'k', SES_SECRET_ACCESS_KEY: 's', EMAIL_FROM: 'n@example.com', STAFF_NOTIFICATION_EMAILS: 'a@example.com' }
+    expect(() => loadConfig(email)).toThrow('FRONTEND_URL is required when email is configured')
+    expect(() => loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://db/gpec', CLIENT_ORIGIN: 'https://gpec.example.com', FRONTEND_URL: 'http://gpec.example.com' })).toThrow('FRONTEND_URL must use https in production')
+  })
+
+  it.each([
+    ['SES_REGION', 'Europe'],
+    ['EMAIL_FROM', 'not an address'],
+    ['STAFF_NOTIFICATION_EMAILS', 'a@example.com, nobody'],
+    ['FRONTEND_URL', 'https://www.example.com/shop'],
+  ])('rejects an invalid %s', (name, value) => {
+    expect(() => loadConfig({ [name]: value })).toThrow(name)
+  })
 })

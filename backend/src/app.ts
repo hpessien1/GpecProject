@@ -5,6 +5,9 @@ import helmet from 'helmet'
 import { rateLimit } from 'express-rate-limit'
 import type { Config, RateLimitSettings } from './config.js'
 import { HttpError } from './errors.js'
+import { sesMailer } from './services/email.js'
+import type { Mailer } from './services/email.js'
+import { createNotifier } from './services/notifications.js'
 import { requireAdmin } from './middleware/requireAdmin.js'
 import adminProductsRouter from './routes/adminProducts.js'
 import adminRequestsRouter from './routes/adminRequests.js'
@@ -13,7 +16,7 @@ import contactRequestsRouter from './routes/contactRequests.js'
 import enquiriesRouter from './routes/enquiries.js'
 import productsRouter from './routes/products.js'
 
-export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'currency'>
+export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'currency' | 'email'>
 
 // Each public form route gets its own per-IP budget, so one form cannot exhaust the other's.
 function formLimiter({ windowMs, limit }: RateLimitSettings) {
@@ -26,7 +29,9 @@ function formLimiter({ windowMs, limit }: RateLimitSettings) {
   })
 }
 
-export default function createApp(config: AppConfig) {
+// mailer: tests pass a recorder; otherwise Amazon SES when email is configured, or nothing.
+export default function createApp(config: AppConfig, mailer: Mailer | null = config.email ? sesMailer(config.email) : null) {
+  const notifier = createNotifier(mailer, config.email)
   const app = express()
   app.disable('x-powered-by')
   // In production the API sits behind Coolify's proxy; trust one hop so req.ip (and so the rate
@@ -39,8 +44,8 @@ export default function createApp(config: AppConfig) {
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
   app.use('/api/products', productsRouter)
-  app.use('/api/enquiries', formLimiter(config.formRateLimit), enquiriesRouter)
-  app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter)
+  app.use('/api/enquiries', formLimiter(config.formRateLimit), enquiriesRouter(notifier))
+  app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter(notifier))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.
   app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
   app.use('/api/admin/session', adminSessionRouter(config))

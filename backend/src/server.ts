@@ -17,6 +17,7 @@ try {
 }
 
 const app = createApp(config)
+if (!config.email) console.info('Email notifications are off: Amazon SES is not configured (docs/RUNBOOK.md, "Email").')
 
 try {
   await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 5000 })

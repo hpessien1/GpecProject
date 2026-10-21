@@ -5,18 +5,21 @@ import { afterAll, afterEach, beforeAll } from 'vitest'
 import createApp from '../src/app.js'
 import type { AppConfig } from '../src/app.js'
 import AdminUser from '../src/models/AdminUser.js'
+import type { EmailMessage, Mailer } from '../src/services/email.js'
 import { hashPassword } from '../src/services/passwords.js'
 
 // Development-like settings with generous rate limits, so only the rate-limit tests hit them.
-export function testApp(overrides: Partial<AppConfig> = {}) {
+// mailer: a RecordingMailer to check emails; null (the default) means email is off.
+export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | null = null) {
   return createApp({
     isProduction: false,
     clientOrigins: ['http://localhost:5173'],
     formRateLimit: { windowMs: 60_000, limit: 1000 },
     adminLoginRateLimit: { windowMs: 60_000, limit: 1000 },
     currency: 'NGN',
+    email: null,
     ...overrides,
-  })
+  }, mailer)
 }
 
 // An in-memory MongoDB per test file: never gpec_dev or production. A single-node replica set, because
@@ -52,4 +55,24 @@ export async function loggedInAgent(app: ReturnType<typeof testApp>, email = TES
   const res = await agent.post('/api/admin/session').set('Origin', 'http://localhost:5173').send({ email, password: TEST_ADMIN.password })
   if (res.status !== 200) throw new Error(`Test login failed: ${res.status} ${JSON.stringify(res.body)}`)
   return agent
+}
+
+// Records emails instead of sending them. failWith makes every send fail, like an SES outage.
+export class RecordingMailer implements Mailer {
+  readonly sent: EmailMessage[] = []
+  failWith: Error | null = null
+
+  async send(message: EmailMessage) {
+    if (this.failWith) throw this.failWith
+    this.sent.push(message)
+  }
+}
+
+export const TEST_EMAIL_SETTINGS = {
+  region: 'eu-west-1',
+  accessKeyId: 'test-key',
+  secretAccessKey: 'test-secret',
+  from: 'GPEC <notifications@example.com>',
+  staffRecipients: ['staff1@example.com', 'staff2@example.com'],
+  siteUrl: 'https://www.example.com',
 }

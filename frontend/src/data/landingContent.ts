@@ -1,10 +1,40 @@
-export const services = [
-  { number: '01', title: 'Electrical panels', text: 'Design, build, modification, and support for industrial control and power distribution panels.', tag: 'Engineering' },
-  { number: '02', title: 'Solar energy', text: 'Solar system assessment, component selection, installation support, and energy solutions for homes and businesses.', tag: 'Energy' },
-  { number: '03', title: 'Electrical supply', text: 'Electrical products for installation, maintenance, commercial work, and industrial applications.', tag: 'Supply' },
-  { number: '04', title: 'Solar products', text: 'Solar modules, inverters, batteries, charge controllers, mounting parts, and protection equipment.', tag: 'Supply' },
-  { number: '05', title: 'Electronics', text: 'Sensors, meters, power supplies, control modules, and related electronic components.', tag: 'Supply' },
-  { number: '06', title: 'Industrial supply', text: 'Industrial equipment, accessories, replacements, and parts sourced against your specification.', tag: 'Supply' },
+// GPEC's nine business areas, in the brief's order (README.md, "GPEC's Areas of Work"); each text is
+// condensed from the brief's own description. Keep all nine (AGENTS.md). Clicking an area on the home
+// page features it in the large panel.
+//   topic: the contact-form topic its "Learn more" pre-selects (one of contactSubjects below).
+//   image: until GPEC supplies real photos, areas 2-9 reuse the closest existing image and are marked
+//   illustrative, so no picture is presented as GPEC's own work (CLAUDE.md, Principle 3). Three are
+//   stills from the Afrizone project (owner's request), already shown under Projects; permission to
+//   name that client is still to be confirmed by GPEC (CLAUDE.md Known Gaps).
+export interface ServiceArea {
+  number: string
+  title: string
+  text: string
+  tag: string
+  topic: string
+  image: string
+  imageAlt: string
+  illustrative: boolean
+}
+
+const solarArray = { image: '/assets/portfolio-solar-array.jpg', imageAlt: 'Solar panel array in a landscape at sunset', illustrative: true }
+const productLineup = { image: '/assets/product-lineup.png', imageAlt: 'Electrical products and panel accessories laid out together', illustrative: true }
+const annotatedPanel = { image: '/assets/control-panel-annotated-clean.png', imageAlt: 'Electrical control enclosure with breakers, metering, and control components', illustrative: true }
+const cabinets = { image: '/assets/portfolio-control-panel.jpg', imageAlt: 'Industrial electrical control and distribution cabinets', illustrative: true }
+const afrizoneEnclosure = { image: '/assets/portfolio-afrizone-panel-poster.jpg', imageAlt: 'Electrical enclosure shown open, with indicator lights and industrial connectors', illustrative: true }
+const afrizoneSockets = { image: '/assets/portfolio-electrical-components-poster.jpg', imageAlt: 'Electrical distribution enclosure with industrial socket outlets and breaker modules', illustrative: true }
+const afrizoneDetails = { image: '/assets/portfolio-afrizone-panel-details-poster.jpg', imageAlt: 'Close view of socket outlets, breakers, and wiring inside an electrical enclosure', illustrative: true }
+
+export const services: ServiceArea[] = [
+  { number: '01', title: 'Electrical panels', text: 'Design, build, modification, and support for industrial control and power distribution panels.', tag: 'Engineering', topic: 'Electrical panels', image: '/assets/electrical-panels-product.png', imageAlt: 'Industrial electrical control panel with breakers, copper busbars, inverter, and control components', illustrative: false },
+  { number: '02', title: 'Solar energy', text: 'Solar system assessment, component selection, installation support, and energy solutions for homes and businesses.', tag: 'Energy', topic: 'Solar energy', ...solarArray },
+  { number: '03', title: 'Electrical sales', text: 'Cables, breakers, switches, sockets, lighting, and distribution equipment for building, maintenance, and industrial work.', tag: 'Supply', topic: 'Electrical products', ...afrizoneEnclosure },
+  { number: '04', title: 'Solar sales', text: 'Solar modules, inverters, battery systems, charge controllers, and packaged solar solutions.', tag: 'Supply', topic: 'Solar products', ...solarArray },
+  { number: '05', title: 'Solar accessories', text: 'Mounting rails, connectors, solar-rated cables, combiner boxes, disconnects, and surge protection to complete an installation.', tag: 'Accessories', topic: 'Solar accessories', ...productLineup },
+  { number: '06', title: 'Electrical accessories', text: 'Cable glands, lugs, terminals, conduits, enclosures, junction boxes, and trunking for safe installation.', tag: 'Accessories', topic: 'Electrical accessories', ...afrizoneSockets },
+  { number: '07', title: 'Electronics', text: 'Sensors, power supplies, meters, control modules, and testing equipment, matched to your existing system.', tag: 'Supply', topic: 'Electronics', ...annotatedPanel },
+  { number: '08', title: 'Industrial sales', text: 'Motors, drives, pumps, automation equipment, and instrumentation, sourced against your specification or part number.', tag: 'Supply', topic: 'Industrial products', ...cabinets },
+  { number: '09', title: 'Industrial accessories', text: 'Control switches, push buttons, indicator lamps, terminal blocks, panel hardware, and replacement parts.', tag: 'Accessories', topic: 'Industrial accessories', ...afrizoneDetails },
 ]
 
 export const panelCapabilities: [number: string, title: string, text: string][] = [
@@ -26,7 +56,7 @@ export const productGroups: [title: string, description: string][] = [
 ]
 
 // Must match contactSubjects in backend/src/validation/contactRequest.ts, which rejects anything else.
-export const contactSubjects = ['Electrical panels', 'Solar energy', 'Electrical products', 'Solar products', 'Electronics or industrial supply', 'Other inquiry']
+export const contactSubjects = ['Electrical panels', 'Solar energy', 'Electrical products', 'Solar products', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial products', 'Industrial accessories', 'Other inquiry']
 
 export const steps: [number: string, title: string, text: string][] = [
   ['01', 'Tell us what you need', 'Share your project requirement, part number, quantity, or technical drawing.'],

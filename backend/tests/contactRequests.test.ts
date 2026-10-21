@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs'
 import request from 'supertest'
 import { describe, expect, it, vi } from 'vitest'
 import ContactRequest from '../src/models/ContactRequest.js'
+import { contactSubjects } from '../src/validation/contactRequest.js'
 import { testApp, useTestDatabase } from './helpers.js'
 
 useTestDatabase()
@@ -75,5 +77,24 @@ describe('spam trap on contact requests', () => {
   it('saves normally when the hidden field is empty', async () => {
     expect((await request(app).post('/api/contact-requests').send({ ...validRequest(), website: '' })).status).toBe(201)
     expect(await ContactRequest.countDocuments()).toBe(1)
+  })
+})
+
+describe('contact form topics', () => {
+  it.each(contactSubjects)('accepts the topic "%s"', async (subject) => {
+    expect((await request(app).post('/api/contact-requests').send({ ...validRequest(), subject })).status).toBe(201)
+  })
+
+  it('refuses the old merged topic', async () => {
+    const res = await request(app).post('/api/contact-requests').send({ ...validRequest(), subject: 'Electronics or industrial supply' })
+    expect(res.status).toBe(400)
+  })
+
+  // The list is duplicated in the frontend's form; a mismatch would make the form send topics the
+  // server refuses. This reads the frontend file so the two cannot drift apart.
+  it('matches the topics offered by the website form, in the same order', () => {
+    const source = readFileSync(new URL('../../frontend/src/data/landingContent.ts', import.meta.url), 'utf8')
+    const list = /export const contactSubjects = \[([^\]]*)\]/.exec(source)?.[1] ?? ''
+    expect([...list.matchAll(/'([^']+)'/g)].map((match) => match[1])).toEqual(contactSubjects)
   })
 })
