@@ -62,6 +62,23 @@ and have a Docker health check.
    it later needs a rebuild. The build stops with a clear message if this is missing or not https.
 5. Enable redirect from HTTP to HTTPS.
 
+### 1.4 Products
+
+The production database starts with no products, so the shop shows "No products are listed yet"
+with a link to the contact form. Until GPEC's real product list arrives, there are two choices
+(GPEC's call):
+
+- **Leave it empty.** Customers use the contact form.
+- **Show the 14 sample products.** Each is labelled "Sample listing · details to be confirmed by
+  GPEC". After the API is deployed, open the API resource's terminal in Coolify and run:
+
+  ```sh
+  node dist/scripts/seedProducts.js --production
+  ```
+
+  It prints `Database "gpec": added 14 sample products`. Running it again changes nothing; it
+  never overwrites or removes a product. Without `--production` it refuses to touch `gpec`.
+
 ---
 
 ## 2. Deploying

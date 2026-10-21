@@ -6,6 +6,7 @@ import { rateLimit } from 'express-rate-limit'
 import type { Config, RateLimitSettings } from './config.js'
 import contactRequestsRouter from './routes/contactRequests.js'
 import enquiriesRouter from './routes/enquiries.js'
+import productsRouter from './routes/products.js'
 
 export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit'>
 
@@ -31,14 +32,15 @@ export default function createApp(config: AppConfig) {
   app.use(express.json({ limit: '32kb' }))
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
+  app.use('/api/products', productsRouter)
   app.use('/api/enquiries', formLimiter(config.formRateLimit), enquiriesRouter)
   app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter)
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof SyntaxError && 'body' in error) return res.status(400).json({ message: 'Request body must be valid JSON.' })
-    if (error instanceof Error && (error.name === 'ValidationError' || error.name === 'StrictModeError')) return res.status(400).json({ message: 'Check enquiry details and try again.' })
+    if (error instanceof Error && (error.name === 'ValidationError' || error.name === 'StrictModeError')) return res.status(400).json({ message: 'Check the details and try again.' })
     console.error(error)
-    return res.status(500).json({ message: 'Unable to save enquiry. Please try again.' })
+    return res.status(500).json({ message: 'Something went wrong on our side. Please try again.' })
   })
   return app
 }

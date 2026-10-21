@@ -14,7 +14,7 @@ does. Update this file as steps are completed or the plan changes.
 | 1. Quick fixes | Done (2026-10-21) |
 | 2. Groundwork: CI, hardening, tests | Done (2026-10-21) |
 | 3. Deploy early on Coolify | In progress — files ready; Coolify and Atlas setup by the project owner |
-| 4. Products in MongoDB | Not started |
+| 4. Products in MongoDB | Done (2026-10-21) |
 | 5. Checkout and Paystack (test mode) | Not started — needs GPEC information |
 | 6. Admin panel | Not started |
 
@@ -78,10 +78,14 @@ The project owner deploys; the AI assistant prepares files and instructions only
 
 ## 4. Products in MongoDB
 
-- [ ] Product model and read API; prices stored as integers in kobo (pending currency confirmation).
-- [ ] Remove the duplicated catalogue files (`frontend/src/data/catalogueProducts.ts`,
-      `backend/src/data/catalogue.ts`); the frontend loads products from the API.
-- [ ] Seed script for initial products and prices until the admin panel exists.
+- [x] Product model (`models/Product.ts`) and `GET /api/products`. Price is stored as an integer in
+      the smallest currency unit (kobo if NGN is confirmed), empty until GPEC sets it, and not sent
+      to the shop until step 5 configures the currency. Products are archived, never deleted.
+- [x] Duplicated catalogue files removed; the shop loads products from the API, with loading,
+      error, and empty states, and enquiries look products up in the database.
+- [x] Seed script (`npm run seed:products`): adds the 14 sample products, never overwrites, refuses
+      the production database without `--production`. The shop labels them as samples.
+- [ ] Replace the samples with GPEC's real product list when it arrives (needs GPEC).
 
 ## 5. Checkout and Paystack (test mode)
 

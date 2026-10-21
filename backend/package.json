@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:products": "tsx src/scripts/seedProducts.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

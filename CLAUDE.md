@@ -166,8 +166,9 @@ Paystack flow; the *Why* notes record the failure each one prevents.
 
 Fields like `price`, `amount`, `deliveryFee`, `status`, `paid`, `reference`, `role`, `isAdmin` are
 decided by the server. Do not include them in input validation at all — use allowlists. The enquiry
-route already does this: it takes `{ productId, quantity }` and looks up name and reference in
-`backend/src/data/catalogue.ts`. Keep that pattern for orders.
+route already does this: it takes `{ productId, quantity }` and looks up name and reference in the
+`products` collection (`services/products.ts`), refusing unknown or archived products. Keep that
+pattern for orders.
 
 ### 4.3 Validate every input
 
@@ -265,16 +266,18 @@ name), and logs which database it found. The guard only works if production sets
 - **Enquiry** (`backend/src/models/Enquiry.ts`) — `reference` (unique, `GPEC-YYYY-XXXXXXXX`),
   `customer { fullName, company, email, phone }`, `location`, `notes`,
   `items [{ productId, name, reference, quantity }]`, `status` (`'new'` only), timestamps.
-- **Product catalogue** — not in the database yet. It exists **twice**:
-  `frontend/src/data/catalogueProducts.ts` (display data) and `backend/src/data/catalogue.ts` (the
-  server's canonical ID → name/reference list). **The `id` values must match in both files.**
-  Product `id` (e.g. `panel-001`) is the internal key; `reference` (e.g. `GPEC-CP-001`) is the
-  customer-facing product code. Do not confuse them.
+- **Product** (`backend/src/models/Product.ts`) — the single source of the catalogue. `_id` is the
+  short internal key (e.g. `panel-001`, lowercase letters, digits, hyphens), used in carts and
+  enquiry items; `reference` (unique, e.g. `GPEC-CP-001`) is the customer-facing product code. Do
+  not confuse them. Also `name`, `description`, `specs`, `image`, `alt`, `price` (integer in the
+  currency's smallest unit, `null` until GPEC sets it), `isPlaceholder` (sample data, labelled in
+  the shop), `status` (`active` | `archived`), `sortOrder`, timestamps. `GET /api/products` returns
+  active products **without** `price` until step 5 configures the currency.
+  The 14 current products are samples from `backend/src/data/sampleProducts.ts`, loaded by
+  `npm run seed:products` (Section 11).
 
 **Planned entities** (define fully when built, and update this section):
 
-- **Product** in MongoDB, edited from the admin panel, replacing both catalogue files. Price stored
-  as an integer in the currency's minor unit.
 - **Order** — `_id` (also the Paystack reference), customer-facing reference, items with **unit
   price snapshotted at order time**, fulfilment method (`pickup` | `delivery`), delivery address
   (only for delivery), delivery fee, subtotal, Paystack fee, total charged, currency, status (e.g.
@@ -317,11 +320,13 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── server.ts         # Loads config, connects MongoDB, production database guard, listens
 │       ├── config.ts         # Zod-validated environment settings (the only reader of process.env)
 │       ├── app.ts            # helmet, CORS, JSON parsing, rate limits, routes, 404, error handler
-│       ├── routes/           # HTTP wiring (enquiries.ts, contactRequests.ts)
+│       ├── routes/           # HTTP wiring (enquiries.ts, contactRequests.ts, products.ts)
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
-│       ├── models/           # Mongoose schemas (Enquiry.ts, ContactRequest.ts)
+│       ├── models/           # Mongoose schemas (Enquiry.ts, ContactRequest.ts, Product.ts)
+│       ├── services/         # Business logic (products.ts: catalogue queries and seeding)
+│       ├── scripts/          # One-off commands (seedProducts.ts)
 │       ├── utils/            # reference.ts: customer-facing reference numbers
-│       └── data/             # Server-side canonical catalogue (catalogue.ts)
+│       └── data/             # sampleProducts.ts: placeholder products for the seed script
 └── frontend/                 # React + Vite SPA (TypeScript)
     ├── Dockerfile            # Builds the site, serves it with nginx (build context: frontend/)
     ├── nginx/                # nginx server config and security headers (incl. the CSP)
@@ -334,17 +339,18 @@ name), and logs which database it found. The guard only works if production sets
         ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, enquiry API
         ├── pages/            # LandingPage.tsx, StorePage.tsx
         ├── components/       # Header, Footer, LogoLockup, Arrow; shop/ for store components
-        ├── data/             # Site copy (landingContent.ts) and catalogue (catalogueProducts.ts)
-        ├── services/         # apiClient.ts (all HTTP), enquiryApi.ts, contactApi.ts
+        ├── data/             # Site copy (landingContent.ts)
+        ├── services/         # apiClient.ts (all HTTP), *Api.ts per resource, cartStorage.ts
         ├── fonts/            # Self-hosted font files and their licences (no Google Fonts calls)
         └── styles.css        # All styles, one global stylesheet
 ```
 
 ### 6.2 Layering
 
-- **Today:** route → validator → model. `routes/enquiries.ts` validates, then calls
+- **Today:** route → validator → service or model. `services/products.ts` holds the catalogue
+  queries; `routes/enquiries.ts` validates, looks products up through that service, then calls
   `Enquiry.create` directly. Acceptable at this size.
-- **As the backend grows (orders, payments, admin):** add a `services/` layer for business logic
+- **As the backend grows (orders, payments, admin):** put business logic in `services/`
   (pricing, Paystack calls, order state changes). Routes stay thin: authenticate → authorize →
   validate → call service → respond. Paystack API calls live in one module, not scattered across
   routes.
@@ -398,6 +404,7 @@ cd frontend && npm install
 
 # Run locally. backend/.env sets MONGODB_URI to the gpec_dev database on the shared Atlas
 # cluster — never the production gpec database (Section 5, "Databases").
+cd backend && npm run seed:products   # first time: adds the sample products to gpec_dev
 cd backend && npm run dev      # tsx watch src/server.ts
 cd frontend && npm run dev     # Vite dev server
 
@@ -584,8 +591,9 @@ raw public URL on the record.
 - Display prices from the server's data; never compute a payable total that the server does not
   recompute.
 - Show distinct loading, empty, and error states for every data view.
-- The cart lives in `localStorage` under `gpec-order-cart` and stores only `{ id, quantity }`. Do
-  not store prices or personal data there.
+- The cart lives in `localStorage` under `gpec-order-cart` (`services/cartStorage.ts`) and stores
+  only `{ id, quantity }`. Do not store prices or personal data there. Entries for products that
+  are no longer listed are dropped once the catalogue loads.
 
 ### Forms
 - Every field has a visible `<label>`. Required fields are marked and validated.
@@ -668,10 +676,15 @@ raw public URL on the record.
 6. Add any new env variable to `.env.example`.
 7. Update `backend/README.md` route list and, if behaviour changed, `ECOMMERCE_REQUIREMENTS.md`.
 
-### Changing the product catalogue (until it moves to MongoDB)
-1. Edit **both** `frontend/src/data/catalogueProducts.ts` and `backend/src/data/catalogue.ts`.
-2. Keep `id` values identical in both.
-3. Use only GPEC-supplied product data; mark anything else as a placeholder.
+### Changing the product catalogue (until the admin panel exists)
+1. Products live in MongoDB. The seed script only **adds** missing sample products
+   (`cd backend && npm run seed:products`); it never changes or removes existing ones.
+2. Real GPEC products are entered directly in the database (or by an updated seed) with
+   `isPlaceholder: false`. Use only GPEC-supplied data; anything else stays `isPlaceholder: true`.
+3. Remove a product by setting `status: 'archived'`, not by deleting it — past enquiries and
+   orders refer to it.
+4. The seed script refuses the production `gpec` database unless run with `--production`; that
+   needs the project owner's go-ahead (runbook).
 
 ### Adding a new frontend page
 1. Match the existing page shell; add the hash route in `App.tsx` and the navigation link.
@@ -751,8 +764,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - No domain names chosen yet; the runbook uses `<site-domain>` and `<api-domain>`.
 
 **Content (AGENTS.md rules)**
-- Sample products in both catalogue files have invented references and specs (e.g. "415 V",
-  "IP54 enclosure") and are not marked as placeholders. No prices exist yet.
+- The 14 products are samples with invented references and specs (e.g. "415 V", "IP54
+  enclosure"). The shop labels each one "Sample listing · details to be confirmed by GPEC" until
+  GPEC's real product list replaces them. No prices exist yet.
 - Portfolio cards label images "Illustrative visual" but also say "Built by the GPEC team".
 - The client name "Afrizone" is published; permission is unconfirmed.
 - Navigation (About, Services, Products, Shop, Work, Portfolio) does not match the required
@@ -763,8 +777,7 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
 **Functionality**
 - The shop is still enquiry-only: no prices, no pickup/delivery choice, no Paystack integration.
-- Product catalogue is duplicated between frontend and backend instead of served from MongoDB.
-  The contact-form subject list is also duplicated (`frontend/src/data/landingContent.ts` and
+- The contact-form subject list is duplicated (`frontend/src/data/landingContent.ts` and
   `backend/src/validation/contactRequest.ts`).
 - No admin panel or authentication, so nobody can read saved enquiries or contact requests except
   through the database.
@@ -778,6 +791,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 **Styling**
 - `styles.css` contains many hard-coded colour values alongside the `:root` variables.
 - Breakpoints are desktop-first with several one-off widths (1100, 980, 900, 820, 650, 600, 540px).
+- `--muted` text on the `--cream` background is 4.4:1, just under WCAG AA's 4.5:1 (e.g. the shop's
+  "Showing 1–6 of 14 products"). Darken `--muted` or use `--ink` on cream.
+- No favicon: every page load requests `/favicon.ico` and gets a 404. Needs GPEC's logo mark.
 
 **Open business decisions (needed from GPEC)**
 - Currency: expected NGN, not confirmed.

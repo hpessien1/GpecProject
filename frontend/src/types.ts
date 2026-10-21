@@ -6,6 +6,12 @@ export interface Product {
   specs: string[]
   image: string
   alt: string
+  // Sample data not supplied by GPEC; the shop labels it.
+  isPlaceholder: boolean
+}
+
+export interface ProductsResponse {
+  products: Product[]
 }
 
 // What the cart stores in localStorage: product IDs and quantities only.

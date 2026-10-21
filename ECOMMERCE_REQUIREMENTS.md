@@ -8,7 +8,7 @@ Prices are fixed and set by GPEC through an admin panel (planned). Payment happe
 
 General service requests and quotes (for example, a custom panel design or a solar site assessment) continue to use the contact and quote form described in `README.md`. They are not paid online.
 
-> **Status (2026-10-20):** The catalogue, cart, and an enquiry-only order form are built. Prices, pickup/delivery choice, Paystack payment, and the admin panel are not built yet.
+> **Status (2026-10-21):** The catalogue (served from MongoDB), cart, and an enquiry-only order form are built. The products are labelled samples until GPEC supplies its real list. Prices, pickup/delivery choice, Paystack payment, and the admin panel are not built yet.
 
 ## Scope
 

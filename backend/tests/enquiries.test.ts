@@ -1,10 +1,13 @@
 import request from 'supertest'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import Enquiry from '../src/models/Enquiry.js'
+import Product from '../src/models/Product.js'
+import { seedSampleProducts } from '../src/services/products.js'
 import { testApp, useTestDatabase } from './helpers.js'
 
 useTestDatabase()
 const app = testApp()
+beforeEach(async () => { await seedSampleProducts() })
 
 function validEnquiry() {
   return {
@@ -51,6 +54,27 @@ describe('POST /api/enquiries', () => {
     expect(res.status).toBe(400)
     expect(res.body.errors.items).toBe('One or more selected products are unavailable.')
     expect(await Enquiry.countDocuments()).toBe(0)
+  })
+
+  it('rejects archived products', async () => {
+    await Product.updateOne({ _id: 'solar-001' }, { status: 'archived' })
+    const res = await request(app).post('/api/enquiries').send(validEnquiry())
+    expect(res.status).toBe(400)
+    expect(res.body.errors.items).toBe('One or more selected products are unavailable.')
+    expect(await Enquiry.countDocuments()).toBe(0)
+  })
+
+  it('uses the product name and reference stored in the database', async () => {
+    await Product.updateOne({ _id: 'panel-001' }, { name: 'Renamed panel' })
+    const res = await request(app).post('/api/enquiries').send({ ...validEnquiry(), items: [{ productId: 'panel-001', quantity: 1 }] })
+    const saved = await Enquiry.findOne({ reference: res.body.reference }).lean()
+    expect(saved?.items).toEqual([{ productId: 'panel-001', name: 'Renamed panel', reference: 'GPEC-CP-001', quantity: 1 }])
+  })
+
+  it('treats a MongoDB query operator as a product ID as unavailable', async () => {
+    const res = await request(app).post('/api/enquiries').send({ ...validEnquiry(), items: [{ productId: { $ne: '' }, quantity: 1 }] })
+    expect(res.status).toBe(400)
+    expect(res.body.errors.items).toBe('One or more selected products are unavailable.')
   })
 
   it.each([0, 1001, 1.5, 'two'])('rejects quantity %s', async (quantity) => {
