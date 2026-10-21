@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:products": "tsx src/scripts/seedProducts.ts"
+    "seed:products": "tsx src/scripts/seedProducts.ts",
+    "admin:create": "tsx src/scripts/createAdmin.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

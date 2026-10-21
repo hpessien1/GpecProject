@@ -114,9 +114,10 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
   }
 
   return <div className="shop-shell">
-    <a className="skip-link" href="#shop-main">Skip to store content</a>
+    {/* Moves focus without changing the hash: "#shop-main" would be read as a route and leave the shop. */}
+    <a className="skip-link" href="#shop-main" onClick={(event) => { event.preventDefault(); document.getElementById('shop-main')?.focus() }}>Skip to store content</a>
     <ShopHeader mode={mode} itemCount={itemCount} onGoHome={goHome} onGoToCatalogue={goToCatalogue} onShowCart={showCart} />
-    <main id="shop-main">
+    <main id="shop-main" tabIndex={-1}>
       {mode === 'catalogue' && <>
         <section className="shop-hero"><div><p className="eyebrow"><span /> GPEC product catalogue</p><h1>Source what<br /><em>your work needs.</em></h1></div><p>Browse selected electrical, solar, and industrial products. Add items to your order enquiry and GPEC will confirm availability and final pricing.</p></section>
         {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products"><div className="shop-section-heading"><p className="eyebrow"><span /> Available products</p><p>Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}–{Math.min(currentPage * PRODUCTS_PER_PAGE, catalogue.length)} of {catalogue.length} products</p></div><div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} onOpen={setActiveProduct} onAdd={addToCart} />)}</div><nav className="shop-pagination" aria-label="Product catalogue pages"><button type="button" onClick={() => selectPage(currentPage - 1)} disabled={currentPage === 1}>Previous</button>{Array.from({ length: totalPages }, (_, index) => { const page = index + 1; return <button type="button" key={page} className={page === currentPage ? 'is-active' : ''} aria-current={page === currentPage ? 'page' : undefined} onClick={() => selectPage(page)}>{page}</button> })}<button type="button" onClick={() => selectPage(currentPage + 1)} disabled={currentPage === totalPages}>Next</button></nav></div><Cart cartItems={cartItems} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} /></section>}

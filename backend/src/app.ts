@@ -4,11 +4,15 @@ import cors from 'cors'
 import helmet from 'helmet'
 import { rateLimit } from 'express-rate-limit'
 import type { Config, RateLimitSettings } from './config.js'
+import { HttpError } from './errors.js'
+import { requireAdmin } from './middleware/requireAdmin.js'
+import adminProductsRouter from './routes/adminProducts.js'
+import adminSessionRouter from './routes/adminSession.js'
 import contactRequestsRouter from './routes/contactRequests.js'
 import enquiriesRouter from './routes/enquiries.js'
 import productsRouter from './routes/products.js'
 
-export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit'>
+export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'currency'>
 
 // Each public form route gets its own per-IP budget, so one form cannot exhaust the other's.
 function formLimiter({ windowMs, limit }: RateLimitSettings) {
@@ -28,15 +32,21 @@ export default function createApp(config: AppConfig) {
   // limit) is the visitor's address. Without it, every visitor shares the proxy's single budget.
   if (config.isProduction) app.set('trust proxy', 1)
   app.use(helmet())
-  app.use(cors({ origin: config.clientOrigins, methods: ['GET', 'POST'], allowedHeaders: ['Content-Type'] }))
+  // credentials: the admin session cookie may be sent, but only from the listed origins.
+  app.use(cors({ origin: config.clientOrigins, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type'] }))
   app.use(express.json({ limit: '32kb' }))
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
   app.use('/api/products', productsRouter)
   app.use('/api/enquiries', formLimiter(config.formRateLimit), enquiriesRouter)
   app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter)
+  // Admin responses hold staff-only data; browsers and proxies must not keep copies.
+  app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
+  app.use('/api/admin/session', adminSessionRouter(config))
+  app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (error instanceof HttpError) return res.status(error.status).json({ message: error.message, code: error.code, errors: error.errors })
     if (error instanceof SyntaxError && 'body' in error) return res.status(400).json({ message: 'Request body must be valid JSON.' })
     if (error instanceof Error && (error.name === 'ValidationError' || error.name === 'StrictModeError')) return res.status(400).json({ message: 'Check the details and try again.' })
     console.error(error)

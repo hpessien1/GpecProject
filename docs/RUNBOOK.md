@@ -2,7 +2,7 @@
 
 How to set up, deploy, roll back, and respond to problems with the live site. Written for the
 project owner, who is the only person who deploys. Engineering rules behind these steps are in
-[`CLAUDE.md`](../CLAUDE.md), Section 7.
+[`CLAUDE.md`](../CLAUDE.md), Section 7. All commands in one place: [`COMMANDS.md`](COMMANDS.md).
 
 - **Last updated:** 2026-10-21
 - **Placeholders:** `<site-domain>` and `<api-domain>` stand for the real domains (for example
@@ -48,6 +48,7 @@ and have a Docker health check.
    | `NODE_ENV` | `production` (also set in the image; set it here too so it is visible) |
    | `MONGODB_URI` | The `gpec-prod` user's connection string. **The database name before `?` must be `/gpec`, never `/gpec_dev`.** |
    | `CLIENT_ORIGIN` | `https://<site-domain>` (comma-separate if the site has more than one domain, e.g. with and without `www`) |
+   | `CURRENCY` | **Leave unset** until GPEC confirms the currency. Then `NGN` (or whatever GPEC confirms). While unset, admins cannot set prices. |
 
 5. Replicas: **1**. Do not enable autoscaling or a second instance — the rate limiter keeps its
    counts in memory.
@@ -62,7 +63,26 @@ and have a Docker health check.
    it later needs a rebuild. The build stops with a clear message if this is missing or not https.
 5. Enable redirect from HTTP to HTTPS.
 
-### 1.4 Products
+### 1.4 First admin account
+
+There is no sign-up page. After the API is deployed, open the API resource's terminal in Coolify
+and run, with the real person's details:
+
+```sh
+node dist/scripts/createAdmin.js --production --email staff@example.com --name "Full Name"
+```
+
+It prints a random password **once**. Pass it to that person privately (not by ordinary email or
+chat if avoidable). They log in at `https://<site-domain>/#admin` and set their own password under
+**Change password** straight away (at least 15 characters).
+
+- **Forgotten password:** run the same command with `--reset` instead of `--name`. It prints a new
+  password and logs that person out everywhere.
+- **Someone leaves GPEC:** set their `isActive` to `false` in the `adminusers` collection in Atlas.
+  Their sessions stop working at once. (There is no screen for this yet.)
+- Admin login allows 5 failed attempts per 15 minutes from one address, then asks them to wait.
+
+### 1.5 Products
 
 The production database starts with no products, so the shop shows "No products are listed yet"
 with a link to the contact form. Until GPEC's real product list arrives, there are two choices
@@ -113,6 +133,8 @@ database separately (or restored from an Atlas backup).
 | API deployment exits straight away | Configuration problem | Read the deployment log: it lists every invalid variable (`Invalid configuration: ...`) or the wrong database name. Fix the variable in Coolify and redeploy. |
 | `MongoDB connection failed` in the API log | Atlas network access, wrong password, or Atlas outage | Check the Hetzner IP is allowed in Atlas, the `gpec-prod` password, and [status.mongodb.com](https://status.mongodb.com). |
 | Forms say they cannot reach GPEC | API down, or the site was built with the wrong API address | Check `/api/health`. If it is fine, check `VITE_API_BASE_URL` on the website resource and rebuild. The browser console will show a Content-Security-Policy or CORS error if the addresses do not match `CLIENT_ORIGIN`. |
+| An admin cannot log in | Wrong password, account deactivated, or too many failed attempts | Wait 15 minutes after "Too many failed login attempts". Otherwise reset the password (Section 1.4). |
+| Admin cannot set prices ("currency is configured") | `CURRENCY` is unset on the API | Expected until GPEC confirms the currency. Then set `CURRENCY` in Coolify and redeploy the API. |
 | Forms say "Too many requests" for everyone | Proxy trust broken, so all visitors share one limit | Confirm `NODE_ENV=production` on the API. Report it to the developer. |
 | Site shows old content after a deploy | Browser cache | `index.html` is never cached, so a normal reload fixes it. Photos and videos are cached for up to a day. |
 | A secret leaked (connection string, future Paystack key) | — | Rotate it at the source first (Atlas: change the `gpec-prod` password; Paystack: regenerate the key), update it in Coolify, redeploy, then tell the developer so the git history can be checked. |

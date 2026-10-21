@@ -1,0 +1,12 @@
+import mongoose from 'mongoose'
+
+// One logged-in browser. The cookie holds a random token; only its SHA-256 hash is stored, so a copy
+// of the database cannot be used to log in.
+const adminSessionSchema = new mongoose.Schema({
+  tokenHash: { type: String, required: true, unique: true },
+  admin: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', required: true, index: true },
+  // MongoDB deletes the session automatically once this time has passed.
+  expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
+}, { timestamps: true, strict: 'throw' })
+
+export default mongoose.model('AdminSession', adminSessionSchema)

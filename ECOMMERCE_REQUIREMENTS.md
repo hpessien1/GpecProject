@@ -8,7 +8,7 @@ Prices are fixed and set by GPEC through an admin panel (planned). Payment happe
 
 General service requests and quotes (for example, a custom panel design or a solar site assessment) continue to use the contact and quote form described in `README.md`. They are not paid online.
 
-> **Status (2026-10-21):** The catalogue (served from MongoDB), cart, and an enquiry-only order form are built. The products are labelled samples until GPEC supplies its real list. Prices, pickup/delivery choice, Paystack payment, and the admin panel are not built yet.
+> **Status (2026-10-21):** The catalogue (served from MongoDB), cart, and an enquiry-only order form are built. The products are labelled samples until GPEC supplies its real list. The admin panel's product and price management is built; prices stay unset until GPEC confirms the currency and are not shown to customers until checkout is built. Pickup/delivery choice, Paystack payment, and admin order views are not built yet.
 
 ## Scope
 
@@ -24,7 +24,7 @@ General service requests and quotes (for example, a custom panel design or a sol
 - Online payment through Paystack's hosted payment page (redirect)
 - Server-side payment verification
 - Confirmation after verified payment
-- Admin price and product management (planned, separate phase)
+- Admin price and product management (built: login, create, edit, archive, change history)
 
 ### Excluded
 
@@ -128,14 +128,14 @@ Required fields must have visible labels and validation messages. Email format m
 - If payment fails or is abandoned, keep the cart, explain that no payment was taken, and let the customer try again.
 - Preserve entered form values when validation fails.
 
-### 8. Admin Price and Product Management (planned)
+### 8. Admin Price and Product Management
 
 - GPEC staff sign in to a protected admin panel.
 - Admins can create, edit, and archive products and set their prices.
 - Price changes appear on the customer-facing catalogue.
 - A price change does not alter the price of orders already placed.
 - Every price, product, and order status change records who made it and when.
-- Admins can view paid orders and their fulfilment details.
+- Admins can view paid orders and their fulfilment details (planned, with orders).
 
 ## Suggested User Flow
 

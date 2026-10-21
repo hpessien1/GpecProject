@@ -49,8 +49,9 @@ on MongoDB Atlas.
 **User roles:**
 - `customer` — anonymous visitor. Browses, adds to cart, submits enquiries, and (planned) pays for
   orders through Paystack. No customer accounts.
-- `admin` — **planned.** GPEC staff who manage products and prices and view orders and enquiries.
-  Prices set here appear on the customer-facing site. Not built yet; no authentication exists today.
+- `admin` — GPEC staff, at `#admin`. Today they log in and manage products and prices (with a
+  change history); viewing orders and enquiries is still planned. Accounts are created only with
+  `npm run admin:create` (Section 7); there is no sign-up.
 
 **Core domains:** products (catalogue, prices), cart, orders (planned, paid), payments (planned,
 Paystack), fulfilment (pickup or delivery), enquiries (quotes and general contact).
@@ -98,7 +99,7 @@ When a request is ambiguous, ask: **"Which persona is this for?"**
 - **Homeowner or small-business owner — considering solar.** Not technical, wants reliable power.
   Needs: plain explanations, guidance instead of choosing parts by price, a simple way to request an
   assessment. Primary risks: jargon, unclear costs, fear of being mis-sold.
-- **GPEC staff member — site administrator (planned).** Updates prices and products and follows up
+- **GPEC staff member — site administrator.** Updates prices and products and follows up
   orders and enquiries. Needs: simple editing without touching code, a clear list of paid orders
   and enquiries, a history of who changed what. Primary risks: a wrong price going live, missed
   orders.
@@ -182,15 +183,24 @@ A disabled button or client-side validation enforces nothing. Example: the "Subm
 hidden when the cart is empty, and the server separately rejects an empty `items` array. When you
 add a frontend gate, confirm the backend enforces the same condition.
 
-### 4.5 Admin access (when the admin panel is built)
+### 4.5 Admin access
 
-- Every admin route requires authentication **and** an admin role check, in one shared middleware.
+- Every admin route requires authentication **and** an admin role check, in one shared middleware:
+  `middleware/requireAdmin.ts` (only the `admin` role exists, so a valid session is the role check).
+  It also refuses changes whose `Origin` is not a `CLIENT_ORIGIN`.
 - Customer orders and enquiries are readable only by admins. Ask of every new list route: "If an
   anonymous visitor calls this, do they see anyone's data?"
-- Admin sessions: refresh tokens in `httpOnly`, `Secure`, `SameSite` cookies; no tokens in
-  `localStorage`. All frontend HTTP goes through the shared service layer in
-  `frontend/src/services/`.
-- Admins cannot demote, deactivate, or delete themselves. Consider 2FA for admin accounts.
+- Admin sessions: a random session token in an `httpOnly`, `SameSite=Strict` cookie (`Secure` in
+  production, path `/api/admin`), lasting 8 hours. Only its SHA-256 hash is stored
+  (`AdminSession`), so logging out or deactivating an account takes effect at once. No tokens in
+  `localStorage`. All frontend HTTP goes through `frontend/src/services/` (`adminApi.ts`).
+- Passwords: scrypt at OWASP's minimum cost, built into Node (`services/passwords.ts`). Unknown
+  emails take as long to reject as wrong passwords, and both get the same message.
+- Admins change their own password at `#admin/password` (current password required, at least 15
+  characters per NIST SP 800-63B, no composition rules); it ends their other sessions. Wrong current
+  passwords count toward the login rate limit.
+- Admins cannot demote, deactivate, or delete themselves. **No 2FA yet** (the user chose to leave
+  it out for now, 2026-10-21); reconsider before real prices go live.
 
 ### 4.6 Audit trail for admin changes
 
@@ -198,14 +208,20 @@ Every price change, product change, and order status change made by an admin rec
 **what** (old and new value), and **when**. *Why:* prices appear on the live site and drive real
 payments; GPEC must be able to answer "who changed this price and when?"
 
+Implemented for products (`models/AuditRecord.ts`, `services/adminProducts.ts`): the change and
+its record are written in **one MongoDB transaction**, so a product cannot change without a record.
+Only fields whose value actually changes are recorded. Transactions need a replica set: Atlas is
+one, and the tests use an in-memory replica set.
+
 ### 4.7 Rate limiting and spam protection
 
 Implemented in `backend/src/app.ts` with `express-rate-limit`: `POST /api/enquiries` and
 `POST /api/contact-requests` each have their own per-IP budget — 10 requests per 15 minutes in
 production, 100 in development and test (set in `src/config.ts`). The production limit is the
 security boundary; the looser one exists so manual and automated checks do not lock the developer
-out. Keep that difference deliberate. Still needed: order creation, the Paystack webhook (its own
-limiter), and admin login (stricter). All visitors are anonymous, so key by IP. The in-memory store
+out. Keep that difference deliberate. Admin login has a stricter budget that counts **failed**
+attempts only: 5 per 15 minutes in production, 50 otherwise. Still needed: order creation and the
+Paystack webhook (its own limiter). All visitors are anonymous, so key by IP. The in-memory store
 only works with one API instance (Section 6.3).
 
 **Behind Coolify's proxy, `trust proxy` is set to one hop in production only.** Without it every
@@ -276,6 +292,11 @@ name), and logs which database it found. The guard only works if production sets
   The 14 current products are samples from `backend/src/data/sampleProducts.ts`, loaded by
   `npm run seed:products` (Section 11).
 
+- **AdminUser** — `email` (unique), `name`, `passwordHash`, `role` (`admin`), `isActive`,
+  `lastLoginAt`. **AdminSession** — `tokenHash`, `admin`, `expiresAt` (TTL index deletes expired
+  sessions). **AuditRecord** — `action`, `targetType`, `targetId`, `actor { adminId, email, name }`
+  (copied at the time), `changes [{ field, from, to }]`, `createdAt`; never edited or deleted.
+
 **Planned entities** (define fully when built, and update this section):
 
 - **Order** — `_id` (also the Paystack reference), customer-facing reference, items with **unit
@@ -284,7 +305,6 @@ name), and logs which database it found. The guard only works if production sets
   `pending_payment`, `paid`, `failed`, `cancelled` — confirm the set before building), `paidAt`.
 - **WebhookEvent** — Paystack event `id` (unique index), event type, minimal payload, processing
   status, timestamps (Section 4.1).
-- **Admin user** and **audit record** (Section 4.6).
 
 **General rules:**
 
@@ -311,6 +331,7 @@ name), and logs which database it found. The guard only works if production sets
 ├── HANDOVER.md               # Current state and next steps for a new session; update at session end
 ├── .github/workflows/ci.yml  # CI: type-checks, builds, tests, audit, secret scan
 ├── docs/RUNBOOK.md           # Coolify and Atlas setup, deploy, rollback, incidents (for the owner)
+├── docs/COMMANDS.md          # Every command the developer runs, local and production
 ├── backend/                  # Express 5 + Mongoose API (TypeScript, compiled to dist/)
 │   ├── Dockerfile            # Production image (build context: backend/)
 │   ├── tsconfig.json
@@ -320,11 +341,13 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── server.ts         # Loads config, connects MongoDB, production database guard, listens
 │       ├── config.ts         # Zod-validated environment settings (the only reader of process.env)
 │       ├── app.ts            # helmet, CORS, JSON parsing, rate limits, routes, 404, error handler
-│       ├── routes/           # HTTP wiring (enquiries.ts, contactRequests.ts, products.ts)
+│       ├── errors.ts         # HttpError, ValidationError, NotFoundError, ConflictError
+│       ├── middleware/       # requireAdmin.ts: the one admin login check
+│       ├── routes/           # HTTP wiring: public (products, enquiries, contact) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
-│       ├── models/           # Mongoose schemas (Enquiry.ts, ContactRequest.ts, Product.ts)
-│       ├── services/         # Business logic (products.ts: catalogue queries and seeding)
-│       ├── scripts/          # One-off commands (seedProducts.ts)
+│       ├── models/           # Enquiry, ContactRequest, Product, AdminUser, AdminSession, AuditRecord
+│       ├── services/         # Business logic: products, adminProducts, adminAuth, passwords, currency
+│       ├── scripts/          # Commands: seedProducts.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers
 │       └── data/             # sampleProducts.ts: placeholder products for the seed script
 └── frontend/                 # React + Vite SPA (TypeScript)
@@ -335,12 +358,13 @@ name), and logs which database it found. The guard only works if production sets
     ├── public/assets/        # Images and videos served at /assets/...
     └── src/
         ├── main.tsx          # Entry point
-        ├── App.tsx           # Hash router: #shop, #shop/order, else landing page
+        ├── App.tsx           # Hash router: #shop, #shop/order, #admin… (lazy-loaded), else landing
         ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, enquiry API
-        ├── pages/            # LandingPage.tsx, StorePage.tsx
-        ├── components/       # Header, Footer, LogoLockup, Arrow; shop/ for store components
-        ├── data/             # Site copy (landingContent.ts)
+        ├── pages/            # LandingPage.tsx, StorePage.tsx, AdminPage.tsx
+        ├── components/       # Header, Footer, LogoLockup, Arrow; shop/ and admin/ subfolders
+        ├── data/             # Site copy (landingContent.ts, adminContent.ts)
         ├── services/         # apiClient.ts (all HTTP), *Api.ts per resource, cartStorage.ts
+        ├── utils/            # money.ts: price input and display (no floating-point maths)
         ├── fonts/            # Self-hosted font files and their licences (no Google Fonts calls)
         └── styles.css        # All styles, one global stylesheet
 ```
@@ -368,11 +392,11 @@ by code.
 
 - The central error handler in `backend/src/app.ts` maps JSON syntax errors and Mongoose validation
   errors to 400 and everything else to 500. Extend it; do not hand-roll error JSON in routes.
-- Error responses use `{ message, errors? }`. Keep that shape for new routes, and add a stable
-  machine-readable `code` (e.g. `PAYMENT_CONFIG_ERROR`, `ORDER_ALREADY_PAID`) when the frontend
-  needs to show a specific message. When the backend grows, introduce a small set of error classes
-  (`ValidationError` 400, `NotFoundError` 404, `ConflictError` 409, plus 401/403 for admin) handled
-  by that one handler.
+- Error responses use `{ message, code?, errors? }`, with a stable machine-readable `code` (e.g.
+  `ADMIN_AUTH_REQUIRED`, `CURRENCY_NOT_CONFIGURED`, later `ORDER_ALREADY_PAID`) when the frontend
+  needs to react to a specific case. Throw the classes in `backend/src/errors.ts` (`HttpError`,
+  `ValidationError` 400, `NotFoundError` 404, `ConflictError` 409); the central handler turns them
+  into responses. The admin routes use them; the older form routes still build their 400s inline.
 - Only log errors with status ≥ 500 as server errors. A declined card is normal operation.
 - Never leak internal error details or stack traces to the client.
 
@@ -397,6 +421,9 @@ Node.js 22, Express 5, Mongoose 8, MongoDB. Payments: Paystack (planned, hosted 
 - Shared shapes live in `frontend/src/types.ts`. The backend has its own types until a shared
   package is introduced with the orders work.
 
+All commands, including production ones, are collected for the developer in
+[`docs/COMMANDS.md`](docs/COMMANDS.md). Keep it in step when commands change.
+
 ```bash
 # Install
 cd backend && npm install
@@ -405,6 +432,8 @@ cd frontend && npm install
 # Run locally. backend/.env sets MONGODB_URI to the gpec_dev database on the shared Atlas
 # cluster — never the production gpec database (Section 5, "Databases").
 cd backend && npm run seed:products   # first time: adds the sample products to gpec_dev
+cd backend && npm run admin:create -- --email you@example.com --name "Your Name"   # prints a password once
+cd backend && npm run admin:create -- --email you@example.com --reset             # new password, ends sessions
 cd backend && npm run dev      # tsx watch src/server.ts
 cd frontend && npm run dev     # Vite dev server
 
@@ -433,9 +462,10 @@ mongosh "<MONGODB_URI>" --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5
 | MongoDB (only if run locally; normally Atlas) | 27017 |
 
 **Environment:**
-- `backend/.env.example`: `PORT`, `MONGODB_URI`, `CLIENT_ORIGIN`. Payments will add
-  `PAYSTACK_SECRET_KEY`, `FRONTEND_URL` (for the Paystack callback), the currency, and the Paystack
-  fee settings — add them to `.env.example` when implemented.
+- `backend/.env.example`: `PORT`, `MONGODB_URI`, `CLIENT_ORIGIN`, `CURRENCY` (ISO code such as
+  `NGN`; **unset until GPEC confirms it** — admins cannot set prices and no payment can start while
+  it is unset). Payments will add `PAYSTACK_SECRET_KEY`, `FRONTEND_URL` (for the Paystack callback),
+  and the Paystack fee settings — add them to `.env.example` when implemented.
 - `frontend/.env.example`: `VITE_API_BASE_URL`. Anything prefixed `VITE_` is public; never put a
   secret there.
 - `MONGODB_URI` points to MongoDB Atlas. The database name is the path segment before `?`:
@@ -585,6 +615,9 @@ raw public URL on the record.
 - Routing is hash-based in `App.tsx`. Any new route must be added there.
 - **Before creating a new page, read the existing pages and match their shell** (skip link, header,
   `main` with an id, footer).
+- **In-page links must not change the hash.** The router reads `location.hash`, so a plain
+  `href="#shop-main"` is a route change and leaves the page. Skip links call `preventDefault()` and
+  focus the target, which has `tabIndex={-1}` (see `StorePage.tsx`, `AdminPage.tsx`).
 
 ### Data
 - All HTTP goes through `frontend/src/services/`. No inline `fetch` in components.
@@ -676,11 +709,12 @@ raw public URL on the record.
 6. Add any new env variable to `.env.example`.
 7. Update `backend/README.md` route list and, if behaviour changed, `ECOMMERCE_REQUIREMENTS.md`.
 
-### Changing the product catalogue (until the admin panel exists)
-1. Products live in MongoDB. The seed script only **adds** missing sample products
+### Changing the product catalogue
+1. Products live in MongoDB and are edited in the admin panel (`#admin`), which records every
+   change. The seed script only **adds** missing sample products
    (`cd backend && npm run seed:products`); it never changes or removes existing ones.
-2. Real GPEC products are entered directly in the database (or by an updated seed) with
-   `isPlaceholder: false`. Use only GPEC-supplied data; anything else stays `isPlaceholder: true`.
+2. Real GPEC products are entered with "Sample listing" unticked (`isPlaceholder: false`). Use only
+   GPEC-supplied data; anything else stays marked as a sample.
 3. Remove a product by setting `status: 'archived'`, not by deleting it — past enquiries and
    orders refer to it.
 4. The seed script refuses the production `gpec` database unless run with `--production`; that
@@ -779,8 +813,11 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - The shop is still enquiry-only: no prices, no pickup/delivery choice, no Paystack integration.
 - The contact-form subject list is duplicated (`frontend/src/data/landingContent.ts` and
   `backend/src/validation/contactRequest.ts`).
-- No admin panel or authentication, so nobody can read saved enquiries or contact requests except
-  through the database.
+- The admin panel has products only: nobody can read saved enquiries or contact requests except
+  through the database (step 6, part 2).
+- No admin 2FA, no admin account management in the panel (create, reset, and deactivate are by
+  command or database only; each admin can change their own password), and no image uploads (product images must already be in
+  `public/assets/`).
 - No customer confirmation emails or staff notifications, no bot protection beyond rate limits
   (e.g. CAPTCHA or honeypot), no file uploads, no privacy notice.
 - Product modal does not trap focus or return focus to the card when closed.

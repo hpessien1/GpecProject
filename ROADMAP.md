@@ -16,7 +16,7 @@ does. Update this file as steps are completed or the plan changes.
 | 3. Deploy early on Coolify | In progress — files ready; Coolify and Atlas setup by the project owner |
 | 4. Products in MongoDB | Done (2026-10-21) |
 | 5. Checkout and Paystack (test mode) | Not started — needs GPEC information |
-| 6. Admin panel | Not started |
+| 6. Admin panel | In progress — products and prices done; enquiry lists next |
 
 Already done: TypeScript conversion (frontend and backend), dependency pinning, root `.gitignore`,
 `gpec_dev` / `gpec` database split with a production startup guard, backup remote on `kworlanyo`.
@@ -100,9 +100,17 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 
 ## 6. Admin panel
 
-- [ ] Admin login with roles; no customer accounts.
-- [ ] Product and price management; price history (who changed what, when).
-- [ ] Order and enquiry lists for GPEC staff.
+- [x] Admin login at `#admin` (2026-10-21): email and password (scrypt), server-side sessions in a
+      secure cookie, strict failed-login limit, accounts created by command only. No customer
+      accounts. 2FA left out for now by the user's choice.
+- [x] Product and price management: create, edit, archive; every change and its history record are
+      saved together (who, old value, new value, when). Prices need the `CURRENCY` setting, which
+      stays unset until GPEC confirms the currency.
+- [x] Each admin changes their own password in the panel (other sessions end); every command is
+      listed in [`docs/COMMANDS.md`](docs/COMMANDS.md).
+- [ ] Enquiry and contact-request lists for GPEC staff (read-only).
+- [ ] Order lists (with step 5).
+- [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
 
 ---
 
@@ -111,7 +119,8 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 These block launch, and several block steps 4 to 6. Ask early.
 
 - [ ] Real product list: names, specifications, photos, and **prices**.
-- [ ] Currency confirmation (NGN expected).
+- [ ] Currency confirmation (NGN expected). Until then admins cannot enter prices.
+- [ ] Names and emails of the GPEC staff who need admin accounts.
 - [ ] Paystack business account, and confirmation that passing the Paystack fee to customers is
       allowed under GPEC's Paystack terms.
 - [ ] Delivery fee rules and delivery areas; pickup location and hours.
@@ -135,3 +144,4 @@ These block launch, and several block steps 4 to 6. Ask early.
   part of the admin panel in step 6).
 - Bot protection for the public forms beyond rate limits (honeypot field or CAPTCHA).
 - Order form: move focus to the error message after a failed submission, as the contact form does.
+- Image uploads for products (admins can only pick images already on the site).

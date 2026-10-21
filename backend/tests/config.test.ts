@@ -56,4 +56,19 @@ describe('loadConfig', () => {
     expect(load).toThrow('MONGODB_URI must start with mongodb:// or mongodb+srv://')
     expect(load).toThrow('- PORT ')
   })
+
+  it('has no currency unless one is set, and never assumes one', () => {
+    expect(loadConfig({}).currency).toBeNull()
+    expect(loadConfig({ CURRENCY: '' }).currency).toBeNull()
+    expect(loadConfig({ CURRENCY: ' ngn ' }).currency).toBe('NGN')
+  })
+
+  it('rejects a currency that is not an ISO 4217 code', () => {
+    expect(() => loadConfig({ CURRENCY: 'NAIRA' })).toThrow('CURRENCY must be an ISO 4217 currency code')
+  })
+
+  it('applies the stricter admin login limit in production', () => {
+    expect(loadConfig({}).adminLoginRateLimit.limit).toBe(50)
+    expect(loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://db/gpec', CLIENT_ORIGIN: 'https://gpec.example.com' }).adminLoginRateLimit.limit).toBe(5)
+  })
 })
