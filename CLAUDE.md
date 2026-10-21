@@ -862,13 +862,17 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   GPEC's real product list replaces them. No prices exist yet.
 - Portfolio cards label images "Illustrative visual" but also say "Built by the GPEC team".
 - The client name "Afrizone" is published; permission is unconfirmed.
-- About and Current Work (home page) are placeholders: GPEC must supply company background,
-  registrations, location, and approved current-project updates (each with status and date).
+- About and Current Work (home page) contain **mock content**, added at the project owner's request
+  (2026-10-21). It avoids specific claims (no years, numbers, certifications, client names, or
+  photos). At the owner's request **nothing on the page marks it as mock**; only the code comments
+  in `data/landingContent.ts` do. **Before launch, replace both with GPEC-approved text.**
 - The first project video (`portfolio-electrical-components.mp4`) has a sound track and no captions.
   GPEC must confirm whether it contains speech; if so, add captions (a `<track>`), otherwise mute it
   or remove the track. Marked in `LandingPage.tsx` with an `oxlint-disable` comment.
 - Only six of the nine business areas are shown; the accessory categories are merged.
-- Footer says "Company contact details to be added"; no phone, email, or address anywhere.
+- The footer shows **mock contact details** (owner's request, 2026-10-21): `info@example.com` (a
+  domain reserved for examples) and an invalid phone number, so no customer can reach a stranger.
+  Replace with GPEC's real details in `data/landingContent.ts` (`companyContact`) before launch.
 
 **Functionality**
 - The shop is still enquiry-only: no prices, no pickup/delivery choice, no Paystack integration.

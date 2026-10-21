@@ -131,7 +131,9 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Currency confirmation (NGN expected). Until then admins cannot enter prices.
 - [ ] Names and emails of the GPEC staff who need admin accounts.
 - [ ] Content for the About section (background, registrations, location) and approved
-      current-work updates with dates.
+      current-work updates with dates. Unlabelled mock content fills both until then.
+      **Replace both before launch**
+      (`frontend/src/data/landingContent.ts`).
 - [ ] Whether the first project video's sound contains speech (captions needed if so).
 - [ ] Privacy notice details and approval: legal company name and number, address, privacy contact
       email, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
@@ -139,7 +141,8 @@ These block launch, and several block steps 4 to 6. Ask early.
       allowed under GPEC's Paystack terms.
 - [ ] Delivery fee rules and delivery areas; pickup location and hours.
 - [ ] Refund, cancellation, and returns policy.
-- [ ] Phone, email, address, business hours, and social links for the site.
+- [ ] Phone, email, address, business hours, and social links for the site. Mock, unreachable
+      details are in the footer until then; **replace before launch**.
 - [ ] Domain names for the website and the API (blocks the first deploy).
 - [ ] Named owners and logins for Coolify, Atlas, GitHub, Paystack, and the domain registrar
       (runbook Section 5).

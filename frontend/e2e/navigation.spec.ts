@@ -55,11 +55,23 @@ test.describe('main menu', () => {
 })
 
 test.describe('home page sections', () => {
-  test('About and Current Work show GPEC\'s missing details as highlighted placeholders', async ({ page }) => {
+  test('About and Current Work show their text, with no "sample" label', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#about')
-    await expect(page.locator('#about mark.placeholder-text').first()).toBeVisible()
-    await expect(page.locator('#current-work')).toContainText('No current work has been published yet.')
-    await expect(page.locator('#current-work mark.placeholder-text')).toBeVisible()
+    await expect(page.locator('#about .about-lead')).toContainText('GPEC is an engineering company')
+    await expect(page.locator('#about .about-body p')).toHaveCount(2)
+    await expect(page.locator('#about .about-highlights li')).toHaveCount(3)
+    await expect(page.locator('#current-work .current-work-lead')).toBeVisible()
+    await expect(page.locator('.current-work-list li')).toHaveCount(3)
+    await expect(page.getByText(/Sample content/)).toHaveCount(0)
+  })
+
+  test('each current-work update shows its stage and last-updated date', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#current-work')
+    const first = page.locator('.current-work-list li').first()
+    await expect(first.locator('.current-work-status')).not.toBeEmpty()
+    await expect(first.locator('time')).toHaveAttribute('datetime', /^\d{4}-\d{2}-\d{2}$/)
+    await expect(first.locator('time')).toHaveText(/^\d{1,2} [A-Z][a-z]{2} \d{4}$/)
   })
 })
