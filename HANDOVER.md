@@ -85,6 +85,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
     only; `-- --remove` deletes exactly them). Demo data is loaded in `gpec_dev`. The user's
     `tsx watch` API missed the new route until restarted by hand; if a new route answers "Route
     not found", restart `npm run dev` (noted in docs/COMMANDS.md).
+  - Then: CI failed on `54312ac` (lint: `expect` inside `if` in `tests/adminOrders.test.ts`; fixed).
+    CI actions updated to Node 24 releases: checkout v7.0.1, setup-node v7.1.0 (pinned by commit;
+    release notes checked: no breaking change for the inputs CI uses). Run the full CI steps,
+    including lint, before calling a change done.
 - **Session before (2026-10-21)** (commit `eb436d7`, pushed; CI green):
   - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
     became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
@@ -141,11 +145,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Open items for the next session
 
-1. Everything up to `eb436d7` is pushed and CI is green. Eight later commits (handover update,
-   search and notes, password Show/Hide, breach check and counter, product photo uploads, same logo
-   everywhere, no order enquiries with stock and Orders tab, Orders screens and demo data) are
-   committed but not pushed; the user pushes. CI has not yet run on them (it also builds both
-   Docker images, which matters for `sharp`).
+1. Everything up to `54312ac` (Orders screens and demo data) was pushed by the user on 2026-10-22.
+   CI on it failed only on a backend lint error; every other job passed, including both Docker
+   builds (so `sharp` installs on CI). The fix and the CI action update (the next commit) are committed
+   but not pushed; the user pushes. Check that CI is green after the push.
 2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and
    Coolify from `docs/RUNBOOK.md`; never deploy. Coolify's health check now depends on the
    database (`/api/health` returns 503 if MongoDB does not answer), so a wrong `MONGODB_URI` shows

@@ -189,9 +189,13 @@ describe('demo data', () => {
       expect(order.subtotal).toBe(order.items.reduce((sum, item) => sum + item.lineTotal, 0))
       for (const item of order.items) expect(item.lineTotal).toBe(item.unitPrice * item.quantity)
       expect(order.total).toBe(order.subtotal + order.deliveryFee + order.paystackFee)
-      if (order.fulfilmentMethod === 'pickup') expect(order).toMatchObject({ deliveryAddress: '', deliveryFee: 0 })
-      if (order.paymentStatus !== 'paid') expect(order.paidAt).toBeNull()
     }
+    const pickup = await Order.find({ fulfilmentMethod: 'pickup' }).lean()
+    expect(pickup.length).toBeGreaterThan(0)
+    expect(pickup.map((order) => [order.deliveryAddress, order.deliveryFee])).toEqual(pickup.map(() => ['', 0]))
+    const unpaid = await Order.find({ paymentStatus: { $ne: 'paid' } }).lean()
+    expect(unpaid.length).toBeGreaterThan(0)
+    expect(unpaid.map((order) => order.paidAt)).toEqual(unpaid.map(() => null))
   })
 
   it('uses only reserved example email domains and unreachable phone numbers', async () => {
