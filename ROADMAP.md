@@ -130,6 +130,9 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
       (2026-10-22).
 - [ ] Order lists (with step 5).
 - [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
+- [x] Product photo uploads from the admin's own device (laptop, phone, or tablet), with a preview:
+      checked, resized, and stored in a private Amazon S3 bucket (2026-10-22). Off until GPEC's
+      bucket exists.
 - [ ] **"Forgot password" for admins, required once email works** (the user's decision,
       2026-10-22). Until GPEC's Amazon SES account is set up, a forgotten password is reset only by
       command (`npm run admin:create -- --reset`). Build it as soon as email is switched on.
@@ -164,9 +167,10 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Who receives order and enquiry notifications (`STAFF_NOTIFICATION_EMAILS`).
 - [ ] An Amazon Web Services account for email (Amazon SES), the domain verified in SES, and
       production access approved. Email is built and stays off until then (RUNBOOK 1.6).
+- [ ] In the same AWS account, a private S3 bucket for product photos and its upload key. Photo
+      uploads are built and stay off until then (RUNBOOK 1.7).
 - [ ] Permission to name Afrizone, and approved real project photos.
 
 ## Later / not yet scheduled
 
 - File uploads on the quote form (drawings, nameplate photos).
-- Image uploads for products (admins can only pick images already on the site).

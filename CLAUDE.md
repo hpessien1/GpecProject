@@ -310,7 +310,8 @@ name), and logs which database it found. The guard only works if production sets
 - **Product** (`backend/src/models/Product.ts`) — the single source of the catalogue. `_id` is the
   short internal key (e.g. `panel-001`, lowercase letters, digits, hyphens), used in carts and
   enquiry items; `reference` (unique, e.g. `GPEC-CP-001`) is the customer-facing product code. Do
-  not confuse them. Also `name`, `description`, `specs`, `image`, `alt`, `price` (integer in the
+  not confuse them. Also `name`, `description`, `specs`, `image` (a site file, `/assets/…`, or an
+  uploaded photo, `product-images/<sha256>.webp`, served by the API; Section 8), `alt`, `price` (integer in the
   currency's smallest unit, `null` until GPEC sets it), `isPlaceholder` (sample data, labelled in
   the shop), `status` (`active` | `archived`), `sortOrder`, timestamps. `GET /api/products` returns
   active products **without** `price` until step 5 configures the currency.
@@ -371,7 +372,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── routes/           # HTTP wiring: public (products, enquiries, contact) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # Enquiry, ContactRequest, RequestNote, Product, AdminUser, AdminSession, AuditRecord
-│       ├── services/         # Business logic: products, admin*, passwords, currency, email, emailTemplates, notifications
+│       ├── services/         # Business logic: products, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, productImages
 │       ├── scripts/          # Commands: seedProducts.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers
 │       └── data/             # sampleProducts.ts: placeholder products for the seed script
@@ -497,7 +498,8 @@ mongosh "<MONGODB_URI>" --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5
   `NGN`; **unset until GPEC confirms it** — admins cannot set prices and no payment can start while
   it is unset), `FRONTEND_URL` (the public site; links in emails, later the Paystack callback), and
   the email settings `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `EMAIL_FROM`,
-  `STAFF_NOTIFICATION_EMAILS` (all or none). Payments will add `PAYSTACK_SECRET_KEY` and the
+  `STAFF_NOTIFICATION_EMAILS` (all or none), and the photo storage settings `S3_REGION`,
+  `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (all or none). Payments will add `PAYSTACK_SECRET_KEY` and the
   Paystack fee settings — add them to `.env.example` when implemented.
 - `frontend/.env.example`: `VITE_API_BASE_URL`. Anything prefixed `VITE_` is public; never put a
   secret there.
@@ -543,7 +545,10 @@ users (`node` for the API; `nginx` on port 8080 via `nginx-unprivileged` for the
   depends on. `server.ts` handles `SIGTERM` so a redeploy finishes open requests instead of being
   killed after Docker's 10-second timeout.
 - `VITE_API_BASE_URL` is compiled into the site, so it is a **build** argument. The frontend build
-  refuses a missing or non-https value, and the same value sets the CSP's `connect-src`. A new
+  refuses a missing or non-https value, and the same value sets the CSP's `connect-src` and
+  `img-src` (uploaded photos come from the API). The Dockerfile's `sed` must replace every
+  occurrence (`g`): the address appears twice on one line. `e2e/csp.spec.ts` applies the real policy
+  in the browser tests, because `vite preview` sends none. A new
   external source (Paystack script, analytics, another font host) needs a CSP change in
   `frontend/nginx/security-headers.conf`.
 - nginx sends the security headers from `frontend/nginx/security-headers.conf` (CSP,
@@ -561,7 +566,9 @@ database outage the proxy may then stop sending traffic to the API, so the site'
 "could not reach GPEC" message either way.
 
 **Before launch (infrastructure checklist):**
-- Atlas cluster on a tier with **automated backups** (the free M0 tier has none), and one backup
+- Atlas cluster on a tier with **automated backups** (GPEC intends to start on the free M0 tier,
+  2026-10-22, which per MongoDB's docs can keep only 4 daily snapshots, with no point-in-time
+  restore, 0.5 GB of storage, and 10 GB out per week), and one backup
   restore actually tested.
 - Atlas network access limited to the Hetzner server IP plus the developer's current IP (needed
   because local development uses the same cluster), never `0.0.0.0/0`.
@@ -651,10 +658,30 @@ to it in the admin panel) and sends the customer a plain-text confirmation with 
   none; a partial set stops the server at startup (`config.ts`). GPEC has no AWS account yet;
   setup: `docs/RUNBOOK.md` Section 1.6. A sending-only IAM key, never the root account.
 
-### File uploads — planned
+### Product photos (Amazon S3)
+Admins upload a product photo from their own device in the product form (approved, with Amazon S3
+and `sharp`, by the user 2026-10-22). Off until the four `S3_*` settings are set; until then the form
+takes a site image path (`/assets/…`) and the session reply's `imageUploads` is `false`.
+- The browser sends the file as the body of `POST /api/admin/product-images` (admin only; JPEG, PNG,
+  or WebP; 10 MB). `services/productImages.ts` opens it with `sharp` (anything that is not really one
+  of those formats is refused, fail closed), turns it upright, fits it in 1600×1600, and re-encodes it
+  as WebP, which drops camera details such as GPS location. Only the re-encoded file is stored, named
+  by its SHA-256 (`product-images/<hash>.webp`), and that name goes in the product's `image` field
+  when the form is saved (recorded like any product change).
+- The bucket is **private**. `GET /api/product-images/<hash>.webp` (public) reads it and serves it
+  with a one-year immutable cache and `Cross-Origin-Resource-Policy: cross-origin` (the site is on
+  another origin). `services/imageStore.ts` is the only code that talks to S3; tests use
+  `MemoryImageStore` (`tests/helpers.ts`).
+- Not copied from Vision 25 on purpose: direct browser-to-S3 uploads. They needed a staging prefix,
+  upload intents, a cleanup job, and virus scanning; GPEC must resize on the server anyway, so nothing
+  unchecked ever reaches the bucket.
+- Photos are never deleted from the bucket: replaced ones, and ones uploaded but never saved, stay
+  (a few hundred kB each).
+
+### File uploads on the quote form — planned
 README asks for drawings and photos on quote forms. When built: validate type and size on the
-server, keep files private, generate short-lived download links for admins only, and never store a
-raw public URL on the record.
+server, keep files private (a separate private prefix or bucket), generate short-lived download
+links for admins only, never store a raw public URL on the record, and update the privacy notice.
 
 ---
 
@@ -923,8 +950,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   substring match with no index, which is fine for GPEC's volume; revisit (text index) if the
   lists reach tens of thousands of requests.
 - No admin 2FA, no admin account management in the panel (create, reset, and deactivate are by
-  command or database only; each admin can change their own password), and no image uploads (product images must already be in
-  `public/assets/`).
+  command or database only; each admin can change their own password).
+- Product photo uploads are built but **off**: GPEC has no Amazon S3 bucket yet (RUNBOOK 1.7). Until
+  then product images must already be in `public/assets/`.
 - **No "forgot password" for admins yet; required once email works** (user's decision,
   2026-10-22). Until SES is set up, resets are by command only. When built, follow Section 4.5:
   a random single-use link token that expires quickly, stored only as a hash; the same reply
@@ -932,7 +960,7 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   sessions.
 - Email notifications are built but **off**: GPEC has no Amazon SES account yet (RUNBOOK 1.6).
   No bounce or complaint handling yet (SES can report these through SNS).
-- No file uploads.
+- No file uploads on the quote form.
 - The privacy notice (`#privacy`) is a **draft**: GPEC must supply the highlighted placeholders
   (legal name, privacy contact, retention, hosting regions, legal wording) and approve it.
 

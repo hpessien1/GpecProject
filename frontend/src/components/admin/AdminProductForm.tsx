@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode, SubmitEvent } from 'react'
 import Arrow from '../Arrow'
+import ProductImageField from './ProductImageField'
 import { productFieldLabels, productStatusLabels } from '../../data/adminContent'
 import { inputToMinorUnits, minorUnitsToInput } from '../../utils/money'
 import type { AdminProduct, CurrencyInfo, EditableProductFields } from '../../types'
@@ -12,9 +13,11 @@ interface AdminProductFormProps {
   // null when creating a new product.
   product: AdminProduct | null
   currency: CurrencyInfo | null
+  imageUploads: boolean
   isSaving: boolean
   serverErrors: Record<string, string>
   onSubmit: (values: ProductFormValues) => void
+  onSessionEnded: () => void
 }
 
 interface FieldProps {
@@ -38,15 +41,20 @@ function describedBy(name: string, errors: Record<string, string>, hint: boolean
   return [hint && `product-${name}-hint`, errors[name] && `product-${name}-error`].filter(Boolean).join(' ') || undefined
 }
 
-export default function AdminProductForm({ product, currency, isSaving, serverErrors, onSubmit }: AdminProductFormProps) {
+export default function AdminProductForm({ product, currency, imageUploads, isSaving, serverErrors, onSubmit, onSessionEnded }: AdminProductFormProps) {
   const [priceError, setPriceError] = useState('')
-  const errors = priceError ? { ...serverErrors, price: priceError } : serverErrors
+  const [imageError, setImageError] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
+  const errors: Record<string, string> = { ...serverErrors, ...(priceError && { price: priceError }), ...(imageError && { image: imageError }) }
   const isNew = product === null
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const field = (name: string) => String(formData.get(name) ?? '').trim()
+    // A chosen photo is kept in a hidden field, which the browser's own required check skips.
+    setImageError(field('image') ? '' : 'Choose a photo for the product.')
+    if (!field('image')) return
     let price = product?.price ?? null
     if (currency) {
       const parsed = inputToMinorUnits(field('price'), currency)
@@ -85,9 +93,7 @@ export default function AdminProductForm({ product, currency, isSaving, serverEr
     <Field name="specs" errors={errors} hint="One per line, up to 10.">
       <textarea id="product-specs" name="specs" rows={4} defaultValue={product?.specs.join('\n')} aria-describedby={describedBy('specs', errors, true)} />
     </Field>
-    <Field name="image" errors={errors} hint="A file already on the site, e.g. /assets/electrical-panels-product.png. Uploading new images is not available yet.">
-      <input id="product-image" name="image" required maxLength={300} defaultValue={product?.image} aria-describedby={describedBy('image', errors, true)} />
-    </Field>
+    <ProductImageField initialImage={product?.image ?? ''} uploadsEnabled={imageUploads} error={errors.image} onUploadingChange={setIsUploading} onSessionEnded={onSessionEnded} />
     <Field name="alt" errors={errors} hint="Describes the image for people who cannot see it.">
       <input id="product-alt" name="alt" required maxLength={300} defaultValue={product?.alt} aria-describedby={describedBy('alt', errors, true)} />
     </Field>
@@ -106,6 +112,6 @@ export default function AdminProductForm({ product, currency, isSaving, serverEr
       <label><input name="isPlaceholder" type="checkbox" defaultChecked={product?.isPlaceholder ?? false} /> {productFieldLabels.isPlaceholder}: details are not yet supplied or approved by GPEC. The shop labels these “Sample listing”.</label>
       {errors.isPlaceholder && <small className="admin-field-error">{errors.isPlaceholder}</small>}
     </div>
-    <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>{isNew ? 'Create product' : 'Save changes'} <Arrow /></>}</button>
+    <button className="button button-primary" type="submit" disabled={isSaving || isUploading}>{isSaving ? 'Saving…' : isUploading ? 'Uploading photo…' : <>{isNew ? 'Create product' : 'Save changes'} <Arrow /></>}</button>
   </form>
 }

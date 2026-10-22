@@ -36,7 +36,9 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
   `GET /api/admin/products/:id/history`; `GET /api/admin/enquiries`, `GET`, `PATCH /api/admin/enquiries/:reference`,
   `POST /api/admin/enquiries/:reference/notes`; `GET /api/admin/contact-requests`, `GET`,
-  `PATCH /api/admin/contact-requests/:reference`, `POST /api/admin/contact-requests/:reference/notes`
+  `PATCH /api/admin/contact-requests/:reference`, `POST /api/admin/contact-requests/:reference/notes`;
+  `POST /api/admin/product-images`
+- Public product photos: `GET /api/product-images/:hash.webp`
 
 `GET /api/products` returns `{ products: [...] }`: every active product in display order, with `id`,
 `name`, `reference`, `description`, `specs`, `image`, `alt`, and `isPlaceholder` (true for sample
@@ -80,6 +82,15 @@ All admin responses are sent with `Cache-Control: no-store`.
   except `id`. Unknown fields and wrong types get `400`; a duplicate `id` or `reference` gets
   `409 PRODUCT_CONFLICT`; a price while `CURRENCY` is unset gets `409 CURRENCY_NOT_CONFIGURED`.
   There is no delete: set `status` to `archived`.
+- `POST /api/admin/product-images` takes one photo as the request body, with `Content-Type`
+  `image/jpeg`, `image/png`, or `image/webp` (up to 10 MB; larger gets `413 PAYLOAD_TOO_LARGE`). The
+  server re-encodes it (upright, at most 1600×1600, WebP, camera details removed), stores it in the
+  private S3 bucket, and answers `201 { image: "product-images/<sha256>.webp" }`: the value to save
+  in a product's `image`. Anything that is not really one of those formats gets `400`. While the
+  `S3_*` settings are unset it answers `503 IMAGE_UPLOADS_OFF`, and the session replies say
+  `imageUploads: false`.
+- `GET /api/product-images/<sha256>.webp` (public) serves an uploaded photo from the bucket, cached
+  for a year (`immutable`); unknown names get `404`.
 - `GET /:id/history` returns the last 50 changes: who, when, and each field's old and new value.
 - `GET /api/admin/enquiries?page=N&status=new|in_progress|closed&q=text` (all optional) lists order
   enquiries newest first, 25 per page, with `counts` per status. `q` (up to 100 characters) keeps

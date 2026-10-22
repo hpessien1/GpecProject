@@ -52,6 +52,16 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
     characters", then "15 characters ✓ long enough"); screen readers hear only the moment it is
     long enough. No strength meter, by choice: it would disagree with the real rules (length and
     the breach check).
+  - Then (committed, not pushed): **product photo uploads** from the admin's laptop, phone, or tablet,
+    with a preview (current photo, the chosen one at once, then the resized one). Amazon S3 and
+    `sharp` approved by the user. Private bucket; the API checks, re-encodes, and serves photos
+    (CLAUDE.md Section 8, "Product photos"). Off until GPEC's S3 bucket exists (RUNBOOK 1.7). Found
+    and fixed on the way: the CSP blocked images from the API and `blob:` previews, and the
+    Dockerfile's `sed` replaced only the first `__API_ORIGIN__` on a line (would have broken every
+    API call once a second one was added); `e2e/csp.spec.ts` now applies the real policy. Oversized
+    JSON bodies now get 413 instead of 500. Both Docker images built and checked locally (`sharp`
+    works in the Alpine API image). Your one-line `.admin-history-meta` size change (0.65 → 0.75rem)
+    is included; contrast passes.
 - **Session before (2026-10-21)** (commit `eb436d7`, pushed; CI green):
   - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
     became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
@@ -89,7 +99,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
   - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
   - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 172 backend tests (Vitest, in-memory MongoDB replica set). 100 frontend Playwright
+- **Tests:** 200 backend tests (Vitest, in-memory MongoDB replica set). 114 frontend Playwright
   tests (2 run at one width only) in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
   build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
@@ -108,16 +118,18 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Open items for the next session
 
-1. Everything up to `eb436d7` is pushed and CI is green. `b81399c`, the search and notes
-   commit, the password Show/Hide commit, and the breach-check and counter commit are committed
-   but not pushed; the user pushes.
+1. Everything up to `eb436d7` is pushed and CI is green. Five later commits (handover update,
+   search and notes, password Show/Hide, breach check and counter, product photo uploads) are
+   committed but not pushed; the user pushes. CI has not yet run on them (it also builds both
+   Docker images, which matters for `sharp`).
 2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and
    Coolify from `docs/RUNBOOK.md`; never deploy. Coolify's health check now depends on the
    database (`/api/health` returns 503 if MongoDB does not answer), so a wrong `MONGODB_URI` shows
    as an unhealthy API. **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`, and that
    `NODE_ENV=production` is set.**
 3. When GPEC creates its AWS account: walk through RUNBOOK 1.6 (SES domain, production access,
-   sending-only key, Coolify settings), then fill in the email region in the privacy notice.
+   sending-only key, Coolify settings), then fill in the email region in the privacy notice, and
+   RUNBOOK 1.7 (private S3 bucket and upload key for product photos).
    **Then build "forgot password" for admins**: the user requires it once email works (rules in
    CLAUDE.md Known Gaps).
 4. Ask GPEC for everything in ROADMAP.md "Needed from GPEC", including real About, Current Work,

@@ -156,6 +156,50 @@ simply off**: everything else works, and the API log says `Email notifications a
    test record afterwards.
 8. **Privacy notice.** Fill in the email service region in the privacy notice (`#privacy`).
 
+### 1.7 Product photos (Amazon S3)
+
+Staff upload product photos from their laptop, phone, or tablet in the admin product form. The
+API checks and resizes each photo and keeps it in a **private** S3 bucket; visitors get photos
+from the API, never from the bucket. **Until this is set up, uploads are simply off**: the form asks
+for an image already on the site, and the API log says `Product photo uploads are off`.
+
+1. **AWS account and region.** Use GPEC's AWS account from Section 1.6 (step 1), ideally the same
+   region as email.
+2. **Bucket.** S3 → *Create bucket* → a name such as `gpec-product-images` (bucket names are
+   unique across AWS), in that region. Keep **Block all public access on** (the default) and
+   default encryption on. No bucket policy is needed.
+3. **An upload-and-read-only key.** IAM → *Users* → create `gpec-product-images` (no console access)
+   with this policy (use the real bucket name), then create an access key for it:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Action": ["s3:PutObject", "s3:GetObject"],
+       "Resource": "arn:aws:s3:::gpec-product-images/product-images/*"
+     }]
+   }
+   ```
+
+   It can only add and read product photos in that one bucket; a leaked key cannot delete anything,
+   list the bucket, or touch other AWS services.
+4. **Coolify.** On the API resource, set all four (a partial set stops the API at startup with a
+   list of what is missing), then redeploy the API:
+
+   | Variable | Value |
+   |---|---|
+   | `S3_REGION` | The bucket's region (e.g. `eu-west-1`) |
+   | `S3_BUCKET` | The bucket name from step 2 |
+   | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | The key from step 3 (secret; Coolify only) |
+
+5. **Test.** The API log no longer says uploads are off. In the admin panel, edit a sample
+   product, choose a photo from your device (try a phone too), check the preview, and save. The
+   shop should show the new photo.
+6. **Cost.** At GPEC's size, well under a dollar a month: storage is tiny, and photos sent to
+   visitors fall inside AWS's monthly free data-transfer allowance. Check the S3 pricing page for
+   the chosen region.
+
 ## 2. Deploying
 
 1. Check that GitHub Actions CI is green for the `main` commit you are shipping.
@@ -198,7 +242,10 @@ database separately (or restored from an Atlas backup).
 | `Email for GPEC-… could not be sent: MessageRejected` in the API log | SES sandbox (recipient not verified) or sender not verified | Check Section 1.6 steps 3–4. The customer's request is saved either way. |
 | `… could not be sent: AccessDenied` or `InvalidClientTokenId` | Wrong or limited SES key, or `EMAIL_FROM` differs from the policy's address | Check the IAM policy and the Coolify values (Section 1.6, steps 5–6). |
 | No emails, and the log says `Email notifications are off` | Email settings not set in Coolify | Expected until SES is set up (Section 1.6). |
-| A secret leaked (connection string, SES key, future Paystack key) | — | Rotate it at the source first (Atlas: change the `gpec-prod` password; SES: create a new access key for `gpec-ses-sender` and delete the old one; Paystack: regenerate the key), update it in Coolify, redeploy, then tell the developer so the git history can be checked. |
+| Admin product form says "Photo uploads are not set up yet", or offers no photo upload | `S3_*` settings not set in Coolify | Expected until S3 is set up (Section 1.7). |
+| Photo upload fails with "Something went wrong" and the API log shows `AccessDenied` or `NoSuchBucket` | Wrong key, bucket name, or region; or the IAM policy names a different bucket | Check Section 1.7, steps 2–4. |
+| Shop shows a broken image for an uploaded photo | The photo was never stored (bucket or key changed since), or the API cannot reach S3 | Open `https://<api-domain>/api/<the product's image value>`: 404 means it is not in the bucket (upload it again); 500 means an S3 problem (check the API log). |
+| A secret leaked (connection string, SES key, future Paystack key) | — | Rotate it at the source first (Atlas: change the `gpec-prod` password; SES or S3: create a new access key for `gpec-ses-sender` or `gpec-product-images` and delete the old one; Paystack: regenerate the key), update it in Coolify, redeploy, then tell the developer so the git history can be checked. |
 
 ### Payments (from roadmap step 5)
 

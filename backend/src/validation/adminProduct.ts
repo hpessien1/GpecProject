@@ -1,11 +1,13 @@
 import { PRODUCT_STATUSES } from '../models/Product.js'
+import { PRODUCT_IMAGE_KEY_PATTERN } from '../services/productImages.js'
 import { asFields, text } from './fields.js'
 import type { Fields, ValidationErrors } from './fields.js'
 
 export const PRODUCT_ID_PATTERN = /^[a-z0-9-]{1,60}$/
 const REFERENCE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,39}$/
-// Images are files already in frontend/public/assets/ until uploads exist (CLAUDE.md, "File uploads").
-const IMAGE_PATTERN = /^\/assets\/[A-Za-z0-9._-]+\.(png|jpe?g|webp)$/
+// An image is a file already on the site (frontend/public/assets/) or an uploaded photo
+// (product-images/<hash>.webp, services/productImages.ts).
+const SITE_IMAGE_PATTERN = /^\/assets\/[A-Za-z0-9._-]+\.(png|jpe?g|webp)$/
 // In the smallest currency unit: 10^12 kobo is 10 billion naira, far above any real product.
 const MAX_PRICE = 1_000_000_000_000
 
@@ -40,7 +42,7 @@ function readEditableFields(source: Fields, errors: ValidationErrors): ProductCh
   if (has('alt')) value.alt = text(source.alt, 300, 'alt', errors, true)
   if (has('image')) {
     value.image = text(source.image, 300, 'image', errors, true)
-    if (value.image && !IMAGE_PATTERN.test(value.image)) errors.image = 'image must be a file in /assets/, such as /assets/product.png.'
+    if (value.image && !SITE_IMAGE_PATTERN.test(value.image) && !PRODUCT_IMAGE_KEY_PATTERN.test(value.image)) errors.image = 'image must be an uploaded photo or a file in /assets/, such as /assets/product.png.'
   }
   if (has('specs')) {
     const specs = Array.isArray(source.specs) ? source.specs : null

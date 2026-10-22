@@ -102,7 +102,21 @@ describe('loadConfig', () => {
     ['EMAIL_FROM', 'not an address'],
     ['STAFF_NOTIFICATION_EMAILS', 'a@example.com, nobody'],
     ['FRONTEND_URL', 'https://www.example.com/shop'],
+    ['S3_REGION', 'Europe'],
+    ['S3_BUCKET', 'GPEC_Images'],
   ])('rejects an invalid %s', (name, value) => {
     expect(() => loadConfig({ [name]: value })).toThrow(name)
+  })
+
+  it('turns photo uploads on only when every S3 setting is given', () => {
+    expect(loadConfig({}).imageStorage).toBeNull()
+    const config = loadConfig({ S3_REGION: 'eu-west-1', S3_BUCKET: 'gpec-product-images', S3_ACCESS_KEY_ID: 'AKIAEXAMPLE', S3_SECRET_ACCESS_KEY: 'secret' })
+    expect(config.imageStorage).toEqual({ region: 'eu-west-1', bucket: 'gpec-product-images', accessKeyId: 'AKIAEXAMPLE', secretAccessKey: 'secret' })
+  })
+
+  it('refuses a partial S3 setup and names what is missing', () => {
+    const load = () => loadConfig({ S3_REGION: 'eu-west-1', S3_BUCKET: 'gpec-product-images' })
+    expect(load).toThrow('S3_ACCESS_KEY_ID is required when any S3 setting is set')
+    expect(load).toThrow('S3_SECRET_ACCESS_KEY is required when any S3 setting is set')
   })
 })

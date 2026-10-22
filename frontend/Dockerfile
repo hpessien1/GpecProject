@@ -26,9 +26,10 @@ RUN case "$VITE_API_BASE_URL" in \
     esac
 RUN npm run build
 
-# The Content-Security-Policy may only allow calls to the same API the bundle was built for.
+# The Content-Security-Policy may only allow calls to (and photos from) the same API the bundle was
+# built for. The g flag matters: the address appears more than once on the policy's line.
 RUN API_ORIGIN="$(node -e 'console.log(new URL(process.argv[1]).origin)' "$VITE_API_BASE_URL")" \
-  && sed "s|__API_ORIGIN__|$API_ORIGIN|" nginx/security-headers.conf > /app/security-headers.conf
+  && sed "s|__API_ORIGIN__|$API_ORIGIN|g" nginx/security-headers.conf > /app/security-headers.conf
 
 # ── Production: static files served by nginx as a non-root user ──────────────
 # nginx-unprivileged runs as the "nginx" user and listens on port 8080 instead of 80.

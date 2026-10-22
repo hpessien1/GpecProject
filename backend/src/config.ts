@@ -19,6 +19,15 @@ export interface EmailSettings {
   siteUrl: string
 }
 
+// Amazon S3 bucket for uploaded product photos. Uploads are on only when every one of these is set.
+// The bucket stays private: the API reads photos from it and serves them itself.
+export interface ImageStorageSettings {
+  region: string
+  bucket: string
+  accessKeyId: string
+  secretAccessKey: string
+}
+
 export interface Config {
   nodeEnv: 'development' | 'test' | 'production'
   isProduction: boolean
@@ -35,12 +44,16 @@ export interface Config {
   currency: string | null
   // null: email notifications are off (nothing is sent; everything else works).
   email: EmailSettings | null
+  // null: photo uploads are off (admins pick images already on the site; everything else works).
+  imageStorage: ImageStorageSettings | null
 }
 
 const EMAIL_PATTERN = /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/
 // "Name <address>" or "address".
 const FROM_PATTERN = /^(?:[^<>]+<)?([^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+)>?$/
 const EMAIL_SETTINGS = ['SES_REGION', 'SES_ACCESS_KEY_ID', 'SES_SECRET_ACCESS_KEY', 'EMAIL_FROM', 'STAFF_NOTIFICATION_EMAILS'] as const
+const IMAGE_STORAGE_SETTINGS = ['S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const
+const AWS_REGION_PATTERN = /^[a-z]{2}(-[a-z]+)+-\d$/
 
 const knownCurrencies = new Set(Intl.supportedValuesOf('currency'))
 
@@ -50,18 +63,29 @@ const envSchema = z.object({
   MONGODB_URI: z.string().trim().regex(/^mongodb(\+srv)?:\/\//, 'must start with mongodb:// or mongodb+srv://').optional(),
   CLIENT_ORIGIN: z.string().trim().default('http://localhost:5173'),
   CURRENCY: z.string().trim().toUpperCase().refine((code) => knownCurrencies.has(code), 'must be an ISO 4217 currency code such as NGN').optional(),
-  SES_REGION: z.string().trim().regex(/^[a-z]{2}(-[a-z]+)+-\d$/, 'must be an AWS region such as eu-west-1').optional(),
+  SES_REGION: z.string().trim().regex(AWS_REGION_PATTERN, 'must be an AWS region such as eu-west-1').optional(),
   SES_ACCESS_KEY_ID: z.string().trim().optional(),
   SES_SECRET_ACCESS_KEY: z.string().trim().optional(),
   EMAIL_FROM: z.string().trim().regex(FROM_PATTERN, 'must be an email address, optionally as "Name <address>"').optional(),
   STAFF_NOTIFICATION_EMAILS: z.string().trim().refine((list) => list.split(',').every((entry) => EMAIL_PATTERN.test(entry.trim())), 'must be a comma-separated list of email addresses').optional(),
   FRONTEND_URL: z.string().trim().optional(),
+  S3_REGION: z.string().trim().regex(AWS_REGION_PATTERN, 'must be an AWS region such as eu-west-1').optional(),
+  // S3's bucket naming rules: 3 to 63 lowercase letters, digits, dots, and hyphens.
+  S3_BUCKET: z.string().trim().regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, 'must be an S3 bucket name (lowercase letters, digits, dots, and hyphens)').optional(),
+  S3_ACCESS_KEY_ID: z.string().trim().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().trim().optional(),
 }).superRefine((env, ctx) => {
   // All or nothing, so a half-finished setup fails at startup instead of silently sending nothing.
   const setEmailSettings = EMAIL_SETTINGS.filter((name) => env[name] !== undefined)
   if (setEmailSettings.length > 0 && setEmailSettings.length < EMAIL_SETTINGS.length) {
     for (const name of EMAIL_SETTINGS.filter((setting) => env[setting] === undefined)) {
       ctx.addIssue({ code: 'custom', path: [name], message: 'is required when any email setting is set (email needs all of them)' })
+    }
+  }
+  const setImageSettings = IMAGE_STORAGE_SETTINGS.filter((name) => env[name] !== undefined)
+  if (setImageSettings.length > 0 && setImageSettings.length < IMAGE_STORAGE_SETTINGS.length) {
+    for (const name of IMAGE_STORAGE_SETTINGS.filter((setting) => env[setting] === undefined)) {
+      ctx.addIssue({ code: 'custom', path: [name], message: 'is required when any S3 setting is set (photo uploads need all of them)' })
     }
   }
   // Emails link back to the site (FRONTEND_URL is also used on its own, e.g. by Paystack later).
@@ -127,6 +151,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           staffRecipients: parsed.STAFF_NOTIFICATION_EMAILS.split(',').map((entry) => entry.trim()),
           siteUrl: parsed.FRONTEND_URL.replace(/\/$/, ''),
         }
+      : null,
+    imageStorage: parsed.S3_REGION && parsed.S3_BUCKET && parsed.S3_ACCESS_KEY_ID && parsed.S3_SECRET_ACCESS_KEY
+      ? { region: parsed.S3_REGION, bucket: parsed.S3_BUCKET, accessKeyId: parsed.S3_ACCESS_KEY_ID, secretAccessKey: parsed.S3_SECRET_ACCESS_KEY }
       : null,
   }
 }

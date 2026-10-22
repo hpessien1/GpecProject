@@ -17,7 +17,7 @@ describe('admin login', () => {
     await createTestAdmin()
     const res = await logIn(app, { email: 'ADMIN@example.test', password: TEST_ADMIN.password })
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ admin: { name: TEST_ADMIN.name, email: TEST_ADMIN.email }, currency: { code: 'NGN', minorUnitDigits: 2 } })
+    expect(res.body).toEqual({ admin: { name: TEST_ADMIN.name, email: TEST_ADMIN.email }, currency: { code: 'NGN', minorUnitDigits: 2 }, imageUploads: false })
     const cookie = String(res.headers['set-cookie'])
     expect(cookie).toMatch(/^gpec_admin_session=[\w-]{43};/)
     expect(cookie).toContain('HttpOnly')

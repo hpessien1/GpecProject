@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
 import type { AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus } from '../../src/types'
 
@@ -11,6 +13,9 @@ const NGN: CurrencyInfo = { code: 'NGN', minorUnitDigits: 2 }
 export const ADMIN = { name: 'Sample Admin', email: 'admin@example.com', password: 'a long sample passphrase' }
 export const ENQUIRY_REF = 'GPEC-2026-0000000A'
 export const CONTACT_REF = 'GPEC-C-2026-0000000A'
+// What the "server" answers for any photo upload, and the picture it serves for uploaded photos.
+export const UPLOADED_IMAGE = `product-images/${'b'.repeat(64)}.webp`
+const uploadedPhoto = readFileSync(join(process.cwd(), 'public/assets/product-lineup.png'))
 // The server refuses this new password as known from a data breach.
 export const BREACHED_PASSWORD = 'password password password'
 const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
@@ -44,6 +49,9 @@ export interface ApiState {
   requestNotes: Record<string, RequestNote[]>
   // Makes adding a note fail.
   notesFail: boolean
+  // Whether photo uploads are set up; and making an upload fail.
+  imageUploads: boolean
+  uploadFails: boolean
   currency: CurrencyInfo | null
   formsFail: boolean
   loggedIn: boolean
@@ -66,6 +74,8 @@ function initialState(): ApiState {
     requestHistory: {},
     requestNotes: { [ENQUIRY_REF]: [{ author: { name: ADMIN.name, email: ADMIN.email }, text: 'Called the customer.\nSending a quote today.', createdAt: now }] },
     notesFail: false,
+    imageUploads: true,
+    uploadFails: false,
     currency: NGN,
     formsFail: false,
     loggedIn: false,
@@ -74,6 +84,15 @@ function initialState(): ApiState {
 }
 
 type Reply = [number, unknown]
+
+// A JSON body, or null for none or for a photo (binary) body.
+function jsonBody(request: Request): Record<string, unknown> | null {
+  try {
+    return request.postDataJSON()
+  } catch {
+    return null
+  }
+}
 
 function listRequests(allItems: AdminRequestDetail[], url: URL): Reply {
   const status = url.searchParams.get('status')
@@ -93,8 +112,8 @@ function reply(state: ApiState, request: Request): Reply {
   const url = new URL(request.url())
   const path = url.pathname
   const method = request.method()
-  const body: Record<string, unknown> = request.postDataJSON() ?? {}
-  const session: AdminSessionInfo = { admin: { name: ADMIN.name, email: ADMIN.email }, currency: state.currency }
+  const body = jsonBody(request) ?? {}
+  const session: AdminSessionInfo = { admin: { name: ADMIN.name, email: ADMIN.email }, currency: state.currency, imageUploads: state.imageUploads }
 
   if (path === '/api/products') return state.products === 'error' ? [500, { message: 'Something went wrong on our side. Please try again.' }] : [200, { products: state.products }]
   if (path === '/api/contact-requests') return state.formsFail ? [400, { message: 'Check your details and try again.' }] : [201, { reference: 'GPEC-C-2026-AAAAAAAA', createdAt: now }]
@@ -117,6 +136,11 @@ function reply(state: ApiState, request: Request): Reply {
     return [204, null]
   }
 
+  if (path === '/api/admin/product-images') {
+    if (!state.imageUploads) return [503, { message: 'Photo uploads are not set up yet.', code: 'IMAGE_UPLOADS_OFF' }]
+    if (state.uploadFails) return [400, { message: 'Choose a JPEG, PNG, or WebP photo. This file could not be read as one.', code: 'VALIDATION_ERROR', errors: { image: 'Choose a JPEG, PNG, or WebP photo.' } }]
+    return [201, { image: UPLOADED_IMAGE }]
+  }
   if (path === '/api/admin/products') return [200, { products: state.adminProducts, page: 1, totalPages: 1, total: state.adminProducts.length }]
   const productMatch = /^\/api\/admin\/products\/([^/]+)(\/history)?$/.exec(path)
   if (productMatch) {
@@ -158,7 +182,13 @@ export async function mockApi(page: Page, overrides: Partial<ApiState> = {}): Pr
     const origin = (await request.headerValue('origin')) ?? '*'
     const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true', 'access-control-allow-headers': 'Content-Type', 'access-control-allow-methods': 'GET, POST, PATCH, DELETE' }
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
-    state.requests.push({ method: request.method(), path: new URL(request.url()).pathname, body: request.postDataJSON() })
+    const path = new URL(request.url()).pathname
+    // Photo uploads are recorded by type and size rather than content.
+    const isPhoto = (await request.headerValue('content-type'))?.startsWith('image/')
+    state.requests.push({ method: request.method(), path, body: isPhoto ? { type: await request.headerValue('content-type'), bytes: request.postDataBuffer()?.length ?? 0 } : jsonBody(request) })
+    if (request.method() === 'GET' && path.startsWith('/api/product-images/')) {
+      return route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'image/png', 'cross-origin-resource-policy': 'cross-origin' }, body: uploadedPhoto })
+    }
     const [status, body] = reply(state, request)
     return route.fulfill({ status, headers: { ...cors, 'content-type': 'application/json' }, body: body === null ? '' : JSON.stringify(body) })
   })

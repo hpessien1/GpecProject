@@ -7,6 +7,7 @@ import type { AppConfig } from '../src/app.js'
 import AdminUser from '../src/models/AdminUser.js'
 import type { BreachedPasswordCheck } from '../src/services/breachedPasswords.js'
 import type { EmailMessage, Mailer } from '../src/services/email.js'
+import type { ImageStore, StoredImage } from '../src/services/imageStore.js'
 import { hashPassword } from '../src/services/passwords.js'
 
 // Development-like settings with generous rate limits, so only the rate-limit tests hit them.
@@ -14,7 +15,8 @@ import { hashPassword } from '../src/services/passwords.js'
 export const noBreaches: BreachedPasswordCheck = { isBreached: async () => false }
 
 // mailer: a RecordingMailer to check emails; null (the default) means email is off.
-export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | null = null, breachCheck: BreachedPasswordCheck = noBreaches) {
+// imageStore: a MemoryImageStore to turn photo uploads on; null (the default) means uploads are off.
+export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | null = null, breachCheck: BreachedPasswordCheck = noBreaches, imageStore: ImageStore | null = null) {
   return createApp({
     isProduction: false,
     clientOrigins: ['http://localhost:5173'],
@@ -22,8 +24,9 @@ export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | nul
     adminLoginRateLimit: { windowMs: 60_000, limit: 1000 },
     currency: 'NGN',
     email: null,
+    imageStorage: null,
     ...overrides,
-  }, mailer, breachCheck)
+  }, mailer, breachCheck, imageStore)
 }
 
 // An in-memory MongoDB per test file: never gpec_dev or production. A single-node replica set, because
@@ -79,4 +82,15 @@ export const TEST_EMAIL_SETTINGS = {
   from: 'GPEC <notifications@example.com>',
   staffRecipients: ['staff1@example.com', 'staff2@example.com'],
   siteUrl: 'https://www.example.com',
+}
+
+// Stands in for the S3 bucket in tests, keeping what was stored so tests can inspect it.
+export class MemoryImageStore implements ImageStore {
+  readonly objects = new Map<string, StoredImage>()
+  async put(key: string, body: Buffer, contentType: string) {
+    this.objects.set(key, { body: new Uint8Array(body), contentType })
+  }
+  async get(key: string) {
+    return this.objects.get(key) ?? null
+  }
 }

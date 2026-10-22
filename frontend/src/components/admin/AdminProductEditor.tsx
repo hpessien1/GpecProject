@@ -10,6 +10,7 @@ interface AdminProductEditorProps {
   // undefined: creating a new product.
   productId?: string
   currency: CurrencyInfo | null
+  imageUploads: boolean
   // Shown once after arriving here, e.g. "Product created."
   flash: string
   onCreated: (productId: string) => void
@@ -26,7 +27,7 @@ function changedFields(product: AdminProduct, values: ProductFormValues) {
   return changes
 }
 
-export default function AdminProductEditor({ productId, currency, flash, onCreated, onSessionEnded }: AdminProductEditorProps) {
+export default function AdminProductEditor({ productId, currency, imageUploads, flash, onCreated, onSessionEnded }: AdminProductEditorProps) {
   const [product, setProduct] = useState<AdminProduct | null>(null)
   const [loadError, setLoadError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -93,7 +94,7 @@ export default function AdminProductEditor({ productId, currency, flash, onCreat
     {loadError ? <p className="form-error" role="alert">{loadError}</p>
       : !isNew && !product ? <p className="admin-loading" role="status">Loading product…</p>
       : <div className="admin-editor-layout">
-        <AdminProductForm key={`form-${savedVersion}`} product={product} currency={currency} isSaving={isSaving} serverErrors={serverErrors} onSubmit={handleSubmit} />
+        <AdminProductForm key={`form-${savedVersion}`} product={product} currency={currency} imageUploads={imageUploads} isSaving={isSaving} serverErrors={serverErrors} onSubmit={handleSubmit} onSessionEnded={onSessionEnded} />
         {product && <AdminProductHistory key={`history-${savedVersion}`} productId={product.id} currency={currency} onSessionEnded={onSessionEnded} />}
       </div>}
   </section>

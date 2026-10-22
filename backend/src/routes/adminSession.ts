@@ -12,7 +12,8 @@ import type { AppConfig } from '../app.js'
 const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
 
 // Log in (POST), check who is logged in (GET), log out (DELETE), change own password (POST /password).
-export default function adminSessionRouter(config: AppConfig, breachCheck: BreachedPasswordCheck) {
+// imageUploads: whether product photo uploads are set up, so the admin screens can offer them.
+export default function adminSessionRouter(config: AppConfig, breachCheck: BreachedPasswordCheck, imageUploads: boolean) {
   const router = Router()
   // httpOnly: page scripts cannot read it. SameSite=Strict: other sites cannot make the browser send
   // it. Secure in production (HTTPS only). Sent only to admin routes.
@@ -37,7 +38,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
       const result = await logIn(value.email, value.password)
       if (!result) throw new HttpError(401, 'Email or password is incorrect.', 'INVALID_CREDENTIALS')
       res.cookie(SESSION_COOKIE, result.token, { ...cookieOptions, maxAge: SESSION_DURATION_MS })
-      return res.json({ admin: { name: result.admin.name, email: result.admin.email }, currency: currencyInfo(config.currency) })
+      return res.json({ admin: { name: result.admin.name, email: result.admin.email }, currency: currencyInfo(config.currency), imageUploads })
     } catch (error) {
       return next(error)
     }
@@ -45,7 +46,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
 
   router.get('/', requireAdmin(config.clientOrigins), (_req, res) => {
     const admin = currentAdmin(res)
-    return res.json({ admin: { name: admin.name, email: admin.email }, currency: currencyInfo(config.currency) })
+    return res.json({ admin: { name: admin.name, email: admin.email }, currency: currencyInfo(config.currency), imageUploads })
   })
 
   router.post('/password', requireAdmin(config.clientOrigins), passwordLimiter, async (req, res, next) => {

@@ -43,6 +43,13 @@ export async function getProductHistory(id: string) {
   return history
 }
 
+// The photo goes as it is; the server checks, resizes, and stores it, and answers with the value to
+// save in the product's image field.
+export async function uploadProductImage(file: File) {
+  const { image } = await requestJson<{ image: string }>('/admin/product-images', 'Unable to upload the photo.', { ...admin, method: 'POST', file })
+  return image
+}
+
 export function listRequests(kind: AdminRequestKind, page: number, status: RequestStatus | null, search: string) {
   const query = new URLSearchParams({ page: String(page), ...(status ? { status } : {}), ...(search ? { q: search } : {}) })
   return requestJson<AdminRequestsPage>(`/admin/${kind}?${query}`, 'Unable to load the list.', admin)

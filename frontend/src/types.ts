@@ -70,6 +70,8 @@ export interface AdminSessionInfo {
   admin: { name: string, email: string }
   // null until the server's CURRENCY setting is configured; price editing is off until then.
   currency: CurrencyInfo | null
+  // Whether photo uploads are set up (the server's S3 settings); until then admins pick site images.
+  imageUploads: boolean
 }
 
 export type ProductStatus = 'active' | 'archived'

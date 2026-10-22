@@ -113,7 +113,7 @@ export default function AdminPage({ route }: AdminPageProps) {
         : view.kind === 'password' ? <AdminPasswordForm onSessionEnded={handleSessionEnded} />
         : view.kind === 'requests' ? <AdminRequestList key={view.requestKind} kind={view.requestKind} onSessionEnded={handleSessionEnded} />
         : view.kind === 'request' ? <AdminRequestDetail key={route} kind={view.requestKind} reference={view.reference} onSessionEnded={handleSessionEnded} />
-        : <AdminProductEditor key={route} productId={view.kind === 'edit' ? view.productId : undefined} currency={session.currency} flash={flashMessage} onCreated={handleCreated} onSessionEnded={handleSessionEnded} />}
+        : <AdminProductEditor key={route} productId={view.kind === 'edit' ? view.productId : undefined} currency={session.currency} imageUploads={session.imageUploads} flash={flashMessage} onCreated={handleCreated} onSessionEnded={handleSessionEnded} />}
         </>}
     </main>
   </div>

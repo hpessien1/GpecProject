@@ -1,4 +1,4 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api'
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api'
 
 // Carries what the server said, so screens can show field messages or react to a specific code
 // (for example ADMIN_AUTH_REQUIRED when an admin session has ended).
@@ -12,18 +12,20 @@ export class ApiError extends Error {
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   payload?: unknown
+  // A file sent as the body as it is, with its own type (photo uploads). Not used with payload.
+  file?: Blob
   // Admin requests send the session cookie; public requests never do.
   withCredentials?: boolean
 }
 
 // All requests to the GPEC API go through here.
-export async function requestJson<T>(path: string, fallbackMessage: string, { method = 'GET', payload, withCredentials = false }: RequestOptions = {}): Promise<T> {
+export async function requestJson<T>(path: string, fallbackMessage: string, { method = 'GET', payload, file, withCredentials = false }: RequestOptions = {}): Promise<T> {
   let response: Response
   try {
     response = await fetch(`${apiBaseUrl}${path}`, {
       method,
-      headers: payload === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: payload === undefined ? undefined : JSON.stringify(payload),
+      headers: file ? { 'Content-Type': file.type } : payload === undefined ? undefined : { 'Content-Type': 'application/json' },
+      body: file ?? (payload === undefined ? undefined : JSON.stringify(payload)),
       credentials: withCredentials ? 'include' : 'same-origin',
     })
   } catch {

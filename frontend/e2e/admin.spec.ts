@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, ENQUIRY_REF, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, ENQUIRY_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -93,6 +95,83 @@ test.describe('products and prices', () => {
     await page.getByRole('button', { name: 'Save changes' }).click()
     await expect(page.locator('#product-price-error')).toContainText('Enter an amount such as 1500 or 1500.50')
     expect(api.requests.some((r) => r.method === 'PATCH')).toBe(false)
+  })
+
+  test('uploads a photo from the device, previews it, and saves it to the product', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.getByRole('link', { name: 'Edit Custom control panel' }).click()
+    const preview = page.locator('.admin-image-preview')
+    await expect(preview.locator('img')).toHaveAttribute('src', '/assets/electrical-panels-product.png')
+    await expect(preview.locator('figcaption')).toHaveText('Current photo.')
+    await page.getByLabel('Image', { exact: true }).setInputFiles({ name: 'panel.jpg', mimeType: 'image/jpeg', buffer: readFileSync(join(process.cwd(), 'public/assets/portfolio-solar-array.jpg')) })
+    await expect(preview.locator('figcaption')).toHaveText('New photo, as the shop will show it. Save the product to use it.')
+    await expect(preview.locator('img')).toHaveAttribute('src', new RegExp(`/api/${UPLOADED_IMAGE}$`))
+    expect(api.requests.find((r) => r.path === '/api/admin/product-images')?.body).toEqual({ type: 'image/jpeg', bytes: expect.any(Number) })
+    expect(api.requests.some((r) => r.method === 'PATCH')).toBe(false)
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Changes saved.')
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ image: UPLOADED_IMAGE })
+  })
+
+  test('shows the chosen photo at once and blocks saving while it uploads', async ({ page }) => {
+    await mockApi(page)
+    let release = () => {}
+    const held = new Promise<void>((resolve) => { release = resolve })
+    await page.route('**/api/admin/product-images', async (route) => { await held; return route.fallback() })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/products/panel-001')
+    await page.getByLabel('Image', { exact: true }).setInputFiles({ name: 'panel.png', mimeType: 'image/png', buffer: readFileSync(join(process.cwd(), 'public/assets/product-lineup.png')) })
+    await expect(page.locator('.admin-image-preview img')).toHaveAttribute('src', /^blob:/)
+    await expect(page.locator('.admin-image-preview figcaption')).toHaveText('Uploading your photo…')
+    await expect(page.getByRole('button', { name: 'Uploading photo…' })).toBeDisabled()
+    release()
+    await expect(page.getByRole('button', { name: 'Save changes' })).toBeEnabled()
+  })
+
+  test('refuses a HEIC or oversized photo before sending it, and shows a server refusal', async ({ page }) => {
+    const api = await mockApi(page, { uploadFails: true })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/products/panel-001')
+    const input = page.getByLabel('Image', { exact: true })
+    await input.setInputFiles({ name: 'IMG_0001.HEIC', mimeType: 'image/heic', buffer: Buffer.from('heic') })
+    await expect(page.locator('#product-image-upload-error')).toContainText('HEIC format')
+    await input.setInputFiles({ name: 'huge.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(10 * 1024 * 1024 + 1) })
+    await expect(page.locator('#product-image-upload-error')).toHaveText('This photo is 10.0 MB. Choose one under 10 MB.')
+    expect(api.requests.some((r) => r.path === '/api/admin/product-images')).toBe(false)
+    await input.setInputFiles({ name: 'renamed.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('not a photo') })
+    await expect(page.locator('#product-image-upload-error')).toHaveText('Choose a JPEG, PNG, or WebP photo. This file could not be read as one.')
+    await expect(page.locator('.admin-image-preview img')).toHaveAttribute('src', '/assets/electrical-panels-product.png')
+  })
+
+  test('asks for a photo before creating a product', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/new')
+    await expect(page.locator('.admin-image-preview figcaption')).toHaveText('No photo yet.')
+    await page.getByLabel('Product ID').fill('panel-002')
+    await page.getByLabel('Name').fill('Second panel')
+    await page.getByLabel('Product code').fill('GPEC-CP-002')
+    await page.getByLabel('Description', { exact: true }).fill('A sample description.')
+    await page.getByLabel('Image description').fill('Photo of a panel')
+    await page.getByRole('button', { name: 'Create product' }).click()
+    await expect(page.locator('#product-image-error')).toHaveText('Choose a photo for the product.')
+    expect(api.requests.some((r) => r.method === 'POST' && r.path === '/api/admin/products')).toBe(false)
+  })
+
+  test('without photo storage, a site image path is typed and previewed', async ({ page }) => {
+    await mockApi(page, { imageUploads: false })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/products/panel-001')
+    const path = page.getByLabel('Image', { exact: true })
+    await expect(path).toHaveValue('/assets/electrical-panels-product.png')
+    await expect(page.getByText('Photo uploads are switched on once GPEC’s image storage is set up.')).toBeVisible()
+    await path.fill('/assets/product-lineup.png')
+    await path.blur()
+    await expect(page.locator('.admin-image-preview img')).toHaveAttribute('src', '/assets/product-lineup.png')
+    await path.fill('/assets/missing.png')
+    await path.blur()
+    await expect(page.locator('.admin-image-preview figcaption')).toHaveText('No image found at this address.')
   })
 
   test('price entry is switched off until the currency is configured', async ({ page }) => {

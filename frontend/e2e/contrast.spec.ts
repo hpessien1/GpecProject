@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { ContrastAudit, EXEMPT } from './support/contrast'
 import { ADMIN, CONTACT_REF, ENQUIRY_REF, mockApi } from './support/sampleApi'
@@ -88,6 +90,15 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     if (hovering) await audit.hover(page, `${label} admin products`)
     await open('#admin/products/panel-001', '.admin-history ol')
     await audit.page(page, `${label} admin product edit`)
+    api.uploadFails = true
+    await page.getByLabel('Image', { exact: true }).setInputFiles({ name: 'renamed.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('not a photo') })
+    await page.locator('#product-image-upload-error').waitFor()
+    await audit.page(page, `${label} admin product photo refused`)
+    api.uploadFails = false
+    await page.getByLabel('Image', { exact: true }).setInputFiles({ name: 'panel.png', mimeType: 'image/png', buffer: readFileSync(join(process.cwd(), 'public/assets/product-lineup.png')) })
+    await page.getByText('New photo, as the shop will show it.').waitFor()
+    await audit.page(page, `${label} admin product photo uploaded`)
+    if (hovering) await audit.hover(page, `${label} admin product photo uploaded`)
     await open('#admin/new', '#product-id')
     await page.getByRole('button', { name: 'Create product' }).click()
     await audit.page(page, `${label} admin new product`)

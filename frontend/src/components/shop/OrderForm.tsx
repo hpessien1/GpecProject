@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { productImageUrl } from '../../services/productApi'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import SpamTrapField from '../SpamTrapField'
@@ -35,7 +36,7 @@ export default function OrderForm({ cartItems, itemCount, orderReference, isSubm
         {submissionError && <p className="shop-form-error" role="alert" tabIndex={-1} ref={(element) => { resultRef.current = element }}>{submissionError}</p>}
         <button className="button button-primary" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Submitting enquiry…' : <>Submit enquiry <Arrow /></>}</button>
       </form>
-      <aside className="shop-order-summary"><p className="eyebrow"><span /> Order summary</p><ul>{cartItems.map(({ product, quantity }) => <li key={product.id}><img src={product.image} alt="" /><div><strong>{product.name}</strong><span>{product.reference} · Quantity {quantity}</span></div></li>)}</ul><p>{itemCount} item{itemCount === 1 ? '' : 's'} selected</p></aside>
+      <aside className="shop-order-summary"><p className="eyebrow"><span /> Order summary</p><ul>{cartItems.map(({ product, quantity }) => <li key={product.id}><img src={productImageUrl(product.image)} alt="" /><div><strong>{product.name}</strong><span>{product.reference} · Quantity {quantity}</span></div></li>)}</ul><p>{itemCount} item{itemCount === 1 ? '' : 's'} selected</p></aside>
     </div>}
   </>
 }
