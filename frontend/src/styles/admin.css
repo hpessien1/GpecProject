@@ -148,7 +148,8 @@
   margin-top: 0.15rem;
   accent-color: var(--forest);
 }
-/* Section links (components/admin/AdminSectionNav.tsx) and status filters (AdminRequestList.tsx) */
+/* Section links (components/admin/AdminSectionNav.tsx), and search and status filters
+   (AdminRequestList.tsx) */
 .admin-sections {
   display: flex;
   flex-wrap: wrap;
@@ -170,9 +171,31 @@
   border-bottom-color: var(--lime);
 }
 .admin-sections a:focus-visible,
-.admin-filters button:focus-visible {
+.admin-filters button:focus-visible,
+.admin-search-row .text-link:focus-visible {
   outline: 2px solid var(--forest);
   outline-offset: 2px;
+}
+.admin-search {
+  margin: 0 0 1.2rem;
+}
+.admin-search-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+}
+.admin-search-row input {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.admin-search-row .text-link {
+  padding: 0.3rem 0;
+  border: 0;
+  background: none;
+  color: var(--forest);
+  font-family: var(--sans);
+  cursor: pointer;
 }
 .admin-filters {
   display: flex;
@@ -407,6 +430,28 @@
 }
 .admin-request-side .admin-history h2 {
   margin-top: 1rem;
+}
+.admin-notes {
+  margin-top: 2.4rem;
+  border-top: 1px solid var(--line);
+}
+.admin-note-form {
+  gap: 0.8rem;
+}
+.admin-note-list {
+  display: grid;
+  gap: 1.1rem;
+  margin: 1.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-note-list li {
+  padding-left: 0.8rem;
+  border-left: 2px solid var(--line);
+}
+.admin-notes-empty {
+  margin: 1.2rem 0 0;
+  font-size: 0.85rem;
 }
 @media (max-width: 650px) {
   .admin-request-list li {

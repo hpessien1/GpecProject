@@ -34,8 +34,9 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
 - Admin (login required; see below): `POST`, `GET`, `DELETE /api/admin/session`;
   `POST /api/admin/session/password`;
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
-  `GET /api/admin/products/:id/history`; `GET /api/admin/enquiries`, `GET`, `PATCH /api/admin/enquiries/:reference`;
-  `GET /api/admin/contact-requests`, `GET`, `PATCH /api/admin/contact-requests/:reference`
+  `GET /api/admin/products/:id/history`; `GET /api/admin/enquiries`, `GET`, `PATCH /api/admin/enquiries/:reference`,
+  `POST /api/admin/enquiries/:reference/notes`; `GET /api/admin/contact-requests`, `GET`,
+  `PATCH /api/admin/contact-requests/:reference`, `POST /api/admin/contact-requests/:reference/notes`
 
 `GET /api/products` returns `{ products: [...] }`: every active product in display order, with `id`,
 `name`, `reference`, `description`, `specs`, `image`, `alt`, and `isPlaceholder` (true for sample
@@ -77,9 +78,13 @@ All admin responses are sent with `Cache-Control: no-store`.
   `409 PRODUCT_CONFLICT`; a price while `CURRENCY` is unset gets `409 CURRENCY_NOT_CONFIGURED`.
   There is no delete: set `status` to `archived`.
 - `GET /:id/history` returns the last 50 changes: who, when, and each field's old and new value.
-- `GET /api/admin/enquiries?page=N&status=new|in_progress|closed` (both optional) lists order
-  enquiries newest first, 25 per page, with `counts` per status. `GET /:reference` returns
-  everything the customer sent plus the status history. `PATCH /:reference` with `{ status }` (and
-  nothing else) changes the follow-up status and records who, from, to, and when. Unknown or
-  malformed references get `404`. `/api/admin/contact-requests` works the same way.
-  New requests are always `new`; customer details cannot be edited or deleted here.
+- `GET /api/admin/enquiries?page=N&status=new|in_progress|closed&q=text` (all optional) lists order
+  enquiries newest first, 25 per page, with `counts` per status. `q` (up to 100 characters) keeps
+  requests whose reference, customer name, company, or email contains it, ignoring case; the counts
+  then cover only the matches. `GET /:reference` returns everything the customer sent plus the
+  status history and staff `notes` (newest first, last 100). `PATCH /:reference` with `{ status }`
+  (and nothing else) changes the follow-up status and records who, from, to, and when.
+  `POST /:reference/notes` with `{ text }` (up to 2000 characters, and nothing else) adds an
+  internal note under the logged-in admin's name and returns `201` with the same body as `GET`.
+  Unknown or malformed references get `404`. `/api/admin/contact-requests` works the same way.
+  New requests are always `new`; customer details and notes cannot be edited or deleted here.

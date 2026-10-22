@@ -1,5 +1,5 @@
 import type { Page, Request } from '@playwright/test'
-import type { AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, Product, ProductHistoryEntry, RequestHistoryEntry, RequestStatus } from '../../src/types'
+import type { AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -38,6 +38,9 @@ export interface ApiState {
   enquiries: AdminRequestDetail[]
   contactRequests: AdminRequestDetail[]
   requestHistory: Record<string, RequestHistoryEntry[]>
+  requestNotes: Record<string, RequestNote[]>
+  // Makes adding a note fail.
+  notesFail: boolean
   currency: CurrencyInfo | null
   formsFail: boolean
   loggedIn: boolean
@@ -58,6 +61,8 @@ function initialState(): ApiState {
     ],
     contactRequests: [{ reference: CONTACT_REF, status: 'new', createdAt: now, updatedAt: now, customer, subject: 'Solar energy', message: 'Please call me about a solar system.' }],
     requestHistory: {},
+    requestNotes: { [ENQUIRY_REF]: [{ author: { name: ADMIN.name, email: ADMIN.email }, text: 'Called the customer.\nSending a quote today.', createdAt: now }] },
+    notesFail: false,
     currency: NGN,
     formsFail: false,
     loggedIn: false,
@@ -67,8 +72,10 @@ function initialState(): ApiState {
 
 type Reply = [number, unknown]
 
-function listRequests(items: AdminRequestDetail[], url: URL): Reply {
+function listRequests(allItems: AdminRequestDetail[], url: URL): Reply {
   const status = url.searchParams.get('status')
+  const search = (url.searchParams.get('q') ?? '').toLowerCase()
+  const items = allItems.filter((item) => [item.reference, item.customer.fullName, item.customer.company, item.customer.email].some((field) => field.toLowerCase().includes(search)))
   const counts = { new: 0, in_progress: 0, closed: 0 }
   for (const item of items) counts[item.status] += 1
   const shown = status ? items.filter((item) => item.status === status) : items
@@ -120,18 +127,21 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, { product }]
   }
 
-  const requestMatch = /^\/api\/admin\/(enquiries|contact-requests)(?:\/([^/]+))?$/.exec(path)
+  const requestMatch = /^\/api\/admin\/(enquiries|contact-requests)(?:\/([^/]+))?(\/notes)?$/.exec(path)
   if (requestMatch) {
     const items = requestMatch[1] === 'enquiries' ? state.enquiries : state.contactRequests
     if (!requestMatch[2]) return listRequests(items, url)
     const item = items.find((candidate) => candidate.reference === requestMatch[2])
     if (!item) return [404, { message: 'Request not found.', code: 'NOT_FOUND' }]
-    if (method === 'PATCH' && body.status !== item.status) {
+    if (requestMatch[3]) {
+      if (state.notesFail) return [500, { message: 'Something went wrong on our side. Please try again.' }]
+      state.requestNotes[item.reference] = [{ author: { name: ADMIN.name, email: ADMIN.email }, text: String(body.text).trim(), createdAt: new Date().toISOString() }, ...(state.requestNotes[item.reference] ?? [])]
+    } else if (method === 'PATCH' && body.status !== item.status) {
       const from = item.status
       item.status = body.status as RequestStatus
       state.requestHistory[item.reference] = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'status', from, to: item.status }], createdAt: new Date().toISOString() }, ...(state.requestHistory[item.reference] ?? [])]
     }
-    return [200, { item, history: state.requestHistory[item.reference] ?? [] }]
+    return [requestMatch[3] ? 201 : 200, { item, history: state.requestHistory[item.reference] ?? [], notes: state.requestNotes[item.reference] ?? [] }]
   }
   return [404, { message: 'Route not found.' }]
 }

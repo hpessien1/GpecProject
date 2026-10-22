@@ -294,8 +294,13 @@ name), and logs which database it found. The guard only works if production sets
   timestamps.
 - **Request status** (both of the above, `models/requestStatus.ts`; same list in the frontend's
   `RequestStatus`): `new` → `in_progress` → `closed`. Every request starts as `new` (never taken
-  from the customer); admins may move it to any status, including reopening. Admins read requests
-  and change status only; they cannot edit or delete them.
+  from the customer); admins may move it to any status, including reopening. Admins read, search,
+  and change the status of requests and add internal notes; they cannot edit or delete requests.
+- **RequestNote** (`backend/src/models/RequestNote.ts`) — a staff note on an enquiry or contact
+  request: `targetType` (`enquiry` | `contactRequest`), `targetId` (the request's `reference`),
+  `text` (up to 2000 characters), `author { adminId, email, name }` (copied at the time),
+  `createdAt`. Admin-only; never edited or deleted, so each note is its own who/what/when record
+  and needs no separate AuditRecord.
 - **Product** (`backend/src/models/Product.ts`) — the single source of the catalogue. `_id` is the
   short internal key (e.g. `panel-001`, lowercase letters, digits, hyphens), used in carts and
   enquiry items; `reference` (unique, e.g. `GPEC-CP-001`) is the customer-facing product code. Do
@@ -359,7 +364,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── middleware/       # requireAdmin.ts: the one admin login check
 │       ├── routes/           # HTTP wiring: public (products, enquiries, contact) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
-│       ├── models/           # Enquiry, ContactRequest, Product, AdminUser, AdminSession, AuditRecord
+│       ├── models/           # Enquiry, ContactRequest, RequestNote, Product, AdminUser, AdminSession, AuditRecord
 │       ├── services/         # Business logic: products, admin*, passwords, currency, email, emailTemplates, notifications
 │       ├── scripts/          # Commands: seedProducts.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers
@@ -907,8 +912,10 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   `backend/src/validation/contactRequest.ts`); a backend test fails if the two differ.
 - Services areas 2–9 use existing photos marked "Illustrative image" (some repeat; three are
   Afrizone project stills, at the owner's request) until GPEC supplies a photo per area.
-- No internal notes on enquiries or contact requests, and no search; staff reply by email or
-  phone outside the site (the detail page links to both).
+- Staff reply to requests by email or phone outside the site (the detail page links to both); the
+  site does not record replies, only the notes staff add. Request search is a case-insensitive
+  substring match with no index, which is fine for GPEC's volume; revisit (text index) if the
+  lists reach tens of thousands of requests.
 - No admin 2FA, no admin account management in the panel (create, reset, and deactivate are by
   command or database only; each admin can change their own password), and no image uploads (product images must already be in
   `public/assets/`).

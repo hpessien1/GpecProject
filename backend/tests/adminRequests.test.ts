@@ -114,6 +114,104 @@ describe('contact request list and detail', () => {
   })
 })
 
+describe('searching requests', () => {
+  async function searchReferences(path: string, query: Record<string, string>) {
+    const res = await agent.get(path).query(query)
+    expect(res.status).toBe(200)
+    return res.body
+  }
+
+  it('matches name, company, email, and reference, ignoring case, with counts for the matches', async () => {
+    const ada = await submitEnquiry()
+    const bola = (await request(app).post('/api/enquiries').send({ customer: { fullName: 'Bola Okoro', company: 'Sunrise Farms', email: 'bola@farm.example', phone: '0800' }, items: [{ productId: 'panel-001', quantity: 1 }] })).body.reference as string
+    await Enquiry.updateOne({ reference: bola }, { status: 'closed' })
+    for (const q of ['okoro', 'SUNRISE', 'bola@farm', bola.slice(-8).toLowerCase()]) {
+      const body = await searchReferences('/api/admin/enquiries', { q })
+      expect(body.items.map((item: { reference: string }) => item.reference)).toEqual([bola])
+      expect(body.counts).toEqual({ new: 0, in_progress: 0, closed: 1 })
+    }
+    expect((await searchReferences('/api/admin/enquiries', { q: 'acme', status: 'new' })).items[0].reference).toBe(ada)
+    expect((await searchReferences('/api/admin/enquiries', { q: 'acme', status: 'closed' })).total).toBe(0)
+  })
+
+  it('searches contact requests by their own fields', async () => {
+    const reference = await submitContactRequest('Chidi Eze')
+    await submitContactRequest()
+    const body = await searchReferences('/api/admin/contact-requests', { q: 'chidi' })
+    expect(body.items.map((item: { reference: string }) => item.reference)).toEqual([reference])
+  })
+
+  it('treats the search as plain text, never as a pattern or a query operator', async () => {
+    await submitEnquiry()
+    expect((await searchReferences('/api/admin/enquiries', { q: '.*' })).total).toBe(0)
+    expect((await searchReferences('/api/admin/enquiries', { q: '(' })).total).toBe(0)
+    // ?q[$ne]=x arrives as an object or a literal key, never as an operator; it matches everything
+    // like an empty search rather than failing or filtering.
+    expect((await agent.get('/api/admin/enquiries?q[$ne]=x')).body.total).toBe(1)
+    expect((await agent.get('/api/admin/enquiries?q=a&q=b')).body.total).toBe(1)
+  })
+
+  it('rejects a search over 100 characters', async () => {
+    expect((await agent.get('/api/admin/enquiries').query({ q: 'x'.repeat(101) })).status).toBe(400)
+  })
+})
+
+describe('internal notes', () => {
+  function addNote(path: string, body: object, origin = ORIGIN) {
+    return agent.post(`${path}/notes`).set('Origin', origin).send(body)
+  }
+
+  it('adds a note with who and when, newest first, without changing the request', async () => {
+    const reference = await submitEnquiry()
+    const path = `/api/admin/enquiries/${reference}`
+    const first = await addNote(path, { text: '  Called the customer; quote sent.  ' })
+    expect(first.status).toBe(201)
+    expect(first.body.notes).toEqual([{ author: { name: TEST_ADMIN.name, email: TEST_ADMIN.email }, text: 'Called the customer; quote sent.', createdAt: expect.any(String) }])
+    await addNote(path, { text: 'Customer accepted.' })
+    const detail = await agent.get(path)
+    expect(detail.body.notes.map((note: { text: string }) => note.text)).toEqual(['Customer accepted.', 'Called the customer; quote sent.'])
+    expect(detail.body.item.status).toBe('new')
+    expect(detail.body.history).toEqual([])
+  })
+
+  it('keeps notes separate between requests and kinds', async () => {
+    const enquiry = await submitEnquiry()
+    const contact = await submitContactRequest()
+    await addNote(`/api/admin/contact-requests/${contact}`, { text: 'Contact note' })
+    expect((await agent.get(`/api/admin/enquiries/${enquiry}`)).body.notes).toEqual([])
+    expect((await agent.get(`/api/admin/contact-requests/${contact}`)).body.notes).toHaveLength(1)
+  })
+
+  it.each([
+    [{}, 'text', 'text is required.'],
+    [{ text: '   ' }, 'text', 'text is required.'],
+    [{ text: { $ne: '' } }, 'text', 'text is required.'],
+    [{ text: 'x'.repeat(2001) }, 'text', 'text must be 2000 characters or fewer.'],
+    [{ text: 'Fine', author: 'Someone else' }, 'author', 'author is not allowed.'],
+  ])('rejects %j', async (body, field, message) => {
+    const reference = await submitEnquiry()
+    const res = await addNote(`/api/admin/enquiries/${reference}`, body)
+    expect(res.status).toBe(400)
+    expect(res.body.errors[field]).toBe(message)
+    expect((await agent.get(`/api/admin/enquiries/${reference}`)).body.notes).toEqual([])
+  })
+
+  it('returns 404 for an unknown or wrong-kind reference and saves nothing', async () => {
+    const contact = await submitContactRequest()
+    expect((await addNote('/api/admin/enquiries/GPEC-2026-FFFFFFFF', { text: 'Note' })).status).toBe(404)
+    expect((await addNote(`/api/admin/enquiries/${contact}`, { text: 'Note' })).status).toBe(404)
+    expect((await agent.get(`/api/admin/contact-requests/${contact}`)).body.notes).toEqual([])
+  })
+
+  it('refuses anonymous visitors and other sites', async () => {
+    const reference = await submitEnquiry()
+    const path = `/api/admin/enquiries/${reference}/notes`
+    expect((await request(app).post(path).set('Origin', ORIGIN).send({ text: 'Note' })).status).toBe(401)
+    expect((await addNote(`/api/admin/enquiries/${reference}`, { text: 'Note' }, 'https://attacker.example')).status).toBe(403)
+    expect((await agent.get(`/api/admin/enquiries/${reference}`)).body.notes).toEqual([])
+  })
+})
+
 describe('changing a request status', () => {
   function setStatus(path: string, body: object, origin = ORIGIN) {
     return agent.patch(path).set('Origin', origin).send(body)

@@ -152,7 +152,15 @@ export interface RequestHistoryEntry {
   createdAt: string
 }
 
+// GPEC staff's internal note on a request, newest first. Never edited or deleted.
+export interface RequestNote {
+  author: { name: string, email: string }
+  text: string
+  createdAt: string
+}
+
 export interface AdminRequestResponse {
   item: AdminRequestDetail
   history: RequestHistoryEntry[]
+  notes: RequestNote[]
 }

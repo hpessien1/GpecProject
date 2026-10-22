@@ -2,11 +2,12 @@ import { Router } from 'express'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { adminRequests } from '../services/adminRequests.js'
-import { REFERENCE_PATTERNS, validateRequestListQuery, validateStatusChange } from '../validation/adminRequest.js'
+import { REFERENCE_PATTERNS, validateNote, validateRequestListQuery, validateStatusChange } from '../validation/adminRequest.js'
 
 // Order enquiries (/api/admin/enquiries) and contact requests (/api/admin/contact-requests) for GPEC
 // staff. Mounted behind requireAdmin in app.ts: customers' personal details never reach an anonymous
-// visitor. Admins can read requests and change their status; they cannot edit or delete them.
+// visitor. Admins can read and search requests, change their status, and add internal notes; they
+// cannot edit or delete requests or notes.
 export default function adminRequestsRouter(kind: keyof typeof adminRequests) {
   const router = Router()
   const service = adminRequests[kind]
@@ -20,7 +21,7 @@ export default function adminRequestsRouter(kind: keyof typeof adminRequests) {
     try {
       const { errors, value } = validateRequestListQuery(req.query)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
-      return res.json(await service.list(value.page, value.status))
+      return res.json(await service.list(value.page, value.status, value.search))
     } catch (error) {
       return next(error)
     }
@@ -40,6 +41,17 @@ export default function adminRequestsRouter(kind: keyof typeof adminRequests) {
       const { errors, value } = validateStatusChange(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       return res.json(await service.setStatus(currentAdmin(res), reference, value.status))
+    } catch (error) {
+      return next(error)
+    }
+  })
+
+  router.post('/:reference/notes', async (req, res, next) => {
+    try {
+      const reference = referenceParam(req.params.reference)
+      const { errors, value } = validateNote(req.body)
+      if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+      return res.status(201).json(await service.addNote(currentAdmin(res), reference, value.text))
     } catch (error) {
       return next(error)
     }

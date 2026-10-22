@@ -43,8 +43,8 @@ export async function getProductHistory(id: string) {
   return history
 }
 
-export function listRequests(kind: AdminRequestKind, page: number, status: RequestStatus | null) {
-  const query = new URLSearchParams({ page: String(page), ...(status ? { status } : {}) })
+export function listRequests(kind: AdminRequestKind, page: number, status: RequestStatus | null, search: string) {
+  const query = new URLSearchParams({ page: String(page), ...(status ? { status } : {}), ...(search ? { q: search } : {}) })
   return requestJson<AdminRequestsPage>(`/admin/${kind}?${query}`, 'Unable to load the list.', admin)
 }
 
@@ -54,4 +54,8 @@ export function getRequest(kind: AdminRequestKind, reference: string) {
 
 export function setRequestStatus(kind: AdminRequestKind, reference: string, status: RequestStatus) {
   return requestJson<AdminRequestResponse>(`/admin/${kind}/${encodeURIComponent(reference)}`, 'Unable to update the status.', { ...admin, method: 'PATCH', payload: { status } })
+}
+
+export function addRequestNote(kind: AdminRequestKind, reference: string, text: string) {
+  return requestJson<AdminRequestResponse>(`/admin/${kind}/${encodeURIComponent(reference)}/notes`, 'Unable to save the note.', { ...admin, method: 'POST', payload: { text } })
 }

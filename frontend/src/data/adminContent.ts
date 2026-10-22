@@ -30,3 +30,16 @@ export const requestKindContent: Record<AdminRequestKind, { title: string, eyebr
   'enquiries': { title: 'Order enquiries', eyebrow: 'From the shop', empty: 'No order enquiries here yet.' },
   'contact-requests': { title: 'Contact requests', eyebrow: 'From the contact form', empty: 'No contact requests here yet.' },
 }
+
+export const requestSearchContent = {
+  label: 'Search',
+  help: 'Reference, customer name, company, or email.',
+  noMatches: (search: string) => `Nothing matches “${search}”.`,
+}
+
+export const requestNotesContent = {
+  title: 'Internal notes',
+  help: 'Only GPEC staff can see notes. A note cannot be edited or deleted once added.',
+  label: 'Add a note',
+  empty: 'No notes yet.',
+}

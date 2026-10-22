@@ -50,7 +50,7 @@ export const privacySections: PrivacySection[] = [
   {
     title: 'Who can see your information',
     paragraphs: [
-      'Your enquiries can be read only by authorised GPEC staff, through a password-protected area of the website. Each staff member has their own account, and changes they make are recorded.',
+      'Your enquiries can be read only by authorised GPEC staff, through a password-protected area of the website. Each staff member has their own account, and changes they make are recorded. Staff may add notes on how they followed up your enquiry; these are kept with it and seen only by staff.',
       'The information is stored in a database run for us by MongoDB Atlas ([[data storage region]]). The website runs on servers rented from Hetzner ([[server location]]). These companies store the data for us; they do not use it for their own purposes.',
       'Emails about your enquiry, a confirmation to you and a notification to GPEC staff, are sent through Amazon Web Services’ email service, Amazon SES ([[email service region]]). It sends the emails for us and does not use your details for its own purposes.',
     ],

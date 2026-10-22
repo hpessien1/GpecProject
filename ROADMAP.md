@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-21
+- **Last updated:** 2026-10-22
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -125,6 +125,9 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 - [x] Order enquiries and contact requests for GPEC staff: newest-first lists with status filters
       and counts, detail pages with email and phone links, and a follow-up status (New, In
       progress, Closed) whose every change is recorded (who, from, to, when).
+- [x] Search the request lists by reference, customer name, company, or email, and add internal
+      staff notes to any request (who and when shown; notes cannot be edited or deleted)
+      (2026-10-22).
 - [ ] Order lists (with step 5).
 - [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
 

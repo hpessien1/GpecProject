@@ -1,6 +1,6 @@
 # Next-session handover
 
-Last updated: 2026-10-21. Start a new session with:
+Last updated: 2026-10-22. Start a new session with:
 
 ```text
 Continue work on the GPEC website at /home/worlanyo/Desktop/GpecProject.
@@ -12,7 +12,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md).
   - Done: step 1 (quick fixes), step 2 (CI, hardening, tests), step 4 (products in MongoDB), and
     step 6 for now (admin panel: login, products and prices with change history, enquiry and
-    contact-request lists with a recorded follow-up status, own-password changes).
+    contact-request lists with search, a recorded follow-up status, and internal staff notes,
+    own-password changes).
   - Waiting on the project owner: step 3, the first deploy. Dockerfiles and
     [`docs/RUNBOOK.md`](docs/RUNBOOK.md) are ready; Coolify and Atlas setup need domain names.
   - Waiting on GPEC: step 5, Paystack checkout (currency, Paystack account and fee rule, delivery
@@ -29,7 +30,18 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   the admin screens). Rules in CLAUDE.md Section 9. Formatted by Prettier 3.9.9
   (`frontend/.prettierrc.json`, `npm run format`; CI runs `npm run format:check`); the root
   `.prettierignore` limits Prettier to those files.
-- **Last session (2026-10-21), latest work** (commit `eb436d7`, pushed; CI green):
+- **Last session (2026-10-22): admin search and internal notes** (committed, not pushed):
+  - The order-enquiry and contact-request lists have a search box (reference, customer name,
+    company, or email; `?q=` on the list routes, matched literally and ignoring case; status counts
+    cover the matches).
+  - Each request's detail page has "Internal notes": staff add a note (up to 2000 characters),
+    shown newest first with author and time. Notes are never edited or deleted, so they are their
+    own record (new `RequestNote` model; CLAUDE.md Section 5). `POST /:reference/notes`.
+  - The draft privacy notice now says staff may add follow-up notes, seen only by staff.
+  - Checked: 13 new backend tests and 3 new browser tests (both widths), each shown to fail on a
+    planted bug; the contrast check covers the new states (search with no matches, note added, note
+    error); screenshots at 390px and 1440px, no horizontal scroll.
+- **Session before (2026-10-21)** (commit `eb436d7`, pushed; CI green):
   - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
     became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
     styles, 6.7 kB, load only with #admin). Removed: 103 selectors for an older design, 153
@@ -66,7 +78,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
   - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
   - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 152 backend tests (Vitest, in-memory MongoDB replica set). 86 frontend Playwright
+- **Tests:** 165 backend tests (Vitest, in-memory MongoDB replica set). 92 frontend Playwright
   tests (2 run at one width only) in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
   build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
@@ -85,7 +97,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Open items for the next session
 
-1. Everything up to `eb436d7` is pushed and CI is green. For later commits, ask.
+1. Everything up to `eb436d7` is pushed and CI is green. `b81399c` and the search and notes
+   commit are committed but not pushed; the user pushes.
 2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and
    Coolify from `docs/RUNBOOK.md`; never deploy. Coolify's health check now depends on the
    database (`/api/health` returns 503 if MongoDB does not answer), so a wrong `MONGODB_URI` shows
