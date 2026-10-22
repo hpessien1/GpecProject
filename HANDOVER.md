@@ -119,7 +119,10 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
      user's IP; then replace `MONGODB_URI` in Coolify and redeploy the API.
    - The user was advised to drop the empty `gpec` database (only an empty `enquiries`
      collection left from the removed feature); confirm it was done.
-   - Never run `seed:demo` against production (it refuses anyway).
+   - The owner chose (2026-10-23) to load the sample products and the demo orders and contact
+     requests on the live site so GPEC can try it: `seedProducts.js --production`, then (after the
+     admin account) `seedDemoData.js --production` in the `gpec-api` terminal (RUNBOOK 1.5).
+     **Before launch, `seedDemoData.js --production --remove`** (CLAUDE.md launch checklist).
 3. **AWS, region eu-central-1 (Frankfurt):** the user has member access to the project owner's AWS
    Settings project (free plan until 2027-04-22; the owner must upgrade before launch). Next:
    RUNBOOK 1.6 (SES: verify `gpecengineering.com`, DKIM CNAMEs in Cloudflare as DNS only, DMARC,

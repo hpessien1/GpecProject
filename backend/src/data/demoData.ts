@@ -1,5 +1,6 @@
 // Demo orders and contact requests for showing the admin screens (the owner's request, 2026-10-22).
-// Development only: the demo command refuses the production database (scripts/seedDemoData.ts).
+// The demo command refuses the production database unless given --production, and the demo records
+// must be removed from it before launch (scripts/seedDemoData.ts).
 // Names, companies, addresses, prices, and messages are invented. Emails use the reserved
 // example.com domain and phone numbers start +234 000, so no real person can be reached from them.
 // References all contain "DE0000", which is how the remove command finds them.

@@ -92,6 +92,8 @@ Prove the deployment path before payments. Paystack's webhook also needs a publi
       Atlas owner**; production uses the developer's shared login until then.
 - [ ] Remaining post-deploy checks (runbook Section 2): a `[TEST]` contact request on the live
       site, then deleted; first admin account (runbook 1.4).
+- [ ] Sample products and demo orders and contact requests on the live site for GPEC to try (owner's
+      choice, 2026-10-23; runbook 1.5). **Remove the demo records before launch.**
 
 The project owner deploys; the AI assistant prepares files and instructions only.
 

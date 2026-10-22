@@ -8,10 +8,13 @@ import type { DemoStatusStep } from '../data/demoData.js'
 
 export const PRODUCTION_DATABASE = 'gpec'
 
-// Demo data must never reach the live database, whatever the command line says.
-export function assertDemoAllowed(databaseName: string, nodeEnv: string) {
-  if (databaseName === PRODUCTION_DATABASE || nodeEnv === 'production') {
-    throw new Error(`Refusing demo data: the database is "${databaseName}" and NODE_ENV is "${nodeEnv}". Demo data is for development (gpec_dev) only.`)
+// Demo data reaches the live database only as a deliberate choice (--production), never through a
+// wrong .env. The owner chose to show it on the live site before launch (2026-10-23); it must be
+// removed before launch (CLAUDE.md Known Gaps).
+export function assertDemoAllowed(databaseName: string, nodeEnv: string, productionConfirmed: boolean) {
+  const isProduction = databaseName === PRODUCTION_DATABASE || nodeEnv === 'production'
+  if (isProduction && !productionConfirmed) {
+    throw new Error(`Refusing demo data: the database is "${databaseName}" and NODE_ENV is "${nodeEnv}". Add --production to change the live database on purpose.`)
   }
 }
 

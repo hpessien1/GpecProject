@@ -474,7 +474,7 @@ cd frontend && npm install
 # Run locally. backend/.env sets MONGODB_URI to the gpec_dev database on the shared Atlas
 # cluster — never the production gpec database (Section 5, "Databases").
 cd backend && npm run seed:products   # first time: adds the sample products to gpec_dev
-cd backend && npm run seed:demo       # demo orders and contact requests (gpec_dev only; -- --remove to delete)
+cd backend && npm run seed:demo       # demo orders and contact requests (gpec_dev; -- --remove to delete)
 cd backend && npm run admin:create -- --email you@example.com --name "Your Name"   # prints a password once
 cd backend && npm run admin:create -- --email you@example.com --reset             # new password, ends sessions
 cd backend && npm run dev      # tsx watch src/server.ts
@@ -607,6 +607,9 @@ database outage the proxy may then stop sending traffic to the API, so the site'
 - API replica count is 1 with no autoscaling.
 - The AWS project upgraded from the free plan (which ends 2027-04-22) to a paid plan with a spend
   limit.
+- **Demo data removed from the live `gpec` database** (`node dist/scripts/seedDemoData.js
+  --production --remove` in the `gpec-api` terminal; it reports how many it removed), and the sample
+  products archived once GPEC's real ones are in.
 - A named person owns each incident type: leaked secret, payment webhook outage, database restore —
   with the logins needed (Coolify, Atlas, Paystack, GitHub) ready.
 
@@ -985,12 +988,15 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - The shop cannot take orders yet: checkout shows the order and says online payment is not
   available until GPEC's Paystack account is set up (step 5). No prices are shown yet. The Orders
   admin screens work (list, detail, fulfilment status, notes), but only demo orders exist.
-- **Demo data in `gpec_dev`** (owner's request, 2026-10-22, for showing GPEC the admin screens):
-  10 orders and 8 contact requests from `data/demoData.ts`, realistic and unmarked on screen at the
-  owner's request, with `example.com` emails and `+234 000` phone numbers. `npm run seed:demo` adds
-  them, `npm run seed:demo -- --remove` removes exactly them (by their `DE0000` references) with
-  their history and notes. The command refuses the `gpec` database and `NODE_ENV=production` with no
-  override. Their prices and Paystack fees are invented (the fee uses an illustrative 1.5% + ₦100,
+- **Demo data** (owner's request, 2026-10-22, for showing GPEC the admin screens): 10 orders and 8
+  contact requests from `data/demoData.ts`, realistic and unmarked on screen at the owner's request,
+  with `example.com` emails and `+234 000` phone numbers. `npm run seed:demo` adds them,
+  `npm run seed:demo -- --remove` removes exactly them (by their `DE0000` references) with their
+  history and notes. The command refuses the `gpec` database and `NODE_ENV=production` unless run
+  with `--production`: the owner chose (2026-10-23) to show the demo data on the live site too, so
+  GPEC can try it before launch. **It must be removed from `gpec` before launch** (checklist in
+  Section 7); until then real contact requests sent through the live site would sit among the demo
+  ones. Their prices and Paystack fees are invented (the fee uses an illustrative 1.5% + ₦100,
   capped at ₦2,000, only in the demo data). Stock counts are not reduced by sales until then.
 - Order enquiries were removed (2026-10-22): the `enquiries` collection may still exist, empty or
   with test records, in `gpec_dev`; nothing reads it. The sample product `replacement-001` was

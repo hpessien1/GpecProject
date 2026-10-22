@@ -158,6 +158,22 @@ with a link to the contact form. Until GPEC's real product list arrives, there a
   It prints `Database "gpec": added 14 sample products`. Running it again changes nothing; it
   never overwrites or removes a product. Without `--production` it refuses to touch `gpec`.
 
+**Demo orders and contact requests** (the owner's choice, 2026-10-23, so GPEC can try the admin
+screens before launch). After creating your admin account (Section 1.4), in the same terminal:
+
+```sh
+node dist/scripts/seedDemoData.js --production
+```
+
+**Before launch, remove them**, or they stay mixed with real orders and messages:
+
+```sh
+node dist/scripts/seedDemoData.js --production --remove
+```
+
+It removes exactly the demo records (references containing `DE0000`) with their history and notes,
+and prints how many. Real records are never touched.
+
 ---
 
 ### 1.6 Email (Amazon SES)

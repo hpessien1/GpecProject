@@ -115,5 +115,5 @@ All admin responses are sent with `Cache-Control: no-store`.
   moves a **paid** order along and records it: unpaid orders get `409 ORDER_NOT_PAID`, a pickup
   order cannot be `out_for_delivery` nor a delivery order `ready_for_pickup` (`400`). Payment status,
   items, amounts, and customer details cannot be changed here. `POST /:reference/notes` as for
-  contact requests. Orders are created by checkout (roadmap step 5); until then only by
-  `npm run seed:demo` in `gpec_dev`.
+  contact requests. Orders are created by checkout (roadmap step 5); until then only by the demo
+  command (`npm run seed:demo`; on the live database only with `--production`, before launch).

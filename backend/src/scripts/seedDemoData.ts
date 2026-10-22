@@ -1,8 +1,9 @@
-// Adds demo orders and contact requests to the development database, for showing the admin screens.
-// Never runs against the production "gpec" database (there is no override).
+// Adds demo orders and contact requests, for showing the admin screens. Refuses the production "gpec"
+// database unless --production is given; demo data there must be removed before launch.
 //
 //   npm run seed:demo                (add the demo records that are missing)
 //   npm run seed:demo -- --remove    (remove every demo record, with its history and notes)
+//   node dist/scripts/seedDemoData.js --production [--remove]   (live site, from Coolify's terminal)
 import 'dotenv/config'
 import mongoose from 'mongoose'
 import { loadConfig } from '../config.js'
@@ -12,7 +13,7 @@ try {
   const config = loadConfig()
   await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 5000 })
   const databaseName = mongoose.connection.name
-  assertDemoAllowed(databaseName, config.nodeEnv)
+  assertDemoAllowed(databaseName, config.nodeEnv, process.argv.includes('--production'))
   if (process.argv.includes('--remove')) {
     const { orders, contactRequests } = await removeDemoData()
     console.log(`Database "${databaseName}": removed ${orders} demo orders and ${contactRequests} demo contact requests.`)

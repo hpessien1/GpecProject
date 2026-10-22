@@ -120,10 +120,11 @@ cd backend && npm run seed:products        # adds any missing sample product; ne
 
 Everything else (adding real products, prices, stock, archiving) is done in the admin panel.
 
-### Demo orders and contact requests (`gpec_dev` only)
+### Demo orders and contact requests
 
 For showing the admin screens: 10 orders in every stage and 8 contact requests in every status.
-The command refuses the production `gpec` database.
+The command refuses the production `gpec` database unless given `--production` (live site:
+Section 8).
 
 ```bash
 cd backend && npm run seed:demo                # adds the demo records that are missing (safe to repeat)
@@ -172,6 +173,14 @@ commands touch the live `gpec` database, so each needs `--production`; without i
 ```sh
 # Optional: show the 14 labelled sample products until GPEC's real list arrives (GPEC's choice).
 node dist/scripts/seedProducts.js --production
+```
+
+**Demo orders and contact requests on the live site** (owner's choice, before launch only). Create
+your admin account first (below), so the demo history and notes have an author.
+
+```sh
+node dist/scripts/seedDemoData.js --production            # adds them
+node dist/scripts/seedDemoData.js --production --remove   # removes exactly them: REQUIRED before launch
 ```
 
 **Admin accounts for GPEC staff.** Run once per person, with their real name and email:

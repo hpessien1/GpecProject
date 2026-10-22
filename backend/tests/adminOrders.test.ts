@@ -228,11 +228,15 @@ describe('demo data', () => {
     expect(await AuditRecord.countDocuments({ targetType: 'order' })).toBe(0)
   })
 
-  it.each([['gpec', 'development'], ['gpec_dev', 'production']])('refuses database %s with NODE_ENV %s', (database, nodeEnv) => {
-    expect(() => assertDemoAllowed(database, nodeEnv)).toThrow('Demo data is for development (gpec_dev) only.')
+  it.each([['gpec', 'development'], ['gpec_dev', 'production'], ['gpec', 'production']])('refuses database %s with NODE_ENV %s without --production', (database, nodeEnv) => {
+    expect(() => assertDemoAllowed(database, nodeEnv, false)).toThrow('Add --production to change the live database on purpose.')
+  })
+
+  it('allows the live database only with --production', () => {
+    expect(() => assertDemoAllowed('gpec', 'production', true)).not.toThrow()
   })
 
   it('allows the development database', () => {
-    expect(() => assertDemoAllowed('gpec_dev', 'development')).not.toThrow()
+    expect(() => assertDemoAllowed('gpec_dev', 'development', false)).not.toThrow()
   })
 })
