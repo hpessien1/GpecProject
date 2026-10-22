@@ -5,12 +5,16 @@ import { afterAll, afterEach, beforeAll } from 'vitest'
 import createApp from '../src/app.js'
 import type { AppConfig } from '../src/app.js'
 import AdminUser from '../src/models/AdminUser.js'
+import type { BreachedPasswordCheck } from '../src/services/breachedPasswords.js'
 import type { EmailMessage, Mailer } from '../src/services/email.js'
 import { hashPassword } from '../src/services/passwords.js'
 
 // Development-like settings with generous rate limits, so only the rate-limit tests hit them.
+// Stands in for Pwned Passwords so tests never reach the internet: no password is breached.
+export const noBreaches: BreachedPasswordCheck = { isBreached: async () => false }
+
 // mailer: a RecordingMailer to check emails; null (the default) means email is off.
-export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | null = null) {
+export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | null = null, breachCheck: BreachedPasswordCheck = noBreaches) {
   return createApp({
     isProduction: false,
     clientOrigins: ['http://localhost:5173'],
@@ -19,7 +23,7 @@ export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | nul
     currency: 'NGN',
     email: null,
     ...overrides,
-  }, mailer)
+  }, mailer, breachCheck)
 }
 
 // An in-memory MongoDB per test file: never gpec_dev or production. A single-node replica set, because

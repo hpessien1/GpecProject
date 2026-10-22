@@ -44,6 +44,14 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Then (committed, not pushed): a Show/Hide button on every admin password field
     (`components/admin/PasswordInput.tsx`). It hides the password again when the form is sent, so
     browsers still offer to save it, and turns spell-check off.
+  - Then (committed, not pushed): new admin passwords known from data breaches are refused, checked
+    with Have I Been Pwned's free Pwned Passwords API (approved by the user; only a 5-character
+    hash prefix leaves the server; if unreachable, the change goes ahead and is logged). Checked
+    against the live service once ("password" refused, a random one accepted).
+  - Then (committed, not pushed): a live character counter under the new password ("9 of 15
+    characters", then "15 characters ✓ long enough"); screen readers hear only the moment it is
+    long enough. No strength meter, by choice: it would disagree with the real rules (length and
+    the breach check).
 - **Session before (2026-10-21)** (commit `eb436d7`, pushed; CI green):
   - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
     became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
@@ -81,7 +89,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
   - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
   - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 165 backend tests (Vitest, in-memory MongoDB replica set). 96 frontend Playwright
+- **Tests:** 172 backend tests (Vitest, in-memory MongoDB replica set). 100 frontend Playwright
   tests (2 run at one width only) in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
   build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
@@ -101,7 +109,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 ## Open items for the next session
 
 1. Everything up to `eb436d7` is pushed and CI is green. `b81399c`, the search and notes
-   commit, and the password Show/Hide commit are committed but not pushed; the user pushes.
+   commit, the password Show/Hide commit, and the breach-check and counter commit are committed
+   but not pushed; the user pushes.
 2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and
    Coolify from `docs/RUNBOOK.md`; never deploy. Coolify's health check now depends on the
    database (`/api/health` returns 503 if MongoDB does not answer), so a wrong `MONGODB_URI` shows

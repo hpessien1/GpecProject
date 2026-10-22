@@ -1,5 +1,5 @@
 import request from 'supertest'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import AdminSession from '../src/models/AdminSession.js'
 import AdminUser from '../src/models/AdminUser.js'
 import { TEST_ADMIN, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
@@ -190,6 +190,39 @@ describe('changing your own password', () => {
     expect((await changePassword(agent, { currentPassword: 'wrong 2', newPassword: NEW_PASSWORD })).body.code).toBe('WRONG_PASSWORD')
     const blocked = await changePassword(agent, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD })
     expect(blocked.status).toBe(429)
+  })
+
+  it('refuses a password known from a data breach, checking only the new password', async () => {
+    await createTestAdmin()
+    const checked: string[] = []
+    const breachedApp = testApp({}, null, { isBreached: async (password) => { checked.push(password); return true } })
+    const agent = await loggedInAgent(breachedApp)
+    const res = await changePassword(agent, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD })
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ code: 'PASSWORD_BREACHED', errors: { newPassword: expect.stringContaining('appeared in a data breach') } })
+    expect(checked).toEqual([NEW_PASSWORD])
+    expect((await logIn(app, { email: TEST_ADMIN.email, password: TEST_ADMIN.password })).status).toBe(200)
+  })
+
+  it('goes ahead, and logs it, when the breach check cannot be made', async () => {
+    await createTestAdmin()
+    const unreachableApp = testApp({}, null, { isBreached: async () => null })
+    const agent = await loggedInAgent(unreachableApp)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const res = await changePassword(agent, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD })
+    const warnings = warn.mock.calls.map((call) => String(call[0]))
+    warn.mockRestore()
+    expect(res.status).toBe(204)
+    expect(warnings).toEqual([expect.stringContaining('breached-password check could not be made')])
+    expect(warnings.join(' ')).not.toContain(NEW_PASSWORD)
+  })
+
+  it('does not check passwords that fail the other rules', async () => {
+    await createTestAdmin()
+    const checked: string[] = []
+    const agent = await loggedInAgent(testApp({}, null, { isBreached: async (password) => { checked.push(password); return false } }))
+    await changePassword(agent, { currentPassword: TEST_ADMIN.password, newPassword: 'too short' })
+    expect(checked).toEqual([])
   })
 
   it('refuses a change sent from another site', async () => {

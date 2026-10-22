@@ -3,13 +3,16 @@ import type { CookieOptions } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { HttpError, ValidationError } from '../errors.js'
 import { requireAdmin, currentAdmin } from '../middleware/requireAdmin.js'
+import type { BreachedPasswordCheck } from '../services/breachedPasswords.js'
 import { SESSION_COOKIE, SESSION_DURATION_MS, changePassword, logIn, logOut, readCookie } from '../services/adminAuth.js'
 import { currencyInfo } from '../services/currency.js'
 import { validateLogin, validatePasswordChange } from '../validation/adminSession.js'
 import type { AppConfig } from '../app.js'
 
+const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
+
 // Log in (POST), check who is logged in (GET), log out (DELETE), change own password (POST /password).
-export default function adminSessionRouter(config: AppConfig) {
+export default function adminSessionRouter(config: AppConfig, breachCheck: BreachedPasswordCheck) {
   const router = Router()
   // httpOnly: page scripts cannot read it. SameSite=Strict: other sites cannot make the browser send
   // it. Secure in production (HTTPS only). Sent only to admin routes.
@@ -49,6 +52,12 @@ export default function adminSessionRouter(config: AppConfig) {
     try {
       const { errors, value } = validatePasswordChange(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+      // A password known from a breach is among the first an attacker tries. If the check service
+      // cannot be reached, the change goes ahead (the length rule still applies) rather than locking
+      // staff out of changing their password; the skip is logged.
+      const breached = await breachCheck.isBreached(value.newPassword)
+      if (breached) throw new HttpError(400, BREACHED_MESSAGE, 'PASSWORD_BREACHED', { newPassword: BREACHED_MESSAGE })
+      if (breached === null) console.warn('Password change: the breached-password check could not be made; the change went ahead without it.')
       const changed = await changePassword(currentAdmin(res).id, value.currentPassword, value.newPassword, readCookie(req.headers.cookie, SESSION_COOKIE))
       // 400, not 401: the session is still valid, only the password typed was wrong.
       if (!changed) {

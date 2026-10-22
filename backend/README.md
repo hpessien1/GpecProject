@@ -66,7 +66,10 @@ All admin responses are sent with `Cache-Control: no-store`.
 - `POST /api/admin/session/password` with `{ currentPassword, newPassword }` changes the logged-in
   admin's password (new one at least 15 characters, different from the current one) and ends their
   other sessions. A wrong current password gets `400 WRONG_PASSWORD` and counts toward the
-  failed-attempt limit.
+  failed-attempt limit. A new password known from a data breach gets `400 PASSWORD_BREACHED`: the
+  server asks `api.pwnedpasswords.com` (sending only the first 5 characters of the password's
+  SHA-1 hash) and, if that service cannot be reached within 3 seconds, allows the change and logs
+  a warning.
 - Every command (creating admins, seeding, checks) is listed in [`docs/COMMANDS.md`](../docs/COMMANDS.md).
 - Every `/api/admin/products` route needs that cookie (`401 ADMIN_AUTH_REQUIRED` otherwise), and
   changes from an origin not in `CLIENT_ORIGIN` get `403`.

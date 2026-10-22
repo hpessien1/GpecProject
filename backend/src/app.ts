@@ -8,6 +8,8 @@ import { HttpError } from './errors.js'
 import { sesMailer } from './services/email.js'
 import { databaseIsReachable } from './services/health.js'
 import type { Mailer } from './services/email.js'
+import { pwnedPasswordsCheck } from './services/breachedPasswords.js'
+import type { BreachedPasswordCheck } from './services/breachedPasswords.js'
 import { createNotifier } from './services/notifications.js'
 import { requireAdmin } from './middleware/requireAdmin.js'
 import adminProductsRouter from './routes/adminProducts.js'
@@ -31,7 +33,8 @@ function formLimiter({ windowMs, limit }: RateLimitSettings) {
 }
 
 // mailer: tests pass a recorder; otherwise Amazon SES when email is configured, or nothing.
-export default function createApp(config: AppConfig, mailer: Mailer | null = config.email ? sesMailer(config.email) : null) {
+// breachCheck: tests pass a stand-in; otherwise Pwned Passwords.
+export default function createApp(config: AppConfig, mailer: Mailer | null = config.email ? sesMailer(config.email) : null, breachCheck: BreachedPasswordCheck = pwnedPasswordsCheck()) {
   const notifier = createNotifier(mailer, config.email)
   const app = express()
   app.disable('x-powered-by')
@@ -53,7 +56,7 @@ export default function createApp(config: AppConfig, mailer: Mailer | null = con
   app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter(notifier))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.
   app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
-  app.use('/api/admin/session', adminSessionRouter(config))
+  app.use('/api/admin/session', adminSessionRouter(config, breachCheck))
   app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
   app.use('/api/admin/enquiries', requireAdmin(config.clientOrigins), adminRequestsRouter('enquiry'))
   app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest'))

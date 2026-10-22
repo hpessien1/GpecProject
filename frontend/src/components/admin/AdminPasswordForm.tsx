@@ -16,6 +16,7 @@ export default function AdminPasswordForm({ onSessionEnded }: AdminPasswordFormP
   const [isSaving, setIsSaving] = useState(false)
   const [result, setResult] = useState<{ kind: 'success' | 'error', message: string } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [newPasswordLength, setNewPasswordLength] = useState(0)
   const resultRef = useRef<HTMLParagraphElement>(null)
 
   // The button is disabled while saving, which drops keyboard focus; move it to the result instead.
@@ -41,6 +42,7 @@ export default function AdminPasswordForm({ onSessionEnded }: AdminPasswordFormP
     try {
       await changePassword(currentPassword, newPassword)
       form.reset()
+      setNewPasswordLength(0)
       setResult({ kind: 'success', message: 'Your password has been changed. Any other browsers where you were logged in have been logged out.' })
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return onSessionEnded()
@@ -51,6 +53,7 @@ export default function AdminPasswordForm({ onSessionEnded }: AdminPasswordFormP
     }
   }
 
+  const isLongEnough = newPasswordLength >= MIN_PASSWORD_LENGTH
   const describedBy = (name: string, hint = false) => [hint && `${name}-hint`, errors[name] && `${name}-error`].filter(Boolean).join(' ') || undefined
   return <section aria-labelledby="admin-password-title">
     <div className="admin-heading">
@@ -66,8 +69,13 @@ export default function AdminPasswordForm({ onSessionEnded }: AdminPasswordFormP
       </div>
       <div className="admin-field">
         <label htmlFor="newPassword">New password</label>
-        <PasswordInput id="newPassword" name="newPassword" required maxLength={200} autoComplete="new-password" aria-describedby={describedBy('newPassword', true)} />
-        <small id="newPassword-hint">At least {MIN_PASSWORD_LENGTH} characters. Length matters more than symbols: a few unrelated words, or a password manager, work well. Do not reuse a password from another site.</small>
+        <PasswordInput id="newPassword" name="newPassword" required maxLength={200} autoComplete="new-password" aria-describedby={describedBy('newPassword', true)} onChange={(event) => setNewPasswordLength(event.target.value.length)} />
+        {/* Shown as you type. Screen readers hear only the moment it becomes long enough, not every keystroke. */}
+        {isLongEnough
+          ? <small className="admin-password-count admin-password-count-ok" aria-hidden="true">{newPasswordLength} characters ✓ long enough</small>
+          : <small className="admin-password-count" aria-hidden="true">{newPasswordLength} of {MIN_PASSWORD_LENGTH} characters</small>}
+        <span className="visually-hidden" aria-live="polite">{isLongEnough ? 'The new password is long enough.' : ''}</span>
+        <small id="newPassword-hint">At least {MIN_PASSWORD_LENGTH} characters. Length matters more than symbols: a few unrelated words, or a password manager, work well. Do not reuse a password from another site. Passwords known from data breaches are refused.</small>
         {errors.newPassword && <small className="admin-field-error" id="newPassword-error">{errors.newPassword}</small>}
       </div>
       <div className="admin-field">

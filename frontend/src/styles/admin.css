@@ -160,6 +160,14 @@
   outline: 2px solid var(--forest);
   outline-offset: 2px;
 }
+.admin-field .admin-password-count {
+  font: 0.68rem var(--mono);
+  letter-spacing: 0.03em;
+}
+.admin-field .admin-password-count-ok {
+  color: var(--forest);
+  font-weight: 700;
+}
 .admin-checkbox label {
   display: flex;
   align-items: flex-start;

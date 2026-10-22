@@ -11,6 +11,9 @@ const NGN: CurrencyInfo = { code: 'NGN', minorUnitDigits: 2 }
 export const ADMIN = { name: 'Sample Admin', email: 'admin@example.com', password: 'a long sample passphrase' }
 export const ENQUIRY_REF = 'GPEC-2026-0000000A'
 export const CONTACT_REF = 'GPEC-C-2026-0000000A'
+// The server refuses this new password as known from a data breach.
+export const BREACHED_PASSWORD = 'password password password'
+const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
 
 function sampleProduct(id: string, name: string, reference: string, image: string): Product {
   return { id, name, reference, description: `${name}: sample description for testing.`, specs: ['Spec one', 'Spec two'], image, alt: `${name} photo`, isPlaceholder: true }
@@ -109,6 +112,7 @@ function reply(state: ApiState, request: Request): Reply {
   if (!state.loggedIn) return [401, { message: 'Please log in to continue.', code: 'ADMIN_AUTH_REQUIRED' }]
   if (path === '/api/admin/session') return [200, session]
   if (path === '/api/admin/session/password') {
+    if (body.newPassword === BREACHED_PASSWORD) return [400, { message: BREACHED_MESSAGE, code: 'PASSWORD_BREACHED', errors: { newPassword: BREACHED_MESSAGE } }]
     if (body.currentPassword !== ADMIN.password) return [400, { message: 'Your current password is incorrect.', code: 'WRONG_PASSWORD', errors: { currentPassword: 'Your current password is incorrect.' } }]
     return [204, null]
   }

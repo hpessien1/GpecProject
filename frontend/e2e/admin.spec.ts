@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { ADMIN, CONTACT_REF, ENQUIRY_REF, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, ENQUIRY_REF, logInAsAdmin, mockApi } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -189,6 +189,40 @@ test.describe('order enquiries and contact requests', () => {
 })
 
 test.describe('changing your own password', () => {
+  test('counts the new password as you type and announces only when it is long enough', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/password')
+    const newPassword = page.getByLabel('New password', { exact: true })
+    const count = page.locator('.admin-password-count')
+    const announcement = page.locator('.admin-field [aria-live="polite"]')
+    await expect(count).toHaveText('0 of 15 characters')
+    await newPassword.fill('fourteen chars')
+    await expect(count).toHaveText('14 of 15 characters')
+    await expect(announcement).toHaveText('')
+    await newPassword.press('!')
+    await expect(count).toHaveText('15 characters ✓ long enough')
+    await expect(announcement).toHaveText('The new password is long enough.')
+    await page.getByLabel('Current password').fill(ADMIN.password)
+    await page.getByLabel('New password again').fill('fourteen chars!')
+    await page.getByRole('button', { name: 'Change password' }).click()
+    await expect(page.locator('.success-message')).toContainText('Your password has been changed.')
+    await expect(count).toHaveText('0 of 15 characters')
+  })
+
+  test('shows the server refusing a password known from a data breach', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/password')
+    await page.getByLabel('Current password').fill(ADMIN.password)
+    await page.getByLabel('New password', { exact: true }).fill(BREACHED_PASSWORD)
+    await page.getByLabel('New password again').fill(BREACHED_PASSWORD)
+    await page.getByRole('button', { name: 'Change password' }).click()
+    await expect(page.locator('#newPassword-error')).toHaveText('This password has appeared in a data breach, so attackers try it early. Choose a different one.')
+    await expect(page.getByLabel('New password', { exact: true })).toHaveAttribute('aria-describedby', 'newPassword-hint newPassword-error')
+    await expect(page.locator('#newPassword-hint')).toContainText('Passwords known from data breaches are refused.')
+  })
+
   test('checks length and matching before sending, then reports a wrong current password', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
