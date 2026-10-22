@@ -1,6 +1,6 @@
 # Next-session handover
 
-Last updated: 2026-10-22. Start a new session with:
+Last updated: 2026-10-22 (end of session). Start a new session with:
 
 ```text
 Continue work on the GPEC website at /home/worlanyo/Desktop/GpecProject.
@@ -9,168 +9,125 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
+- **Git and CI:** everything up to `55542da` is pushed and CI is green (run 39802616748). The
+  last commit of the session (font sizes, two layout fixes, this handover) is committed but **not pushed**;
+  the user pushes, then check CI with `gh run list -R hpessien1/GpecProject` (the `gh` login
+  `v25-hub` can read this repository's runs; it cannot push).
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md).
-  - Done: step 1 (quick fixes), step 2 (CI, hardening, tests), step 4 (products in MongoDB), and
-    step 6 for now (admin panel: login, products and prices with change history, enquiry and
-    contact-request lists with search, a recorded follow-up status, and internal staff notes,
-    own-password changes).
-  - Waiting on the project owner: step 3, the first deploy. Dockerfiles and
-    [`docs/RUNBOOK.md`](docs/RUNBOOK.md) are ready; Coolify and Atlas setup need domain names.
+  - Done: step 1 (quick fixes), step 2 (CI, hardening, tests), step 4 (products in MongoDB),
+    step 6 (admin panel: products, prices, stock, photos, orders, contact requests).
+  - Waiting on the project owner: step 3, the first deploy (Coolify and Atlas need domain names).
   - Waiting on GPEC: step 5, Paystack checkout (currency, Paystack account and fee rule, delivery
-    fees), then the admin order lists.
-- **Rules:** [`CLAUDE.md`](CLAUDE.md): Paystack rules (4.1), contrast rules (Section 9), email (8),
-  deployment (7), known gaps (14), lessons learned (15).
+    fees, pickup location). Everything else for checkout is ready to build on: the Order model,
+    the admin Orders screens, and the Checkout page that currently says payment is not available.
+- **Rules:** [`CLAUDE.md`](CLAUDE.md): Paystack (4.1), admin access (4.5), data model (5), product
+  photos and email (8), styling and contrast (9), known gaps (14), lessons learned (15).
 - **Commands:** [`docs/COMMANDS.md`](docs/COMMANDS.md) lists every command, local and production.
-- **Mock content on the live pages** (owner's request, unlabelled on the page): About, Current
-  Work, and the footer contact details (unreachable `info@example.com`, invalid phone). The 14
-  products are labelled samples. Services areas 2–9 show existing photos labelled "Illustrative
-  image" (three are Afrizone stills, at the owner's request). All must be replaced with GPEC's real
-  content before launch.
-- **Stylesheets:** `frontend/src/styles/` (base, site, home, shop, privacy; admin loads only with
-  the admin screens). Rules in CLAUDE.md Section 9. Formatted by Prettier 3.9.9
-  (`frontend/.prettierrc.json`, `npm run format`; CI runs `npm run format:check`); the root
-  `.prettierignore` limits Prettier to those files.
-- **Last session (2026-10-22): admin search and internal notes** (committed, not pushed):
-  - The order-enquiry and contact-request lists have a search box (reference, customer name,
-    company, or email; `?q=` on the list routes, matched literally and ignoring case; status counts
-    cover the matches).
-  - Each request's detail page has "Internal notes": staff add a note (up to 2000 characters),
-    shown newest first with author and time. Notes are never edited or deleted, so they are their
-    own record (new `RequestNote` model; CLAUDE.md Section 5). `POST /:reference/notes`.
-  - The draft privacy notice now says staff may add follow-up notes, seen only by staff.
-  - Checked: 13 new backend tests and 3 new browser tests (both widths), each shown to fail on a
-    planted bug; the contrast check covers the new states (search with no matches, note added, note
-    error); screenshots at 390px and 1440px, no horizontal scroll.
-  - Then (committed, not pushed): a Show/Hide button on every admin password field
-    (`components/admin/PasswordInput.tsx`). It hides the password again when the form is sent, so
-    browsers still offer to save it, and turns spell-check off.
-  - Then (committed, not pushed): new admin passwords known from data breaches are refused, checked
-    with Have I Been Pwned's free Pwned Passwords API (approved by the user; only a 5-character
-    hash prefix leaves the server; if unreachable, the change goes ahead and is logged). Checked
-    against the live service once ("password" refused, a random one accepted).
-  - Then (committed, not pushed): a live character counter under the new password ("9 of 15
-    characters", then "15 characters ✓ long enough"); screen readers hear only the moment it is
-    long enough. No strength meter, by choice: it would disagree with the real rules (length and
-    the breach check).
-  - Then (committed, not pushed): **product photo uploads** from the admin's laptop, phone, or tablet,
-    with a preview (current photo, the chosen one at once, then the resized one). Amazon S3 and
-    `sharp` approved by the user. Private bucket; the API checks, re-encodes, and serves photos
-    (CLAUDE.md Section 8, "Product photos"). Off until GPEC's S3 bucket exists (RUNBOOK 1.7). Found
-    and fixed on the way: the CSP blocked images from the API and `blob:` previews, and the
-    Dockerfile's `sed` replaced only the first `__API_ORIGIN__` on a line (would have broken every
-    API call once a second one was added); `e2e/csp.spec.ts` now applies the real policy. Oversized
-    JSON bodies now get 413 instead of 500. Both Docker images built and checked locally (`sharp`
-    works in the Alpine API image). Your one-line `.admin-history-meta` size change (0.65 → 0.75rem)
-    is included; contrast passes.
-  - Then (committed, not pushed): the shop and admin headers show the same GPEC logo as the home page
-    (`LogoLockup`, same size and position; its offset moved to `base.css`); phone shop/admin header
-    84px like the home page. A browser test checks every page's header uses the same logo file.
-    The logo now loads resized WebP copies (`gpec-engineering-logo-plinth-360.webp` and `-540.webp`,
-    28 and 48 kB) instead of the 1.1 MB PNG, which stays in `public/assets/` unchanged as the source.
-    The shop header's "Product ordering" label is plain text beside the logo, no longer part of the
-    link home (it looked like a shop link but went to the landing page).
-  - Then (committed, not pushed): **scope correction from the owner: no order enquiries.** Customers
-    buy in the shop (Paystack; pickup or delivery) or ask through the contact form. Removed the
-    shop's enquiry form, `POST /api/enquiries`, the Enquiry model, its emails, and the Order
-    enquiries admin tab. Added a stock switch and optional stock count per product (out-of-stock
-    products stay in the shop, labelled, not buyable; customers never see the count), a Checkout
-    page that says online payment is not available yet (link to the contact form), and an Orders
-    admin tab that explains orders arrive with Paystack. CLAUDE.md Lessons Learned has the rule.
-    The sample product `replacement-001` is renamed "Replacement parts" in the seed data; in
-    `gpec_dev` it keeps its old name until edited in the admin panel (the seed never changes
-    existing products).
-  - Then (committed, not pushed): **Orders screens and demo data.** Order model (payment status set
-    only by the server; fulfilment status moved by staff, with history and notes), admin Orders list
-    and detail, and `npm run seed:demo` (10 orders in every stage, 8 contact requests; `gpec_dev`
-    only; `-- --remove` deletes exactly them). Demo data is loaded in `gpec_dev`. The user's
-    `tsx watch` API missed the new route until restarted by hand; if a new route answers "Route
-    not found", restart `npm run dev` (noted in docs/COMMANDS.md).
-  - Then: CI failed on `54312ac` (lint: `expect` inside `if` in `tests/adminOrders.test.ts`; fixed).
-    CI actions updated to Node 24 releases: checkout v7.0.1, setup-node v7.1.0 (pinned by commit;
-    release notes checked: no breaking change for the inputs CI uses). Run the full CI steps,
-    including lint, before calling a change done.
-- **Session before (2026-10-21)** (commit `eb436d7`, pushed; CI green):
-  - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
-    became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
-    styles, 6.7 kB, load only with #admin). Removed: 103 selectors for an older design, 153
-    declarations always overridden by a later copy of the same rule, 54 that repeated a value
-    already set, 69 overridden by newer rules or with no effect; 57 duplicate rule blocks merged;
-    42 hex colours became variables.
-    Verified with no visual change: see "How the CSS cleanup was checked" below.
-  - `/api/health` now checks MongoDB (503 when it does not answer in 2 seconds).
-  - The two portfolio cards with illustrative images no longer say "Built by the GPEC team".
-  - The empty `webDevPractice` file is gone.
-- **How the CSS cleanup was checked:** the original and the cleaned site were built and driven into
-  the same 45 states (every page, form error, sending and sent states, cart, product window, menu
-  open, every admin screen, public pages after visiting admin). In each state, at 21 widths, every
-  element's computed style (with `::before`, `::after`, `::placeholder`) and position were compared,
-  with hover and focus forced on each element the CSS styles in those states, and full-page
-  screenshots were compared pixel for pixel. The comparison was first proven deterministic
-  (original against itself) and shown to catch a planted hover-only bug. It caught three real
-  regressions in a first attempt (caused by a bug in the cleanup tooling), which were fixed before
-  the commit. The tool lived in the session scratchpad, not the repository; ask the user if they
-  want it kept as a test for future CSS changes.
+
+## The shop and admin, as the owner wants them (corrected 2026-10-22)
+
+- **Customers either buy or ask.** The shop is for buying through Paystack, with pickup or delivery
+  (a delivery address only for delivery). Any question goes through the home page's contact form.
+  There are **no order enquiries** anywhere (removed; CLAUDE.md Lessons Learned).
+- **Availability is staff's job:** archive a product to take it out of the shop, or mark it out of
+  stock (switch, plus an optional stock count; customers never see the count). Out-of-stock
+  products stay visible, labelled, and cannot be added to the cart.
+- **Until Paystack is set up,** checkout shows the order and says online payment is not available
+  yet, with a link to the contact form.
+- **Admin tabs:** Products · Orders · Contact requests.
+  - Orders: list with a stage per order (Awaiting payment, Payment failed, New, Processing, Ready
+    for pickup or Out for delivery, Completed, Cancelled; the owner chose this payment + fulfilment
+    model), search, counts, detail page with items, totals, pickup/delivery, payment, a status menu
+    (paid orders only), history, and notes. Payment status is never changed by staff.
+  - Contact requests: search, status (New, In progress, Closed), history, notes.
+  - Products: prices (need `CURRENCY`), stock, photo upload with preview (needs S3).
+- **Demo data is loaded in `gpec_dev`** (owner's request, for showing GPEC the screens): 10 orders
+  in every stage and 8 contact requests, realistic and unmarked on screen, with `example.com`
+  emails and `+234 000` phones. `cd backend && npm run seed:demo -- --remove` deletes exactly them;
+  remove them before GPEC enters real data there. The command refuses the `gpec` database.
+
+## This session (2026-10-22), in order
+
+All commits on `main`; details in each commit message and in CLAUDE.md.
+
+1. Admin search and internal notes on requests.
+2. Admin passwords: Show/Hide button; new passwords checked against Have I Been Pwned's free
+   Pwned Passwords API (user-approved; only a 5-character hash prefix leaves the server); a live
+   "9 of 15 characters" counter. "Forgot password" is required once email works (not built).
+3. Product photo uploads to a private Amazon S3 bucket via the API, resized and re-encoded with
+   `sharp` (user-approved), with previews. Off until GPEC's S3 bucket exists (RUNBOOK 1.7). The CSP
+   now allows images from the API and `blob:`; `e2e/csp.spec.ts` checks the real policy.
+4. The same GPEC logo in every header, from small WebP copies (the 1.1 MB PNG stays as the source).
+5. Order enquiries removed; stock handling; Checkout page.
+6. Order model, Orders screens, demo data (`npm run seed:demo`).
+7. CI: fixed a lint error, and updated `actions/checkout` to v7.0.1 and `actions/setup-node` to
+   v7.1.0 (Node 24; CI green).
+8. Larger admin text: field labels, table headings, badges, product codes, list details, form
+   labels, and the header's "Admin" label went from about 9–10px to about 11.5–12px; the line above
+   an order's total now runs the full width (also on phones).
+9. Larger text on the public pages too: 36 sizes under 0.7rem (home, shop, header, footer) raised
+   to about 0.72rem; only the decorative hero illustration label stays small. A sweep at 320–1440px
+   found two older layout faults, both fixed: the home page's panels section crushed its text
+   column between 821 and about 1170px (now stacked up to 1100px, and the heading sizes to its
+   column above that), and the shop header at 320px in checkout was 5px too wide.
 
 ## What exists
 
 - **Frontend** (`frontend/`): React 19 + Vite 8, strict TypeScript.
-  - Home page: Services showcase with all nine business areas (`components/ServiceShowcase.tsx`),
-    About, Projects, Current Work, contact form (ten topics); the brief's menu (hamburger at 1100px
-    and below).
-  - Shop (`#shop`, `#shop/order`): products from the API, cart in `localStorage`, order enquiry.
-  - Draft privacy notice (`#privacy`) with highlighted placeholders for GPEC.
-  - Admin panel (`#admin`, lazy-loaded).
-  - All text meets WCAG AA contrast in every state; spam trap on both public forms.
+  - Home page: nine business areas, About, Projects, Current Work, contact form (ten topics).
+  - Shop (`#shop`, checkout at `#shop/order`), draft privacy notice (`#privacy`), admin (`#admin`).
+  - All text meets WCAG AA contrast in every state; spam trap on the contact form.
 - **Backend** (`backend/`): Express 5 + Mongoose 8, strict TypeScript. Routes in
   `backend/README.md`. Zod-validated config, helmet, per-IP rate limits, production database guard.
-  - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
-  - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
-  - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 216 backend tests (Vitest, in-memory MongoDB replica set). 140 frontend Playwright
-  tests (2 run at one width only) in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
-  build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
-- **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
-  contrast, Docker builds, `npm audit`, gitleaks. Never deploys.
-- **Docker:** `backend/Dockerfile` (port 5001) and `frontend/Dockerfile` (nginx, port 8080, needs
-  the `VITE_API_BASE_URL` build argument).
+  - An admin account exists in `gpec_dev` (the user's). Accounts are made by `npm run admin:create`.
+  - `CURRENCY` is unset until GPEC confirms it (no prices until then).
+  - Email (Amazon SES) and photo storage (Amazon S3) are built but **off** until GPEC's AWS
+    account exists (RUNBOOK 1.6 and 1.7).
+- **Tests:** 216 backend tests (Vitest, in-memory MongoDB replica set); 140 frontend Playwright
+  tests (2 run at one width only) plus the contrast check, against the production build with
+  sample API data (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API). oxlint in
+  both packages.
+- **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, browser tests and contrast,
+  Docker builds, `npm audit`, gitleaks. Never deploys.
 
 ## Environment
 
 - **Database:** one MongoDB Atlas cluster. `gpec_dev` locally (`backend/.env`), `gpec` in production
-  (Coolify). Never paste the connection string into a chat.
-- **Run locally:** see `docs/COMMANDS.md` Sections 1–2. The user often runs their own dev servers on
-  5173 and 5001; do not stop them. Browser tests use port 4173 and start and stop it themselves.
+  (Coolify). Never paste the connection string into a chat. GPEC intends to start on the free M0
+  tier (0.5 GB, 10 GB out per week, 4 daily snapshots at most).
+- **Run locally:** `docs/COMMANDS.md`. The user runs their own dev servers on 5173 and 5001; do not
+  stop them. If a newly added API route answers "Route not found", the user's `tsx watch` missed
+  the change: ask them to restart `npm run dev`. Browser tests use port 4173 themselves.
 - **Git:** commit on `main` when asked. **Only the user pushes** (to `origin` and `backup`).
-- **Hosting:** Hetzner Cloud via Coolify, deployed by the project owner only.
+- **Before calling a change done,** run every CI step locally, lint included (a missed lint run
+  failed CI once this session).
 
 ## Open items for the next session
 
-1. Everything up to `54312ac` (Orders screens and demo data) was pushed by the user on 2026-10-22.
-   CI on it failed only on a backend lint error; every other job passed, including both Docker
-   builds (so `sharp` installs on CI). The fix and the CI action update (the next commit) are committed
-   but not pushed; the user pushes. Check that CI is green after the push.
+1. Check CI after the user pushes the last commit.
 2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and
-   Coolify from `docs/RUNBOOK.md`; never deploy. Coolify's health check now depends on the
-   database (`/api/health` returns 503 if MongoDB does not answer), so a wrong `MONGODB_URI` shows
-   as an unhealthy API. **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`, and that
-   `NODE_ENV=production` is set.**
-3. When GPEC creates its AWS account: walk through RUNBOOK 1.6 (SES domain, production access,
-   sending-only key, Coolify settings), then fill in the email region in the privacy notice, and
-   RUNBOOK 1.7 (private S3 bucket and upload key for product photos).
-   **Then build "forgot password" for admins**: the user requires it once email works (rules in
-   CLAUDE.md Known Gaps).
-4. Ask GPEC for everything in ROADMAP.md "Needed from GPEC", including real About, Current Work,
-   and contact details to replace the mock content, and whether the first project video's sound
-   contains speech (captions).
-5. When GPEC sends its real product list, load it with `isPlaceholder: false` and archive the
-   samples (CLAUDE.md Section 11).
-6. Stylesheet follow-ups, each needing a decision (CLAUDE.md Known Gaps, Styling): align the
-   breakpoints (980, 900, 650, 600 to 1100/820/540), which changes layouts at some widths and so
-   needs a browser check; optionally turn the two repeated hex colours into variables.
-7. Without GPEC, remaining options are in CLAUDE.md's Known Gaps. Ask the user before choosing.
+   Coolify from `docs/RUNBOOK.md`; never deploy. **Check that Coolify's `MONGODB_URI` uses `gpec`,
+   not `gpec_dev`, and that `NODE_ENV=production` is set.** Never run `seed:demo` there (it
+   refuses anyway).
+3. When GPEC creates its AWS account: RUNBOOK 1.6 (SES email; then fill in the email region in the
+   privacy notice) and 1.7 (S3 bucket for product photos). **Then build "forgot password" for
+   admins** (rules in CLAUDE.md Known Gaps).
+4. When GPEC sets up Paystack: build step 5 checkout on the existing Order model (CLAUDE.md 4.1 and
+   8): checkout form with pickup or delivery, server-computed totals, refuse out-of-stock products,
+   reduce counted stock on payment, the same `markOrderPaid` for webhook and verify, test keys only.
+   Confirm with GPEC: currency, delivery fee rule, Paystack fee rule, pickup location and hours.
+5. Ask GPEC for everything in ROADMAP.md "Needed from GPEC" (real About, Current Work, contact
+   details, product list with prices, photos, privacy details, refund policy).
+6. When GPEC sends its real product list, enter it with `isPlaceholder: false`, archive the samples,
+   and remove the demo data from `gpec_dev`.
+7. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling): align the
+   breakpoints; optionally turn the two repeated hex colours into variables.
+8. **Working preference (owner, 2026-10-22):** fix problems found along the way instead of logging
+   them in Known Gaps; still say in the report what was found and fixed.
 
 ## History
 
 The project was started on another developer's macOS machine (`/Users/happinessessien/GP-website`)
-and moved to this Linux machine on 2026-10-20. The macOS-specific setup notes (Homebrew MongoDB,
-port 5000 conflict) no longer apply; the port 5001 choice is recorded in CLAUDE.md's lessons learned.
+and moved to this Linux machine on 2026-10-20. The stylesheet was cleaned up and split on
+2026-10-21, checked for zero visual change by comparing computed styles in 45 page states at 21
+widths (the tool is not in the repository; ask the user if they want it kept for future CSS work).

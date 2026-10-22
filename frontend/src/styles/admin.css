@@ -80,9 +80,9 @@
   display: grid;
   gap: 0.5rem;
   color: var(--ink);
-  font: 0.66rem var(--mono);
+  font: 0.72rem var(--mono);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 .admin-field {
   display: grid;
@@ -161,7 +161,7 @@
   outline-offset: 2px;
 }
 .admin-field .admin-password-count {
-  font: 0.68rem var(--mono);
+  font: 0.72rem var(--mono);
   letter-spacing: 0.03em;
 }
 .admin-field .admin-password-count-ok {
@@ -307,7 +307,7 @@
   color: var(--cream);
 }
 .admin-filters button span {
-  font: 0.65rem var(--mono);
+  font: 0.72rem var(--mono);
 }
 /* Product list (components/admin/AdminProductList.tsx) */
 .admin-product-list {
@@ -330,7 +330,7 @@
   min-width: 0;
 }
 .admin-product-main span {
-  font: 0.65rem var(--mono);
+  font: 0.72rem var(--mono);
   letter-spacing: 0.04em;
   overflow-wrap: anywhere;
 }
@@ -343,9 +343,9 @@
   margin-right: 0.35rem;
   padding: 0.2rem 0.45rem;
   border: 1px solid var(--ink);
-  font: 0.6rem var(--mono);
+  font: 0.7rem var(--mono);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 .admin-edit-link {
   color: var(--forest);
@@ -403,16 +403,16 @@
     grid-template-columns: 1fr;
   }
 }
-/* Contact requests: status labels, lists, and detail pages */
+/* Contact requests and orders: status labels, lists, and detail pages */
 .admin-status {
   display: inline-block;
   justify-self: start;
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--ink);
   color: var(--ink);
-  font: 0.62rem var(--mono);
+  font: 0.72rem var(--mono);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 .admin-status-new {
@@ -467,7 +467,7 @@
   overflow-wrap: anywhere;
 }
 .admin-request-main small {
-  font: 0.65rem var(--mono);
+  font: 0.72rem var(--mono);
   letter-spacing: 0.03em;
 }
 .admin-request-detail h2,
@@ -495,9 +495,9 @@
   font-size: 0.9rem;
 }
 .admin-request-detail dt {
-  font: 0.65rem/1.9 var(--mono);
+  font: 0.75rem/1.6 var(--mono);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 .admin-request-detail dd {
   margin: 0;
@@ -588,7 +588,7 @@
   white-space: nowrap;
 }
 .admin-order-items thead th {
-  font: 0.62rem var(--mono);
+  font: 0.72rem var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -602,15 +602,22 @@
 }
 .admin-order-items small {
   display: block;
-  font: 0.62rem var(--mono);
+  font: 0.72rem var(--mono);
   font-weight: 400;
 }
 .admin-order-items td:last-child,
 .admin-order-items th:last-child {
   padding-right: 0;
 }
+/* No gap between the columns, so the line above the total runs the full width. Two columns even
+   on phones, where the other detail lists stack each label above its value. */
 .admin-request-detail dl.admin-order-totals {
+  grid-template-columns: max-content minmax(0, 1fr);
   margin-top: 1rem;
+  column-gap: 0;
+}
+.admin-order-totals dt {
+  padding-right: 1.2rem;
 }
 .admin-order-totals dd {
   text-align: right;
@@ -622,7 +629,7 @@
   font-weight: 700;
 }
 .admin-mono {
-  font: 0.75rem var(--mono);
+  font: 0.8rem var(--mono);
 }
 @media (max-width: 650px) {
   .admin-order-list li {

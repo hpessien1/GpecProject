@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-22 (order enquiries removed; stock; Orders tab)
+- **Last updated:** 2026-10-22 (end of session)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -35,7 +35,7 @@ and split by area (`frontend/src/styles/`, admin styles loaded only with the adm
 checked for zero visual change; `/api/health` now checks the database; the illustrative portfolio
 cards no longer claim to be GPEC's work.
 
-CI's first run on GitHub passed (2026-10-20); latest green run on commit `eb436d7` (2026-10-21). Session handover notes are in
+CI's first run on GitHub passed (2026-10-20); latest green run on commit `55542da` (2026-10-22). Session handover notes are in
 [`HANDOVER.md`](HANDOVER.md).
 
 ---
@@ -136,6 +136,9 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 - [x] Orders tab (2026-10-22): the Order model, list with stages, search, and counts, detail page
       (items, totals, pickup or delivery, payment), fulfilment status with history, and notes.
       Checkout (step 5) will create real orders; demo orders exist in `gpec_dev` (`npm run seed:demo`).
+- [x] Larger text: labels, table headings, badges, and codes in the admin and on the public pages
+      raised to about 12px at the owner's request (2026-10-22); two layout faults found and fixed
+      (home page panels section between 821 and 1170px; shop header at 320px).
 - [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
 - [x] Product photo uploads from the admin's own device (laptop, phone, or tablet), with a preview:
       checked, resized, and stored in a private Amazon S3 bucket (2026-10-22). Off until GPEC's

@@ -266,7 +266,7 @@ button:hover .arrow {
   transform: translate(2px, -2px);
 }
 .eyebrow {
-  font: 500 0.67rem/1.2 var(--mono);
+  font: 500 0.72rem/1.2 var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   display: flex;

@@ -770,7 +770,10 @@ links for admins only, never store a raw public URL on the record, and update th
     opacity).
   - Text that is part of a decorative illustration (inside a `role="img"` element, such as the
     hero's "GPEC / SYSTEM READY") is exempt.
-  - Minimum text size for labels is about `.55rem`; smaller text is unreadable whatever its contrast.
+  - **Text is at least about `.7rem`** (owner, 2026-10-22: 9–10px labels were too small to read;
+    every label in the admin and on the public pages was raised to about `.72rem`; small monospaced
+    capitals read smaller than their size). The only exception is the decorative "GPEC / SYSTEM
+    READY" label inside the hero illustration (`.panel-label`, `role="img"`).
   - **Run `cd frontend && npm run check:contrast` after any change to colours, styles, or layout**
     (CI runs it too). It checks every page and state at both widths, including hover, against the
     production build with sample API data, using axe-core and a pixel comparison. A new page or
@@ -904,8 +907,9 @@ Permission for one instance does not carry over to the next unless the user says
 ### While working
 - Keep diffs focused. Do not reformat unrelated code.
 - Match the surrounding style: function components, two-space indent, no semicolons, single quotes.
-- If you find a **pre-existing** problem, flag it as its own item (and add it to Known Gaps if it is
-  not fixed now). Do not silently fix unrelated code.
+- If you find a **pre-existing** problem, **fix it** in the same piece of work (owner's preference,
+  2026-10-22) and name it in the report as found and fixed; never fix silently. Add to Known Gaps
+  only what cannot be fixed now (it needs GPEC's information or an owner's decision).
 
 ### After a fix — the recheck pass
 Re-read every file you touched for leftover code from abandoned approaches, stale comments, unused

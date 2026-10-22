@@ -262,7 +262,7 @@
   align-items: end;
   inset: auto 5vw 30px;
   color: rgba(255, 255, 255, 0.56);
-  font: 0.56rem var(--mono);
+  font: 0.72rem var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.09em;
   animation: hero-footer-reveal 1s 0.35s ease both;
@@ -490,12 +490,15 @@
 .panel-feature-copy .eyebrow {
   margin-bottom: 1.4rem;
 }
+/* Sized by its column's width (15cqi; .panel-feature-copy is a size container), so the longest word
+   ("distribution", about 6.4 times the font size) always fits: just above 1100px the column is
+   narrower than 5vw allows. */
 .panel-feature-copy h2 {
   line-height: 0.91;
   letter-spacing: -0.08em;
   margin: 0 0 1.5rem;
   max-width: 700px;
-  font-size: clamp(3.6rem, 5vw, 5.7rem);
+  font-size: clamp(2.4rem, min(5vw, 15cqi), 5.7rem);
 }
 .panel-feature-copy > p:not(.eyebrow) {
   color: var(--muted);
@@ -534,7 +537,7 @@
 }
 .panel-capability-card > span {
   color: var(--lime);
-  font: 0.56rem var(--mono);
+  font: 0.72rem var(--mono);
   letter-spacing: 0.09em;
   position: absolute;
   top: 1.45rem;
@@ -554,7 +557,7 @@
 }
 .panel-capability-card a {
   color: var(--lime);
-  font: 0.58rem var(--mono);
+  font: 0.72rem var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -569,7 +572,7 @@
 .panel-detail-row > article span,
 .component-list > span {
   color: var(--forest);
-  font: 0.59rem var(--mono);
+  font: 0.72rem var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
@@ -577,7 +580,7 @@
   margin: 0.45rem 0 0;
   max-width: 390px;
   color: var(--muted);
-  font-size: 0.67rem;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 .component-list {
@@ -596,6 +599,7 @@
     var(--cream);
 }
 .panel-feature-copy {
+  container-type: inline-size;
   align-self: center;
   padding-bottom: 1.2rem;
 }
@@ -742,7 +746,7 @@
 .component-list > span {
   display: block;
   margin-bottom: 0.45rem;
-  font-size: 0.5rem;
+  font-size: 0.72rem;
 }
 .component-chip-list {
   display: grid;
@@ -890,17 +894,14 @@
   min-height: 25px;
   max-width: 100%;
   color: var(--ink);
-  font-size: 0.55rem;
+  font-size: 0.72rem;
   line-height: 1.2;
   hyphens: auto;
   overflow-wrap: break-word;
 }
+/* Text above the picture from 1100px down: beside a picture column of at least 530px, the text
+   column was too narrow for the heading (98px wide at 821px). */
 @media (max-width: 1100px) {
-  .panel-capability-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-@media (max-width: 820px) {
   .panel-feature-main {
     grid-template-columns: 1fr;
     gap: 2.2rem;
@@ -908,6 +909,11 @@
   .panel-visual {
     width: min(100%, 680px);
   }
+  .panel-capability-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 820px) {
   .panel-capability-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -973,7 +979,7 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  font: 500 0.58rem var(--mono);
+  font: 500 0.72rem var(--mono);
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
@@ -1011,7 +1017,7 @@
   align-items: center;
   gap: 0.4rem;
   color: #fff;
-  font: 700 0.64rem var(--mono);
+  font: 700 0.72rem var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1121,7 +1127,7 @@
   padding: 0.25rem 0.5rem;
   background: rgba(6, 23, 71, 0.85);
   color: #fff;
-  font: 0.58rem var(--mono);
+  font: 0.72rem var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1331,7 +1337,7 @@
 .product-category-number {
   margin-bottom: 1rem;
   color: #ff8420;
-  font: 500 0.66rem var(--mono);
+  font: 500 0.72rem var(--mono);
   letter-spacing: 0.06em;
 }
 .product-category strong {
@@ -1385,7 +1391,7 @@
   }
   .products .eyebrow {
     margin-bottom: 1rem;
-    font-size: 0.59rem;
+    font-size: 0.72rem;
   }
   .products-heading h2 {
     font-size: clamp(3.1rem, 14vw, 4.4rem);
@@ -1400,14 +1406,14 @@
   }
   .product-category-number {
     margin-bottom: 0.75rem;
-    font-size: 0.6rem;
+    font-size: 0.72rem;
   }
   .product-category strong {
     font-size: 0.98rem;
   }
   .product-category small {
     margin-top: 0.4rem;
-    font-size: 0.66rem;
+    font-size: 0.72rem;
   }
 }
 /* Projects (#projects): photo cards and the video gallery. */
@@ -1424,7 +1430,7 @@
   overflow: hidden;
 }
 .work-card-copy p {
-  font: 0.58rem var(--mono);
+  font: 0.72rem var(--mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1524,7 +1530,7 @@
   padding: 0.3rem 0.5rem;
   background: rgba(6, 23, 71, 0.85);
   color: #fff;
-  font: 0.58rem var(--mono);
+  font: 0.72rem var(--mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1534,7 +1540,7 @@
 .work-dark .work-image-note {
   right: 1.2rem;
   margin: 0;
-  font-size: 0.6rem;
+  font-size: 0.72rem;
 }
 .work-dark .work-card-copy {
   padding: 1.55rem 1.65rem 1.7rem;
@@ -1704,7 +1710,7 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.4rem;
-  font: 0.62rem var(--mono);
+  font: 0.72rem var(--mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1948,7 +1954,7 @@
   gap: 0.6rem;
   margin-bottom: 1.2rem;
   color: var(--ink);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
 }
 .quote-form input,
 .quote-form select,
