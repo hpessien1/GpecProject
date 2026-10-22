@@ -1,6 +1,6 @@
 # Next-session handover
 
-Last updated: 2026-10-22 (end of session). Start a new session with:
+Last updated: 2026-10-23. Start a new session with:
 
 ```text
 Continue work on the GPEC website at /home/worlanyo/Desktop/GpecProject.
@@ -16,7 +16,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md).
   - Done: step 1 (quick fixes), step 2 (CI, hardening, tests), step 4 (products in MongoDB),
     step 6 (admin panel: products, prices, stock, photos, orders, contact requests).
-  - Waiting on the project owner: step 3, the first deploy (Coolify and Atlas need domain names).
+  - Step 3 is **live but not announced** (2026-10-22): `https://gpecengineering.com` and
+    `https://api.gpecengineering.com` on a Hetzner CX23 with Coolify, DNS on Cloudflare. Details,
+    accounts, and the exact Coolify settings are in [`docs/RUNBOOK.md`](docs/RUNBOOK.md) 1.0–1.3
+    and Section 5.
   - Waiting on GPEC: step 5, Paystack checkout (currency, Paystack account and fee rule, delivery
     fees, pickup location). Everything else for checkout is ready to build on: the Order model,
     the admin Orders screens, and the Checkout page that currently says payment is not available.
@@ -105,14 +108,24 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
 ## Open items for the next session
 
 1. Check CI after the user pushes the last commit.
-2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and
-   Coolify from `docs/RUNBOOK.md`; never deploy. **Check that Coolify's `MONGODB_URI` uses `gpec`,
-   not `gpec_dev`, and that `NODE_ENV=production` is set.** Never run `seed:demo` there (it
-   refuses anyway).
-3. When GPEC creates its AWS account: RUNBOOK 1.6 (SES email; then fill in the email region in the
-   privacy notice) and 1.7 (S3 bucket for product photos). **Then build "forgot password" for
-   admins** (rules in CLAUDE.md Known Gaps).
-4. When GPEC sets up Paystack: build step 5 checkout on the existing Order model (CLAUDE.md 4.1 and
+2. **Finish the live setup** (the user does each step in the dashboards and sends screenshots; the
+   assistant guides and never deploys):
+   - Post-deploy checks: a `[TEST]` contact request on the live site, then deleted; the first admin
+     account from the `gpec-api` terminal (RUNBOOK 1.4). Whether to show the sample products is
+     GPEC's call (1.5).
+   - **Atlas is not locked down** (CLAUDE.md Known Gaps): production uses the user's own Atlas
+     login, which reaches both databases, and the user has no Atlas dashboard access. The Atlas
+     owner must create `gpec-prod` / `gpec-dev` and limit network access to `2.31.87.31` plus the
+     user's IP; then replace `MONGODB_URI` in Coolify and redeploy the API.
+   - The user was advised to drop the empty `gpec` database (only an empty `enquiries`
+     collection left from the removed feature); confirm it was done.
+   - Never run `seed:demo` against production (it refuses anyway).
+3. **AWS, region eu-central-1 (Frankfurt):** the user has member access to the project owner's AWS
+   Settings project (free plan until 2027-04-22; the owner must upgrade before launch). Next:
+   RUNBOOK 1.6 (SES: verify `gpecengineering.com`, DKIM CNAMEs in Cloudflare as DNS only, DMARC,
+   production access; then fill in the email region in the privacy notice) and 1.7 (S3 bucket).
+   **Then build "forgot password" for admins** (rules in CLAUDE.md Known Gaps).
+4. Paystack: the user has test-mode access as a member. When GPEC confirms the details, build step 5 checkout on the existing Order model (CLAUDE.md 4.1 and
    8): checkout form with pickup or delivery, server-computed totals, refuse out-of-stock products,
    reduce counted stock on payment, the same `markOrderPaid` for webhook and verify, test keys only.
    Confirm with GPEC: currency, delivery fee rule, Paystack fee rule, pickup location and hours.

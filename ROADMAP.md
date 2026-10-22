@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-22 (end of session)
+- **Last updated:** 2026-10-23
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -13,7 +13,7 @@ does. Update this file as steps are completed or the plan changes.
 |---|---|
 | 1. Quick fixes | Done (2026-10-21) |
 | 2. Groundwork: CI, hardening, tests | Done (2026-10-21) |
-| 3. Deploy early on Coolify | In progress — files ready; Coolify and Atlas setup by the project owner |
+| 3. Deploy early on Coolify | Live (2026-10-22), not announced — Atlas users and access list still needed |
 | 4. Products in MongoDB | Done (2026-10-21) |
 | 5. Checkout and Paystack (test mode) | Not started — needs GPEC information |
 | 6. Admin panel | Done for now (2026-10-21) — order lists come with step 5 |
@@ -80,13 +80,18 @@ Prove the deployment path before payments. Paystack's webhook also needs a publi
 - [x] CI builds both Docker images on every push, so a broken Dockerfile fails before deploy.
 - [x] Short runbook: [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — Atlas and Coolify setup, deploy, roll
       back, common problems. The payments section is filled in during step 5.
-- [ ] Coolify on the Hetzner VPS: resources, environment variables, HTTPS, replica count 1
-      (runbook Section 1). Needs the domain names.
-- [ ] **Check that Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`.** (The startup guard will
-      refuse to start otherwise, as long as `NODE_ENV=production` is set.)
+- [x] Domain `gpecengineering.com` on Cloudflare; Hetzner CX23 server in Nuremberg; Coolify with its
+      dashboard on HTTPS and port 8000 closed (2026-10-22, runbook 1.0).
+- [x] Coolify resources `gpec-api` and `gpec-web` from the public repository, deployed by hand
+      (no auto-deploy). Checked from outside on 2026-10-23: `/api/health` ok, HTTPS and redirects,
+      security headers, the site built with the right API address, CORS.
+- [x] **Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`** (the health check passes, which the
+      startup guard only allows on `gpec`).
 - [ ] Atlas: separate database users for `gpec_dev` and `gpec`; network access limited to the
-      Hetzner IP and the developer's IP; a cluster tier with backups before launch.
-- [ ] First deploy and the post-deploy checks in runbook Section 2.
+      Hetzner IP and the developer's IP; a cluster tier with backups before launch. **Needs the
+      Atlas owner**; production uses the developer's shared login until then.
+- [ ] Remaining post-deploy checks (runbook Section 2): a `[TEST]` contact request on the live
+      site, then deleted; first admin account (runbook 1.4).
 
 The project owner deploys; the AI assistant prepares files and instructions only.
 
@@ -165,20 +170,24 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Whether the first project video's sound contains speech (captions needed if so).
 - [ ] Privacy notice details and approval: legal company name and number, address, privacy contact
       email, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
-- [ ] Paystack business account, and confirmation that passing the Paystack fee to customers is
-      allowed under GPEC's Paystack terms.
+- [ ] Paystack: the account exists in test mode with the developer invited (2026-10-22); still
+      needed: business verification, the fee rule from GPEC's plan, and confirmation that passing
+      the Paystack fee to customers is allowed under GPEC's Paystack terms.
 - [ ] Delivery fee rules and delivery areas; pickup location and hours.
 - [ ] Refund, cancellation, and returns policy.
 - [ ] Phone, email, address, business hours, and social links for the site. Mock, unreachable
       details are in the footer until then; **replace before launch**.
-- [ ] Domain names for the website and the API (blocks the first deploy).
-- [ ] Named owners and logins for Coolify, Atlas, GitHub, Paystack, and the domain registrar
-      (runbook Section 5).
+- [x] Domain names: `gpecengineering.com` and `api.gpecengineering.com` (2026-10-22).
+- [ ] Named owners at GPEC for each account, and incident owners (runbook Section 5). For now every
+      account is in the project owner's name, with the developer invited.
+- [ ] Atlas owner: create the `gpec-prod` and `gpec-dev` users and limit network access (runbook
+      1.1).
+- [ ] Upgrade the AWS project from the free plan to a paid plan with a spend limit before launch.
 - [ ] Who receives order and contact-request notifications (`STAFF_NOTIFICATION_EMAILS`).
-- [ ] An Amazon Web Services account for email (Amazon SES), the domain verified in SES, and
-      production access approved. Email is built and stays off until then (RUNBOOK 1.6).
-- [ ] In the same AWS account, a private S3 bucket for product photos and its upload key. Photo
-      uploads are built and stay off until then (RUNBOOK 1.7).
+- [ ] Amazon SES: the AWS project exists (2026-10-22); still to do: verify the domain, request
+      production access, the sending key (RUNBOOK 1.6). Email stays off until then.
+- [ ] In the same AWS project, a private S3 bucket for product photos and its upload key (RUNBOOK
+      1.7). Photo uploads stay off until then.
 - [ ] Permission to name Afrizone, and approved real project photos.
 
 ## Later / not yet scheduled

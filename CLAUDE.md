@@ -525,18 +525,20 @@ mongosh "<MONGODB_URI>" --eval 'db.contactrequests.find().sort({createdAt:-1}).l
 ### Deployment
 
 **Never deploy, publish, or touch the server without explicit direction.** The project owner
-deploys.
+deploys, or the developer with the owner's go-ahead; an AI assistant only guides.
 
-**Where it runs:**
+**Where it runs** (live since 2026-10-22, not announced; addresses, server, and accounts in
+[`docs/RUNBOOK.md`](docs/RUNBOOK.md)):
 
 | Part | Where | Notes |
 |---|---|---|
-| Backend API | Hetzner VPS, Docker, managed by Coolify | Exactly 1 replica |
-| Frontend | Hetzner VPS, Docker (nginx serving the Vite build), Coolify | Static files |
-| MongoDB | MongoDB Atlas (external) | Network access limited to the Hetzner server IP |
+| Backend API | `https://api.gpecengineering.com`: Hetzner CX23 (Nuremberg), Docker, Coolify resource `gpec-api` | Exactly 1 replica |
+| Frontend | `https://gpecengineering.com`: same server, nginx serving the Vite build, `gpec-web` | Static files; `www.` redirects |
+| MongoDB | MongoDB Atlas (external) | Network access limited to the Hetzner server IP (not yet: Known Gaps) |
+| DNS | Cloudflare (also the registrar) | A records **DNS only**, not proxied, so Coolify can get certificates |
 | HTTPS | Coolify's proxy (Traefik) with Let's Encrypt | Auto-renewing certificates |
 
-**Release steps (manual, by the project owner; full detail in [`docs/RUNBOOK.md`](docs/RUNBOOK.md)):**
+**Release steps (manual; full detail in [`docs/RUNBOOK.md`](docs/RUNBOOK.md)):**
 1. Confirm GitHub Actions CI is green on the `main` commit to ship.
 2. In the Coolify dashboard, open the resource and press **Deploy**. On the first deploy, and
    whenever the variable is edited, check that `MONGODB_URI` ends in **`/gpec?`** — never
@@ -549,7 +551,14 @@ deploys.
 the last good one. This rolls back code only — data written by a bad release needs separate repair.
 
 **Do not add auto-deploy** (a workflow that deploys on push). Vision 25 removed its auto-deploy
-workflows as an unreviewed path to production.
+workflows as an unreviewed path to production. For the same reason Coolify reads the (public)
+repository through its *Public Git Repository* source, which adds no webhooks; its *GitHub App*
+source would deploy on every push.
+
+**Coolify variables:** on `gpec-api`, **no** variable is "Available at Buildtime": Coolify passes
+build-time variables into the image build, where `NODE_ENV=production` makes `npm ci` skip the
+TypeScript compiler and the connection string would end up in the build. On `gpec-web`,
+`VITE_API_BASE_URL` **must** be build-time.
 
 **Docker images** (`backend/Dockerfile`, `frontend/Dockerfile`): multi-stage builds, base images
 pinned to an exact version **and** digest (upgrade steps in each file's header), `npm ci`, non-root
@@ -593,8 +602,11 @@ database outage the proxy may then stop sending traffic to the API, so the site'
 - **Coolify `MONGODB_URI` uses the production user and the `gpec` database, not `gpec_dev`.**
 - Secrets set in Coolify only; Paystack live keys added only with GPEC's approval.
 - Paystack dashboard webhook URL set to the production API's HTTPS webhook route.
-- HTTPS works on every domain, HTTP redirects to HTTPS, and `Strict-Transport-Security` is present.
+- HTTPS works on every domain, HTTP redirects to HTTPS, and `Strict-Transport-Security` is present
+  (checked 2026-10-23 on the site and the API).
 - API replica count is 1 with no autoscaling.
+- The AWS project upgraded from the free plan (which ends 2027-04-22) to a paid plan with a spend
+  limit.
 - A named person owns each incident type: leaked secret, payment webhook outage, database restore —
   with the logins needed (Coolify, Atlas, Paystack, GitHub) ready.
 
@@ -940,9 +952,18 @@ status), or add a new failure path. No update needed for pure refactors or styli
 
 Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
-**Deployment**
-- Coolify resources and Atlas users not set up yet (Dockerfiles and runbook exist).
-- No domain names chosen yet; the runbook uses `<site-domain>` and `<api-domain>`.
+**Deployment** (live since 2026-10-22, not announced)
+- **The live site is public with mock content** (About, Current Work, footer contacts) and an empty
+  shop. Do not share or announce the address until GPEC's real content is in.
+- **Atlas is not locked down.** Production uses the developer's existing login, which reaches both
+  `gpec` and `gpec_dev`, and the access list has not been checked (it may allow `0.0.0.0/0`). The
+  developer has no Atlas dashboard access; the Atlas owner must create `gpec-prod` and `gpec-dev`,
+  limit network access, and the `MONGODB_URI` in Coolify must then be replaced (RUNBOOK 1.1).
+- The production `gpec` database held an empty `enquiries` collection (2 indexes) from the removed
+  enquiry feature, found 2026-10-23; the developer was advised to drop it. Nothing reads it.
+- Every account (Hetzner, Cloudflare, AWS, Paystack, Atlas) is in the project owner's own name, not
+  GPEC's; moving them is the owner's decision (RUNBOOK Section 5).
+- No first admin account on the live site yet (RUNBOOK 1.4). Amazon SES and S3 not set up yet.
 
 **Content (AGENTS.md rules)**
 - The 14 products are samples with invented references and specs (e.g. "415 V", "IP54

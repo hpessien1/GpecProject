@@ -181,7 +181,7 @@ node dist/scripts/createAdmin.js --production --email staff@example.com --name "
 ```
 
 1. Copy the printed password and give it to that person privately (phone or in person).
-2. They log in at `https://<site-domain>/#admin`.
+2. They log in at `https://gpecengineering.com/#admin`.
 3. They choose their own password under **Change password** straight away.
 
 Create one for yourself too: your `gpec_dev` account does not exist on the live site.
