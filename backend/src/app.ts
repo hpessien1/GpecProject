@@ -14,6 +14,7 @@ import { s3ImageStore } from './services/imageStore.js'
 import type { ImageStore } from './services/imageStore.js'
 import { createNotifier } from './services/notifications.js'
 import { requireAdmin } from './middleware/requireAdmin.js'
+import adminOrdersRouter from './routes/adminOrders.js'
 import adminProductImagesRouter from './routes/adminProductImages.js'
 import adminProductsRouter from './routes/adminProducts.js'
 import adminRequestsRouter from './routes/adminRequests.js'
@@ -75,6 +76,7 @@ export default function createApp(
   app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
   app.use('/api/admin/product-images', requireAdmin(config.clientOrigins), adminProductImagesRouter(imageStore))
   app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest'))
+  app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter())
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof HttpError) return res.status(error.status).json({ message: error.message, code: error.code, errors: error.errors })

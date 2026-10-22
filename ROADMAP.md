@@ -133,8 +133,9 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
       (2026-10-22).
 - [x] Out-of-stock switch and optional stock count per product; out-of-stock products stay in the
       shop, labelled, and cannot be added to the cart (2026-10-22).
-- [x] Orders tab, explaining that orders appear once Paystack checkout exists (2026-10-22).
-- [ ] Order list in the Orders tab (with step 5).
+- [x] Orders tab (2026-10-22): the Order model, list with stages, search, and counts, detail page
+      (items, totals, pickup or delivery, payment), fulfilment status with history, and notes.
+      Checkout (step 5) will create real orders; demo orders exist in `gpec_dev` (`npm run seed:demo`).
 - [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
 - [x] Product photo uploads from the admin's own device (laptop, phone, or tablet), with a preview:
       checked, resized, and stored in a private Amazon S3 bucket (2026-10-22). Off until GPEC's

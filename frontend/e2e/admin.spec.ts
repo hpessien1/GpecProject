@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -211,6 +211,86 @@ test.describe('products and prices', () => {
   })
 })
 
+test.describe('orders', () => {
+  test('lists orders with totals, pickup or delivery, and stages; filters and searches', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.getByRole('link', { name: 'Orders' }).click()
+    const rows = page.locator('.admin-order-list li')
+    await expect(rows).toHaveCount(4)
+    await expect(rows.first()).toContainText('Sample Customer')
+    await expect(rows.first()).toContainText('1 × Custom control panel, 2 × Terminal block set')
+    await expect(rows.first()).toContainText('Delivery')
+    await expect(rows.first().locator('.admin-order-total')).toHaveText('₦1,957,000.00')
+    await expect(rows.first().locator('.admin-status')).toHaveText('New')
+    await page.getByRole('button', { name: /^Ready for pickup/ }).click()
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first()).toContainText('Second Customer')
+    await page.getByRole('button', { name: /^All/ }).click()
+    await page.getByRole('searchbox', { name: 'Search' }).fill('fourth')
+    await page.getByRole('searchbox', { name: 'Search' }).press('Enter')
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first().locator('.admin-status')).toHaveText('Awaiting payment')
+  })
+
+  test('shows an order in full and moves it along, recording the change', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto(`/#admin/orders/${ORDER_REF}`)
+    await expect(page.getByRole('heading', { name: ORDER_REF })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'customer@example.com' })).toHaveAttribute('href', `mailto:customer@example.com?subject=${encodeURIComponent(`Your GPEC order ${ORDER_REF}`)}`)
+    await expect(page.getByRole('heading', { name: 'Delivery' })).toBeVisible()
+    await expect(page.getByText('14 Sample Street')).toBeVisible()
+    const firstItem = page.locator('.admin-order-items tbody tr').first()
+    await expect(firstItem).toContainText('Custom control panel')
+    await expect(firstItem).toContainText('₦1,850,000.00')
+    await expect(page.locator('.admin-order-totals')).toContainText('Delivery fee₦15,000.00')
+    await expect(page.locator('.admin-order-totals')).toContainText('Total₦1,957,000.00')
+    const status = page.getByLabel('Order status')
+    await expect(status.locator('option')).toHaveText(['New', 'Processing', 'Out for delivery', 'Completed', 'Cancelled'])
+    await status.selectOption('processing')
+    await page.getByRole('button', { name: 'Update status' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Order moved to Processing.')
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ fulfilmentStatus: 'processing' })
+    await expect(page.locator('.admin-history li').first()).toContainText('New → Processing')
+  })
+
+  test('a pickup order never offers "out for delivery", and has no address', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000B')
+    await expect(page.getByLabel('Order status').locator('option')).toHaveText(['New', 'Processing', 'Ready for pickup', 'Completed', 'Cancelled'])
+    await expect(page.getByText('The customer collects the order from GPEC.')).toBeVisible()
+    await expect(page.locator('.admin-order-totals')).not.toContainText('Delivery fee')
+  })
+
+  test('an unpaid order cannot be moved along, and says why', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000D')
+    await expect(page.getByLabel('Order status')).toHaveCount(0)
+    await expect(page.getByText('Payment has not been completed, so this order cannot be moved along.')).toBeVisible()
+  })
+
+  test('adds a note to an order', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto(`/#admin/orders/${ORDER_REF}`)
+    await page.getByLabel('Add a note').fill('Customer confirmed the address.')
+    await page.getByRole('button', { name: 'Add note' }).click()
+    await expect(page.getByText('Note added.')).toBeFocused()
+    expect(api.requests.find((r) => r.path === `/api/admin/orders/${ORDER_REF}/notes`)?.body).toEqual({ text: 'Customer confirmed the address.' })
+    await expect(page.locator('.admin-note-list li').first()).toContainText('Customer confirmed the address.')
+  })
+
+  test('says so when there are no orders yet', async ({ page }) => {
+    await mockApi(page, { orders: [] })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders')
+    await expect(page.getByText('No orders yet. Orders appear here once online payment through Paystack is set up')).toBeVisible()
+  })
+})
+
 test.describe('contact requests', () => {
   test('has no order enquiries section: customers buy in the shop or use the contact form', async ({ page }) => {
     await mockApi(page)
@@ -221,16 +301,6 @@ test.describe('contact requests', () => {
     await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible()
   })
 
-  test('the Orders tab explains that orders arrive with Paystack checkout', async ({ page }) => {
-    const api = await mockApi(page)
-    await logInAsAdmin(page)
-    const requestsBefore = api.requests.length
-    await page.getByRole('link', { name: 'Orders' }).click()
-    await expect(page.getByRole('heading', { name: 'Orders' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Orders' })).toHaveAttribute('aria-current', 'page')
-    await expect(page.getByRole('status')).toContainText('No orders yet. Paid orders will appear here once online payment through Paystack is set up')
-    expect(api.requests.length).toBe(requestsBefore)
-  })
 
   test('filters contact requests by status, with counts', async ({ page }) => {
     await mockApi(page)

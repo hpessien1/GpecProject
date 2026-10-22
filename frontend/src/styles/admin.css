@@ -419,9 +419,24 @@
   border-color: var(--lime);
   background: var(--lime);
 }
-.admin-status-in_progress {
+/* Contact requests and orders share these badges (components/admin/AdminRequestList.tsx, AdminOrders.tsx). */
+.admin-status-in_progress,
+.admin-status-processing {
   border-color: var(--forest);
   color: var(--forest);
+}
+/* Waiting on the customer: ready to collect, or on its way. */
+.admin-status-ready_for_pickup,
+.admin-status-out_for_delivery {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: #fff;
+}
+/* Not going ahead, or not paid: a dashed outline sets them apart from orders in progress. */
+.admin-status-cancelled,
+.admin-status-payment_failed,
+.admin-status-awaiting_payment {
+  border-style: dashed;
 }
 .admin-request-list {
   margin: 0 0 1.5rem;
@@ -545,5 +560,75 @@
   }
   .admin-request-detail dd {
     margin-bottom: 0.6rem;
+  }
+}
+/* Orders (components/admin/AdminOrders.tsx, AdminOrderDetail.tsx) */
+.admin-order-list li {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+.admin-order-total {
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.admin-table-wrap {
+  overflow-x: auto;
+}
+.admin-order-items {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.admin-order-items th,
+.admin-order-items td {
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.admin-order-items thead th {
+  font: 0.62rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.admin-order-items th:first-child {
+  padding-left: 0;
+  text-align: left;
+  white-space: normal;
+}
+.admin-order-items tbody th {
+  font-weight: 700;
+}
+.admin-order-items small {
+  display: block;
+  font: 0.62rem var(--mono);
+  font-weight: 400;
+}
+.admin-order-items td:last-child,
+.admin-order-items th:last-child {
+  padding-right: 0;
+}
+.admin-request-detail dl.admin-order-totals {
+  margin-top: 1rem;
+}
+.admin-order-totals dd {
+  text-align: right;
+}
+.admin-order-totals dt:last-of-type,
+.admin-order-totals dd:last-of-type {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+  font-weight: 700;
+}
+.admin-mono {
+  font: 0.75rem var(--mono);
+}
+@media (max-width: 650px) {
+  .admin-order-list li {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+  .admin-order-list .admin-edit-link {
+    justify-self: end;
   }
 }

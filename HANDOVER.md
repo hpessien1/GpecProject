@@ -79,6 +79,12 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
     The sample product `replacement-001` is renamed "Replacement parts" in the seed data; in
     `gpec_dev` it keeps its old name until edited in the admin panel (the seed never changes
     existing products).
+  - Then (committed, not pushed): **Orders screens and demo data.** Order model (payment status set
+    only by the server; fulfilment status moved by staff, with history and notes), admin Orders list
+    and detail, and `npm run seed:demo` (10 orders in every stage, 8 contact requests; `gpec_dev`
+    only; `-- --remove` deletes exactly them). Demo data is loaded in `gpec_dev`. The user's
+    `tsx watch` API missed the new route until restarted by hand; if a new route answers "Route
+    not found", restart `npm run dev` (noted in docs/COMMANDS.md).
 - **Session before (2026-10-21)** (commit `eb436d7`, pushed; CI green):
   - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
     became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
@@ -116,7 +122,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
   - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
   - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 185 backend tests (Vitest, in-memory MongoDB replica set). 130 frontend Playwright
+- **Tests:** 216 backend tests (Vitest, in-memory MongoDB replica set). 140 frontend Playwright
   tests (2 run at one width only) in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
   build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
@@ -135,9 +141,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Open items for the next session
 
-1. Everything up to `eb436d7` is pushed and CI is green. Seven later commits (handover update,
+1. Everything up to `eb436d7` is pushed and CI is green. Eight later commits (handover update,
    search and notes, password Show/Hide, breach check and counter, product photo uploads, same logo
-   everywhere, no order enquiries with stock and Orders tab) are
+   everywhere, no order enquiries with stock and Orders tab, Orders screens and demo data) are
    committed but not pushed; the user pushes. CI has not yet run on them (it also builds both
    Docker images, which matters for `sharp`).
 2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and

@@ -50,7 +50,7 @@ Stop it and run `npm --prefix frontend run dev` from the repository root.
 | Home | http://localhost:5173/ |
 | Shop | http://localhost:5173/#shop |
 | Admin | http://localhost:5173/#admin |
-| Admin: orders (explains they arrive with Paystack checkout) | http://localhost:5173/#admin/orders |
+| Admin: orders | http://localhost:5173/#admin/orders |
 | Admin: contact requests | http://localhost:5173/#admin/contact-requests |
 | API health | http://localhost:5001/api/health (should show `{"status":"ok"}`; `503` means MongoDB cannot be reached) |
 
@@ -118,7 +118,20 @@ each price. After logging in with the printed password, each person sets their o
 cd backend && npm run seed:products        # adds any missing sample product; never changes existing ones
 ```
 
-Everything else (adding real products, prices, archiving) is done in the admin panel.
+Everything else (adding real products, prices, stock, archiving) is done in the admin panel.
+
+### Demo orders and contact requests (`gpec_dev` only)
+
+For showing the admin screens: 10 orders in every stage and 8 contact requests in every status.
+The command refuses the production `gpec` database.
+
+```bash
+cd backend && npm run seed:demo                # adds the demo records that are missing (safe to repeat)
+cd backend && npm run seed:demo -- --remove    # removes exactly the demo records, with their history and notes
+```
+
+Status history and notes are added only if an admin account exists. If the API is already running
+when new routes are added and the Orders tab says "Route not found", restart the API (`npm run dev`).
 
 ## 6. Looking inside the development database
 

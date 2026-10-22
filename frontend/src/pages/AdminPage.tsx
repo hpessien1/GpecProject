@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import '../styles/admin.css'
 import AdminHeader from '../components/admin/AdminHeader'
 import AdminLogin from '../components/admin/AdminLogin'
+import AdminOrderDetail from '../components/admin/AdminOrderDetail'
 import AdminOrders from '../components/admin/AdminOrders'
 import AdminPasswordForm from '../components/admin/AdminPasswordForm'
 import AdminProductEditor from '../components/admin/AdminProductEditor'
@@ -15,7 +16,7 @@ import { getAdminSession, logOut } from '../services/adminApi'
 import type { AdminRequestKind, AdminSessionInfo } from '../types'
 
 interface AdminPageProps {
-  // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/orders,
+  // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/orders[/<reference>],
   // or #admin/contact-requests[/<reference>]
   route: string
 }
@@ -26,6 +27,7 @@ type AdminView =
   | { kind: 'edit', productId: string }
   | { kind: 'password' }
   | { kind: 'orders' }
+  | { kind: 'order', reference: string }
   | { kind: 'requests', requestKind: AdminRequestKind }
   | { kind: 'request', requestKind: AdminRequestKind, reference: string }
 
@@ -33,6 +35,8 @@ function parseView(route: string): AdminView {
   if (route === '#admin/new') return { kind: 'new' }
   if (route === '#admin/password') return { kind: 'password' }
   if (route === '#admin/orders') return { kind: 'orders' }
+  const order = /^#admin\/orders\/([^/]+)$/.exec(route)
+  if (order) return { kind: 'order', reference: decodeURIComponent(order[1]) }
   const product = /^#admin\/products\/([^/]+)$/.exec(route)
   if (product) return { kind: 'edit', productId: decodeURIComponent(product[1]) }
   const request = /^#admin\/contact-requests(?:\/([^/]+))?$/.exec(route)
@@ -45,7 +49,7 @@ function parseView(route: string): AdminView {
 
 function sectionOf(view: AdminView) {
   if (view.kind === 'requests' || view.kind === 'request') return view.requestKind
-  if (view.kind === 'orders') return 'orders'
+  if (view.kind === 'orders' || view.kind === 'order') return 'orders'
   return view.kind === 'password' ? null : 'products'
 }
 
@@ -115,7 +119,8 @@ export default function AdminPage({ route }: AdminPageProps) {
         <AdminSectionNav current={sectionOf(view)} />
         {view.kind === 'list' ? <AdminProductList currency={session.currency} onSessionEnded={handleSessionEnded} />
         : view.kind === 'password' ? <AdminPasswordForm onSessionEnded={handleSessionEnded} />
-        : view.kind === 'orders' ? <AdminOrders />
+        : view.kind === 'orders' ? <AdminOrders onSessionEnded={handleSessionEnded} />
+        : view.kind === 'order' ? <AdminOrderDetail key={route} reference={view.reference} onSessionEnded={handleSessionEnded} />
         : view.kind === 'requests' ? <AdminRequestList key={view.requestKind} kind={view.requestKind} onSessionEnded={handleSessionEnded} />
         : view.kind === 'request' ? <AdminRequestDetail key={route} kind={view.requestKind} reference={view.reference} onSessionEnded={handleSessionEnded} />
         : <AdminProductEditor key={route} productId={view.kind === 'edit' ? view.productId : undefined} currency={session.currency} imageUploads={session.imageUploads} flash={flashMessage} onCreated={handleCreated} onSessionEnded={handleSessionEnded} />}

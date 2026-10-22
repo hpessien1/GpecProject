@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
-import { requestKindContent, requestNotesContent, requestStatusLabels } from '../../data/adminContent'
+import AdminNotes from './AdminNotes'
+import { requestKindContent, requestStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { addRequestNote, getRequest, setRequestStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
@@ -25,10 +26,6 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
   const [isSaving, setIsSaving] = useState(false)
   const [result, setResult] = useState<{ kind: 'success' | 'error', message: string } | null>(null)
   const resultRef = useRef<HTMLParagraphElement>(null)
-  const [noteText, setNoteText] = useState('')
-  const [isSavingNote, setIsSavingNote] = useState(false)
-  const [noteResult, setNoteResult] = useState<{ kind: 'success' | 'error', message: string } | null>(null)
-  const noteResultRef = useRef<HTMLParagraphElement>(null)
   const content = requestKindContent[kind]
 
   useEffect(() => {
@@ -45,28 +42,6 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
 
   // The button is disabled while saving, which drops keyboard focus; move it to the result instead.
   useEffect(() => { resultRef.current?.focus() }, [result])
-  useEffect(() => { noteResultRef.current?.focus() }, [noteResult])
-
-  // The text stays in the box if saving fails, and is cleared once the note is saved.
-  async function handleNoteSubmit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!noteText.trim()) {
-      setNoteResult({ kind: 'error', message: 'Write a note before adding it.' })
-      return
-    }
-    setNoteResult(null)
-    setIsSavingNote(true)
-    try {
-      setData(await addRequestNote(kind, reference, noteText))
-      setNoteText('')
-      setNoteResult({ kind: 'success', message: 'Note added.' })
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) return onSessionEnded()
-      setNoteResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to save the note.' })
-    } finally {
-      setIsSavingNote(false)
-    }
-  }
 
   async function handleStatusSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -111,23 +86,7 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
           </dl>
           {item.subject && <><h2>Subject</h2><p>{item.subject}</p></>}
           <h2>Message</h2><p className="admin-request-message">{item.message}</p>
-          <section className="admin-notes" aria-labelledby="admin-notes-title">
-            <h2 id="admin-notes-title">{requestNotesContent.title}</h2>
-            <form className="admin-form admin-note-form" onSubmit={handleNoteSubmit}>
-              <div className="admin-field">
-                <label htmlFor="request-note">{requestNotesContent.label}</label>
-                <textarea id="request-note" rows={3} maxLength={2000} value={noteText} onChange={(event) => setNoteText(event.target.value)} aria-describedby="request-note-help" />
-                <small id="request-note-help">{requestNotesContent.help}</small>
-              </div>
-              {noteResult && <p className={noteResult.kind === 'success' ? 'success-message' : 'form-error'} role={noteResult.kind === 'success' ? 'status' : 'alert'} tabIndex={-1} ref={noteResultRef}>{noteResult.message}</p>}
-              <button className="button button-primary" type="submit" disabled={isSavingNote}>{isSavingNote ? 'Saving…' : <>Add note <Arrow /></>}</button>
-            </form>
-            {data.notes.length === 0 ? <p className="admin-notes-empty">{requestNotesContent.empty}</p>
-              : <ol className="admin-note-list">{data.notes.map((note, index) => <li key={`${note.createdAt}-${index}`}>
-                <p className="admin-history-meta"><time dateTime={note.createdAt}>{formatDateTime(note.createdAt)}</time> · {note.author.name} ({note.author.email})</p>
-                <p className="admin-request-message">{note.text}</p>
-              </li>)}</ol>}
-          </section>
+          <AdminNotes notes={data.notes} onAdd={async (text) => setData(await addRequestNote(kind, reference, text))} onSessionEnded={onSessionEnded} />
         </div>
         <aside className="admin-request-side">
           <form className="admin-form admin-status-form" onSubmit={handleStatusSubmit}>

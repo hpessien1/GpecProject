@@ -35,6 +35,8 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
   `GET /api/admin/products/:id/history`; `GET /api/admin/contact-requests`, `GET`,
   `PATCH /api/admin/contact-requests/:reference`, `POST /api/admin/contact-requests/:reference/notes`;
+  `GET /api/admin/orders`, `GET`, `PATCH /api/admin/orders/:reference`,
+  `POST /api/admin/orders/:reference/notes`;
   `POST /api/admin/product-images`
 - Public product photos: `GET /api/product-images/:hash.webp`
 
@@ -103,3 +105,15 @@ All admin responses are sent with `Cache-Control: no-store`.
   internal note under the logged-in admin's name and returns `201` with the same body as `GET`.
   Unknown or malformed references get `404`.
   New requests are always `new`; customer details and notes cannot be edited or deleted here.
+- `GET /api/admin/orders?page=N&stage=…&q=text` (all optional) lists orders newest first, 25 per
+  page, each with a `stage`: `awaiting_payment` or `payment_failed` for unpaid orders, otherwise the
+  fulfilment status (`new`, `processing`, `ready_for_pickup`, `out_for_delivery`, `completed`,
+  `cancelled`), with `counts` per stage, the total, the currency, and pickup or delivery. `q`
+  searches as for contact requests. `GET /:reference` returns the order (items with prices at order
+  time, amounts in the smallest unit, `currency` info, `paymentReference` for Paystack), its status
+  history, and staff `notes`. `PATCH /:reference` with `{ fulfilmentStatus }` (and nothing else)
+  moves a **paid** order along and records it: unpaid orders get `409 ORDER_NOT_PAID`, a pickup
+  order cannot be `out_for_delivery` nor a delivery order `ready_for_pickup` (`400`). Payment status,
+  items, amounts, and customer details cannot be changed here. `POST /:reference/notes` as for
+  contact requests. Orders are created by checkout (roadmap step 5); until then only by
+  `npm run seed:demo` in `gpec_dev`.

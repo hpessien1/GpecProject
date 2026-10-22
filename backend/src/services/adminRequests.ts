@@ -3,14 +3,14 @@ import type { Model } from 'mongoose'
 import { NotFoundError } from '../errors.js'
 import AuditRecord from '../models/AuditRecord.js'
 import ContactRequest from '../models/ContactRequest.js'
-import RequestNote from '../models/RequestNote.js'
 import { REQUEST_STATUSES } from '../models/requestStatus.js'
 import type { RequestStatus } from '../models/requestStatus.js'
+import { searchFilter } from '../utils/search.js'
 import type { AdminIdentity } from './adminAuth.js'
+import { createNote, listNotes } from './staffNotes.js'
 
 export const REQUEST_PAGE_SIZE = 25
 const HISTORY_LIMIT = 50
-const NOTES_LIMIT = 100
 
 interface StoredRequest {
   reference: string
@@ -35,11 +35,6 @@ function truncate(text: string, length: number) {
   return text.length > length ? `${text.slice(0, length - 1)}…` : text
 }
 
-// The search text is matched literally, so characters such as "." or "(" mean themselves.
-function literalPattern(text: string) {
-  return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-}
-
 const contactRequestKind: RequestKind<mongoose.InferSchemaType<typeof ContactRequest.schema> & StoredRequest> = {
   targetType: 'contactRequest',
   model: ContactRequest,
@@ -58,12 +53,6 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
     return records.map((record) => ({ actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' }, changes: record.changes, createdAt: record.createdAt }))
   }
 
-  // Newest first.
-  async function notes(reference: string) {
-    const records = await RequestNote.find({ targetType: kind.targetType, targetId: reference }).sort({ createdAt: -1, _id: -1 }).limit(NOTES_LIMIT).lean()
-    return records.map((note) => ({ author: { name: note.author?.name ?? '', email: note.author?.email ?? '' }, text: note.text, createdAt: note.createdAt }))
-  }
-
   function toDetail(doc: Doc) {
     return { reference: doc.reference, status: doc.status, createdAt: doc.createdAt, updatedAt: doc.updatedAt, ...kind.details(doc) }
   }
@@ -71,7 +60,7 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
   async function get(reference: string) {
     const doc = await kind.model.findOne({ reference })
     if (!doc) throw new NotFoundError('Request not found.')
-    const [statusHistory, staffNotes] = await Promise.all([history(reference), notes(reference)])
+    const [statusHistory, staffNotes] = await Promise.all([history(reference), listNotes(kind.targetType, reference)])
     return { item: toDetail(doc), history: statusHistory, notes: staffNotes }
   }
 
@@ -81,7 +70,7 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
     // Newest first, optionally one status only and matching a search, with a count per status (of the
     // matching requests) for the filter buttons.
     async list(page: number, status: RequestStatus | null, search: string) {
-      const matching = search ? { $or: kind.searchFields.map((field) => ({ [field]: literalPattern(search) })) } : {}
+      const matching = searchFilter(search, kind.searchFields)
       const filter = status ? { ...matching, status } : matching
       const [total, docs, grouped] = await Promise.all([
         kind.model.countDocuments(filter),
@@ -120,7 +109,7 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
 
     async addNote(admin: AdminIdentity, reference: string, text: string) {
       if (!await kind.model.exists({ reference })) throw new NotFoundError('Request not found.')
-      await RequestNote.create({ targetType: kind.targetType, targetId: reference, text, author: { adminId: admin.id, email: admin.email, name: admin.name } })
+      await createNote(admin, kind.targetType, reference, text)
       return get(reference)
     },
   }

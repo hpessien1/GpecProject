@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus } from '../../src/types'
+import type { AdminOrderDetail, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -12,6 +12,7 @@ const NGN: CurrencyInfo = { code: 'NGN', minorUnitDigits: 2 }
 
 export const ADMIN = { name: 'Sample Admin', email: 'admin@example.com', password: 'a long sample passphrase' }
 export const CONTACT_REF = 'GPEC-C-2026-0000000A'
+export const ORDER_REF = 'GPEC-O-2026-0000000A'
 // What the "server" answers for any photo upload, and the picture it serves for uploaded photos.
 export const UPLOADED_IMAGE = `product-images/${'b'.repeat(64)}.webp`
 const uploadedPhoto = readFileSync(join(process.cwd(), 'public/assets/product-lineup.png'))
@@ -36,6 +37,19 @@ export function sampleProducts(): Product[] {
 }
 
 const customer = { fullName: 'Sample Customer', company: 'Sample Company Ltd', email: 'customer@example.com', phone: '+234 800 000 0000' }
+const NGN_INFO = { code: 'NGN', minorUnitDigits: 2 }
+
+function sampleOrder(reference: string, fullName: string, method: 'pickup' | 'delivery', paymentStatus: AdminOrderDetail['paymentStatus'], fulfilmentStatus: FulfilmentStatus, lines: [string, string, string, number, number][]): AdminOrderDetail {
+  const items = lines.map(([productId, name, ref, unitPrice, quantity]) => ({ productId, name, reference: ref, unitPrice, quantity, lineTotal: unitPrice * quantity }))
+  const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0)
+  const deliveryFee = method === 'delivery' ? 1500000 : 0
+  const stage: OrderStage = paymentStatus === 'pending_payment' ? 'awaiting_payment' : paymentStatus === 'failed' ? 'payment_failed' : fulfilmentStatus
+  return {
+    reference, paymentReference: '6718a9c2f1e4b5a3c2d1e0f9', stage, paymentStatus, fulfilmentStatus, paidAt: paymentStatus === 'paid' ? now : null, createdAt: now, updatedAt: now,
+    customer: { ...customer, fullName }, fulfilmentMethod: method, deliveryAddress: method === 'delivery' ? '14 Sample Street\nLekki, Lagos' : '',
+    items, currency: NGN_INFO, subtotal, deliveryFee, paystackFee: 200000, total: subtotal + deliveryFee + 200000,
+  }
+}
 
 export interface ApiState {
   // What GET /api/products returns, or 'error' to make it fail.
@@ -45,6 +59,8 @@ export interface ApiState {
   contactRequests: AdminRequestDetail[]
   requestHistory: Record<string, RequestHistoryEntry[]>
   requestNotes: Record<string, RequestNote[]>
+  orders: AdminOrderDetail[]
+  orderHistory: Record<string, OrderHistoryEntry[]>
   // Makes adding a note fail.
   notesFail: boolean
   // Whether photo uploads are set up; and making an upload fail.
@@ -70,6 +86,13 @@ function initialState(): ApiState {
     ],
     requestHistory: {},
     requestNotes: { [CONTACT_REF]: [{ author: { name: ADMIN.name, email: ADMIN.email }, text: 'Called the customer.\nSending a quote today.', createdAt: now }] },
+    orders: [
+      sampleOrder(ORDER_REF, 'Sample Customer', 'delivery', 'paid', 'new', [['panel-001', 'Custom control panel', 'GPEC-CP-001', 185000000, 1], ['terminal-001', 'Terminal block set', 'GPEC-TB-074', 4500000, 2]]),
+      sampleOrder('GPEC-O-2026-0000000B', 'Second Customer', 'pickup', 'paid', 'ready_for_pickup', [['metering-001', 'Power metering kit', 'GPEC-PMK-051', 21000000, 1]]),
+      sampleOrder('GPEC-O-2026-0000000C', 'Third Customer', 'delivery', 'paid', 'completed', [['solar-001', 'Solar power package', 'GPEC-SOL-020', 245000000, 1]]),
+      sampleOrder('GPEC-O-2026-0000000D', 'Fourth Customer', 'pickup', 'pending_payment', 'new', [['isolation-001', 'Main isolator switch', 'GPEC-MIS-062', 3850000, 2]]),
+    ],
+    orderHistory: {},
     notesFail: false,
     imageUploads: true,
     uploadFails: false,
@@ -101,6 +124,20 @@ function listRequests(allItems: AdminRequestDetail[], url: URL): Reply {
   const summary = (item: AdminRequestDetail) => ({
     reference: item.reference, status: item.status, createdAt: item.createdAt, name: item.customer.fullName, company: item.customer.company, email: item.customer.email,
     summary: item.subject ? `${item.subject}: ${item.message}` : item.message,
+  })
+  return [200, { items: shown.map(summary), page: 1, totalPages: 1, total: shown.length, counts }]
+}
+
+function listOrders(allOrders: AdminOrderDetail[], url: URL): Reply {
+  const stage = url.searchParams.get('stage')
+  const search = (url.searchParams.get('q') ?? '').toLowerCase()
+  const matching = allOrders.filter((order) => [order.reference, order.customer.fullName, order.customer.company, order.customer.email].some((field) => field.toLowerCase().includes(search)))
+  const counts: Record<OrderStage, number> = { awaiting_payment: 0, payment_failed: 0, new: 0, processing: 0, ready_for_pickup: 0, out_for_delivery: 0, completed: 0, cancelled: 0 }
+  for (const order of matching) counts[order.stage] += 1
+  const shown = stage ? matching.filter((order) => order.stage === stage) : matching
+  const summary = (order: AdminOrderDetail) => ({
+    reference: order.reference, stage: order.stage, createdAt: order.createdAt, name: order.customer.fullName, company: order.customer.company, email: order.customer.email,
+    summary: order.items.map((item) => `${item.quantity} × ${item.name}`).join(', '), fulfilmentMethod: order.fulfilmentMethod, total: order.total, currency: order.currency,
   })
   return [200, { items: shown.map(summary), page: 1, totalPages: 1, total: shown.length, counts }]
 }
@@ -151,6 +188,24 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, { product }]
   }
 
+  if (path === '/api/admin/orders') return listOrders(state.orders, url)
+  const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes)?$/.exec(path)
+  if (orderMatch) {
+    const order = state.orders.find((candidate) => candidate.reference === orderMatch[1])
+    if (!order) return [404, { message: 'Order not found.', code: 'NOT_FOUND' }]
+    if (orderMatch[2]) {
+      if (state.notesFail) return [500, { message: 'Something went wrong on our side. Please try again.' }]
+      state.requestNotes[order.reference] = [{ author: { name: ADMIN.name, email: ADMIN.email }, text: String(body.text).trim(), createdAt: new Date().toISOString() }, ...(state.requestNotes[order.reference] ?? [])]
+    } else if (method === 'PATCH') {
+      if (order.paymentStatus !== 'paid') return [409, { message: 'Only paid orders can be moved along.', code: 'ORDER_NOT_PAID' }]
+      const to = body.fulfilmentStatus as FulfilmentStatus
+      if (to !== order.fulfilmentStatus) {
+        state.orderHistory[order.reference] = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'fulfilmentStatus', from: order.fulfilmentStatus, to }], createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
+        Object.assign(order, { fulfilmentStatus: to, stage: to })
+      }
+    }
+    return [orderMatch[2] ? 201 : 200, { order, history: state.orderHistory[order.reference] ?? [], notes: state.requestNotes[order.reference] ?? [] }]
+  }
   const requestMatch = /^\/api\/admin\/(contact-requests)(?:\/([^/]+))?(\/notes)?$/.exec(path)
   if (requestMatch) {
     const items = state.contactRequests

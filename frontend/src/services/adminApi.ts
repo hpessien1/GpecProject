@@ -1,5 +1,5 @@
 import { requestJson } from './apiClient'
-import type { AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestStatus } from '../types'
+import type { AdminOrderResponse, AdminOrdersPage, FulfilmentStatus, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestStatus } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -48,6 +48,23 @@ export async function getProductHistory(id: string) {
 export async function uploadProductImage(file: File) {
   const { image } = await requestJson<{ image: string }>('/admin/product-images', 'Unable to upload the photo.', { ...admin, method: 'POST', file })
   return image
+}
+
+export function listOrders(page: number, stage: OrderStage | null, search: string) {
+  const query = new URLSearchParams({ page: String(page), ...(stage ? { stage } : {}), ...(search ? { q: search } : {}) })
+  return requestJson<AdminOrdersPage>(`/admin/orders?${query}`, 'Unable to load orders.', admin)
+}
+
+export function getOrder(reference: string) {
+  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}`, 'Unable to load this order.', admin)
+}
+
+export function setOrderStatus(reference: string, fulfilmentStatus: FulfilmentStatus) {
+  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}`, 'Unable to update the order.', { ...admin, method: 'PATCH', payload: { fulfilmentStatus } })
+}
+
+export function addOrderNote(reference: string, text: string) {
+  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}/notes`, 'Unable to save the note.', { ...admin, method: 'POST', payload: { text } })
 }
 
 export function listRequests(kind: AdminRequestKind, page: number, status: RequestStatus | null, search: string) {

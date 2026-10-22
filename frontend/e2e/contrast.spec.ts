@@ -109,8 +109,19 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await page.getByLabel('New password', { exact: true }).fill('a long enough password')
     await page.locator('.admin-password-count-ok').waitFor()
     await audit.page(page, `${label} admin password long enough`)
-    await open('#admin/orders', '.shop-status')
+    await open('#admin/orders', '.admin-order-list')
     await audit.page(page, `${label} admin orders`)
+    if (hovering) await audit.hover(page, `${label} admin orders`)
+    // Every stage badge: the sample orders cover four; the rest are switched in place.
+    for (const stage of ['processing', 'out_for_delivery', 'cancelled', 'payment_failed']) {
+      await page.locator('.admin-order-list .admin-status').first().evaluate((badge, name) => badge.setAttribute('class', `admin-status admin-status-${name}`), stage)
+      await audit.page(page, `${label} admin orders, ${stage} badge`)
+    }
+    await open('#admin/orders/GPEC-O-2026-0000000A', '.admin-order-items')
+    await audit.page(page, `${label} admin order`)
+    if (hovering) await audit.hover(page, `${label} admin order`)
+    await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-notice')
+    await audit.page(page, `${label} admin unpaid order`)
     await open('#admin/contact-requests', '.admin-request-list')
     await audit.page(page, `${label} admin contact requests`)
     await page.getByRole('searchbox', { name: 'Search' }).fill('no such customer')

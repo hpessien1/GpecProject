@@ -152,3 +152,65 @@ export interface AdminRequestResponse {
   history: RequestHistoryEntry[]
   notes: RequestNote[]
 }
+
+// Orders (backend models/Order.ts). The stage is where an order stands: unpaid orders by payment
+// status, paid ones by the fulfilment status staff move along.
+export type FulfilmentStatus = 'new' | 'processing' | 'ready_for_pickup' | 'out_for_delivery' | 'completed' | 'cancelled'
+export type OrderStage = 'awaiting_payment' | 'payment_failed' | FulfilmentStatus
+export type FulfilmentMethod = 'pickup' | 'delivery'
+export type PaymentStatus = 'pending_payment' | 'paid' | 'failed'
+
+export interface AdminOrderSummary {
+  reference: string
+  stage: OrderStage
+  createdAt: string
+  name: string
+  company: string
+  email: string
+  summary: string
+  fulfilmentMethod: FulfilmentMethod
+  total: number
+  currency: CurrencyInfo
+}
+
+export interface AdminOrdersPage {
+  items: AdminOrderSummary[]
+  page: number
+  totalPages: number
+  total: number
+  counts: Record<OrderStage, number>
+}
+
+// Amounts are whole numbers of the currency's smallest unit; unit prices are as they were when ordered.
+export interface AdminOrderDetail {
+  reference: string
+  // Also the Paystack transaction reference.
+  paymentReference: string
+  stage: OrderStage
+  paymentStatus: PaymentStatus
+  fulfilmentStatus: FulfilmentStatus
+  paidAt: string | null
+  createdAt: string
+  updatedAt: string
+  customer: { fullName: string, company: string, email: string, phone: string }
+  fulfilmentMethod: FulfilmentMethod
+  deliveryAddress: string
+  items: { productId: string, name: string, reference: string, unitPrice: number, quantity: number, lineTotal: number }[]
+  currency: CurrencyInfo
+  subtotal: number
+  deliveryFee: number
+  paystackFee: number
+  total: number
+}
+
+export interface OrderHistoryEntry {
+  actor: { name: string, email: string }
+  changes: { field: 'fulfilmentStatus', from: FulfilmentStatus, to: FulfilmentStatus }[]
+  createdAt: string
+}
+
+export interface AdminOrderResponse {
+  order: AdminOrderDetail
+  history: OrderHistoryEntry[]
+  notes: RequestNote[]
+}

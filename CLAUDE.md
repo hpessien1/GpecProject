@@ -326,12 +326,23 @@ name), and logs which database it found. The guard only works if production sets
   sessions). **AuditRecord** — `action`, `targetType`, `targetId`, `actor { adminId, email, name }`
   (copied at the time), `changes [{ field, from, to }]`, `createdAt`; never edited or deleted.
 
+- **Order** (`backend/src/models/Order.ts`; built 2026-10-22, before checkout, so staff screens and
+  demo data exist) — `_id` (also the Paystack reference), `reference` (unique,
+  `GPEC-O-YYYY-XXXXXXXX`), `customer { fullName, company, email, phone }`,
+  `items [{ productId, name, reference, unitPrice, quantity, lineTotal }]` (**unit price snapshotted
+  at order time**), `fulfilmentMethod` (`pickup` | `delivery`), `deliveryAddress` (delivery only),
+  `currency` (the order's own), `subtotal`, `deliveryFee`, `paystackFee`, `total` (smallest unit),
+  `paymentStatus` (`pending_payment` | `paid` | `failed`; **set only by the server**, after
+  Paystack confirms), `paidAt`, `fulfilmentStatus` (`new` → `processing` → `ready_for_pickup` or
+  `out_for_delivery` → `completed`, or `cancelled`; staff move paid orders only; pickup orders are
+  never "out for delivery" and delivery orders never "ready for pickup"; every change is an
+  AuditRecord `order.status`), timestamps. The admin list shows one **stage** per order: unpaid
+  orders as "Awaiting payment" or "Payment failed", paid ones by fulfilment status (the user chose
+  this two-part model, 2026-10-22). Staff notes reuse **RequestNote** (`targetType: 'order'`).
+  Checkout (step 5) creates orders; nothing does yet except the demo command.
+
 **Planned entities** (define fully when built, and update this section):
 
-- **Order** — `_id` (also the Paystack reference), customer-facing reference, items with **unit
-  price snapshotted at order time**, fulfilment method (`pickup` | `delivery`), delivery address
-  (only for delivery), delivery fee, subtotal, Paystack fee, total charged, currency, status (e.g.
-  `pending_payment`, `paid`, `failed`, `cancelled` — confirm the set before building), `paidAt`.
 - **WebhookEvent** — Paystack event `id` (unique index), event type, minimal payload, processing
   status, timestamps (Section 4.1).
 
@@ -374,11 +385,11 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── middleware/       # requireAdmin.ts: the one admin login check
 │       ├── routes/           # HTTP wiring: public (products, product images, contact) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
-│       ├── models/           # ContactRequest, RequestNote, Product, AdminUser, AdminSession, AuditRecord
+│       ├── models/           # ContactRequest, Order, RequestNote, Product, AdminUser, AdminSession, AuditRecord
 │       ├── services/         # Business logic: products, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, productImages
-│       ├── scripts/          # Commands: seedProducts.ts, createAdmin.ts
+│       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers
-│       └── data/             # sampleProducts.ts: placeholder products for the seed script
+│       └── data/             # sampleProducts.ts (seed products); demoData.ts (demo orders and contact requests)
 └── frontend/                 # React + Vite SPA (TypeScript)
     ├── Dockerfile            # Builds the site, serves it with nginx (build context: frontend/)
     ├── nginx/                # nginx server config and security headers (incl. the CSP)
@@ -463,6 +474,7 @@ cd frontend && npm install
 # Run locally. backend/.env sets MONGODB_URI to the gpec_dev database on the shared Atlas
 # cluster — never the production gpec database (Section 5, "Databases").
 cd backend && npm run seed:products   # first time: adds the sample products to gpec_dev
+cd backend && npm run seed:demo       # demo orders and contact requests (gpec_dev only; -- --remove to delete)
 cd backend && npm run admin:create -- --email you@example.com --name "Your Name"   # prints a password once
 cd backend && npm run admin:create -- --email you@example.com --reset             # new password, ends sessions
 cd backend && npm run dev      # tsx watch src/server.ts
@@ -947,7 +959,14 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 **Functionality**
 - The shop cannot take orders yet: checkout shows the order and says online payment is not
   available until GPEC's Paystack account is set up (step 5). No prices are shown yet. The Orders
-  admin tab explains this until orders exist. Stock counts are not reduced by sales until then.
+  admin screens work (list, detail, fulfilment status, notes), but only demo orders exist.
+- **Demo data in `gpec_dev`** (owner's request, 2026-10-22, for showing GPEC the admin screens):
+  10 orders and 8 contact requests from `data/demoData.ts`, realistic and unmarked on screen at the
+  owner's request, with `example.com` emails and `+234 000` phone numbers. `npm run seed:demo` adds
+  them, `npm run seed:demo -- --remove` removes exactly them (by their `DE0000` references) with
+  their history and notes. The command refuses the `gpec` database and `NODE_ENV=production` with no
+  override. Their prices and Paystack fees are invented (the fee uses an illustrative 1.5% + ₦100,
+  capped at ₦2,000, only in the demo data). Stock counts are not reduced by sales until then.
 - Order enquiries were removed (2026-10-22): the `enquiries` collection may still exist, empty or
   with test records, in `gpec_dev`; nothing reads it. The sample product `replacement-001` was
   renamed "Replacement parts" in `data/sampleProducts.ts` (was "Replacement parts enquiry"); the
