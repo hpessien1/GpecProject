@@ -41,6 +41,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Checked: 13 new backend tests and 3 new browser tests (both widths), each shown to fail on a
     planted bug; the contrast check covers the new states (search with no matches, note added, note
     error); screenshots at 390px and 1440px, no horizontal scroll.
+  - Then (committed, not pushed): a Show/Hide button on every admin password field
+    (`components/admin/PasswordInput.tsx`). It hides the password again when the form is sent, so
+    browsers still offer to save it, and turns spell-check off.
 - **Session before (2026-10-21)** (commit `eb436d7`, pushed; CI green):
   - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
     became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
@@ -78,7 +81,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
   - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
   - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 165 backend tests (Vitest, in-memory MongoDB replica set). 92 frontend Playwright
+- **Tests:** 165 backend tests (Vitest, in-memory MongoDB replica set). 96 frontend Playwright
   tests (2 run at one width only) in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
   build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
@@ -97,8 +100,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Open items for the next session
 
-1. Everything up to `eb436d7` is pushed and CI is green. `b81399c` and the search and notes
-   commit are committed but not pushed; the user pushes.
+1. Everything up to `eb436d7` is pushed and CI is green. `b81399c`, the search and notes
+   commit, and the password Show/Hide commit are committed but not pushed; the user pushes.
 2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and
    Coolify from `docs/RUNBOOK.md`; never deploy. Coolify's health check now depends on the
    database (`/api/health` returns 503 if MongoDB does not answer), so a wrong `MONGODB_URI` shows
@@ -106,6 +109,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
    `NODE_ENV=production` is set.**
 3. When GPEC creates its AWS account: walk through RUNBOOK 1.6 (SES domain, production access,
    sending-only key, Coolify settings), then fill in the email region in the privacy notice.
+   **Then build "forgot password" for admins**: the user requires it once email works (rules in
+   CLAUDE.md Known Gaps).
 4. Ask GPEC for everything in ROADMAP.md "Needed from GPEC", including real About, Current Work,
    and contact details to replace the mock content, and whether the first project video's sound
    contains speech (captions).

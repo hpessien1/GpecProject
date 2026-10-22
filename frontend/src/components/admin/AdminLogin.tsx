@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
+import PasswordInput from './PasswordInput'
 import { logIn } from '../../services/adminApi'
 import type { AdminSessionInfo } from '../../types'
 
@@ -37,7 +38,10 @@ export default function AdminLogin({ notice, onLoggedIn }: AdminLoginProps) {
     {notice && <p className="admin-notice" role="status">{notice}</p>}
     <form className="admin-form" onSubmit={handleSubmit}>
       <label>Email address<input name="email" type="email" required autoComplete="username" /></label>
-      <label>Password<input name="password" type="password" required autoComplete="current-password" /></label>
+      <div className="admin-field">
+        <label htmlFor="login-password">Password</label>
+        <PasswordInput id="login-password" name="password" required autoComplete="current-password" />
+      </div>
       {error && <p className="form-error" role="alert" tabIndex={-1} ref={errorRef}>{error}</p>}
       <button className="button button-primary" type="submit" disabled={isSending}>{isSending ? 'Logging in…' : <>Log in <Arrow /></>}</button>
     </form>

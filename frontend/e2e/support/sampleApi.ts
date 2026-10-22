@@ -165,7 +165,7 @@ export async function mockApi(page: Page, overrides: Partial<ApiState> = {}): Pr
 export async function logInAsAdmin(page: Page) {
   await page.goto('/#admin')
   await page.getByLabel('Email address').fill(ADMIN.email)
-  await page.getByLabel('Password').fill(ADMIN.password)
+  await page.getByLabel('Password', { exact: true }).fill(ADMIN.password)
   await page.getByRole('button', { name: 'Log in' }).click()
   await page.getByRole('navigation', { name: 'Admin sections' }).waitFor()
 }

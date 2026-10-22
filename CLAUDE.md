@@ -919,6 +919,11 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - No admin 2FA, no admin account management in the panel (create, reset, and deactivate are by
   command or database only; each admin can change their own password), and no image uploads (product images must already be in
   `public/assets/`).
+- **No "forgot password" for admins yet; required once email works** (user's decision,
+  2026-10-22). Until SES is set up, resets are by command only. When built, follow Section 4.5:
+  a random single-use link token that expires quickly, stored only as a hash; the same reply
+  whether or not the email has an account; its own rate limit; a reset ends all that admin's
+  sessions.
 - Email notifications are built but **off**: GPEC has no Amazon SES account yet (RUNBOOK 1.6).
   No bounce or complaint handling yet (SES can report these through SNS).
 - No file uploads.

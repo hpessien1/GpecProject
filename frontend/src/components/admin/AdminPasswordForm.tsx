@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
+import PasswordInput from './PasswordInput'
 import { ApiError } from '../../services/apiClient'
 import { changePassword } from '../../services/adminApi'
 
@@ -60,18 +61,18 @@ export default function AdminPasswordForm({ onSessionEnded }: AdminPasswordFormP
     <form className="admin-form" onSubmit={handleSubmit}>
       <div className="admin-field">
         <label htmlFor="currentPassword">Current password</label>
-        <input id="currentPassword" name="currentPassword" type="password" required autoComplete="current-password" aria-describedby={describedBy('currentPassword')} />
+        <PasswordInput id="currentPassword" name="currentPassword" required autoComplete="current-password" aria-describedby={describedBy('currentPassword')} />
         {errors.currentPassword && <small className="admin-field-error" id="currentPassword-error">{errors.currentPassword}</small>}
       </div>
       <div className="admin-field">
         <label htmlFor="newPassword">New password</label>
-        <input id="newPassword" name="newPassword" type="password" required maxLength={200} autoComplete="new-password" aria-describedby={describedBy('newPassword', true)} />
+        <PasswordInput id="newPassword" name="newPassword" required maxLength={200} autoComplete="new-password" aria-describedby={describedBy('newPassword', true)} />
         <small id="newPassword-hint">At least {MIN_PASSWORD_LENGTH} characters. Length matters more than symbols: a few unrelated words, or a password manager, work well. Do not reuse a password from another site.</small>
         {errors.newPassword && <small className="admin-field-error" id="newPassword-error">{errors.newPassword}</small>}
       </div>
       <div className="admin-field">
         <label htmlFor="confirmPassword">New password again</label>
-        <input id="confirmPassword" name="confirmPassword" type="password" required autoComplete="new-password" aria-describedby={describedBy('confirmPassword')} />
+        <PasswordInput id="confirmPassword" name="confirmPassword" required autoComplete="new-password" aria-describedby={describedBy('confirmPassword')} />
         {errors.confirmPassword && <small className="admin-field-error" id="confirmPassword-error">{errors.confirmPassword}</small>}
       </div>
       <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Change password <Arrow /></>}</button>

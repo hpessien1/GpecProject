@@ -130,6 +130,9 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
       (2026-10-22).
 - [ ] Order lists (with step 5).
 - [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
+- [ ] **"Forgot password" for admins, required once email works** (the user's decision,
+      2026-10-22). Until GPEC's Amazon SES account is set up, a forgotten password is reset only by
+      command (`npm run admin:create -- --reset`). Build it as soon as email is switched on.
 
 ---
 
