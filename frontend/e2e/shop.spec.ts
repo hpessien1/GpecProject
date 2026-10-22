@@ -27,6 +27,29 @@ test.describe('shop catalogue', () => {
     await expect(page.getByText('No products are listed yet.')).toBeVisible()
   })
 
+  test('the header logo goes home, and the "Product ordering" label is not a link', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#shop')
+    const label = page.locator('.shop-topbar').getByText('Product ordering')
+    if (await label.isVisible()) {
+      await expect(label).not.toHaveAttribute('href')
+      await expect(page.locator('.shop-topbar a', { hasText: 'Product ordering' })).toHaveCount(0)
+    }
+    await page.getByRole('link', { name: 'Return to GPEC home' }).click()
+    await expect(page).toHaveURL(/\/(#home)?$/)
+    await expect(page.locator('.hero')).toBeVisible()
+  })
+
+  test('the header logo loads a small copy, not the 1.1 MB original', async ({ page }) => {
+    await mockApi(page)
+    const logoRequests: string[] = []
+    page.on('request', (request) => { if (request.url().includes('gpec-engineering-logo-plinth')) logoRequests.push(new URL(request.url()).pathname) })
+    await page.goto('/#shop')
+    await expect.poll(() => page.locator('header .brand-logo').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+    expect(logoRequests.length).toBeGreaterThan(0)
+    expect(logoRequests.every((path) => path.endsWith('.webp'))).toBe(true)
+  })
+
   test('skip link moves to the products without leaving the shop', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#shop')

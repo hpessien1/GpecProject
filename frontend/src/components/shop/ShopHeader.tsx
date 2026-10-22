@@ -1,3 +1,4 @@
+import LogoLockup from '../LogoLockup'
 import type { StoreMode } from '../../types'
 
 interface ShopHeaderProps {
@@ -10,7 +11,8 @@ interface ShopHeaderProps {
 
 export default function ShopHeader({ mode, itemCount, onGoHome, onGoToCatalogue, onShowCart }: ShopHeaderProps) {
   return <header className="shop-topbar">
-    <a className="shop-brand" href="#home" onClick={onGoHome} aria-label="Return to GPEC home"><span>GPEC</span><small>Product ordering</small></a>
+    {/* The logo goes home, as on every page; the label only says where you are, so it is not part of the link. */}
+    <div className="shop-brand"><a href="#home" onClick={onGoHome} aria-label="Return to GPEC home"><LogoLockup /></a><small>Product ordering</small></div>
     <nav className="shop-navigation" aria-label="Store navigation">
       <a href="#home" onClick={onGoHome}>Return to site</a>
       {mode === 'order' && <button type="button" className="shop-link-button" onClick={onGoToCatalogue}>Continue browsing</button>}

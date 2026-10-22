@@ -20,9 +20,6 @@
   display: inline-flex;
   align-items: center;
 }
-.topbar .brand-logo {
-  transform: translateY(8px);
-}
 .navigation {
   display: flex;
   align-items: center;
@@ -110,9 +107,6 @@
   .topbar {
     min-height: 84px;
     padding: 0 1.5rem;
-  }
-  .topbar .brand-logo {
-    transform: translateY(6px);
   }
   .navigation {
     top: 84px;

@@ -25,13 +25,13 @@
 }
 .shop-brand {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.8rem;
   font-weight: 800;
 }
-.shop-brand span {
-  font-size: 1.5rem;
-  letter-spacing: -0.08em;
+/* The logo link; the label beside it is plain text (the admin header's whole brand is one link). */
+.shop-brand > a {
+  display: block;
 }
 .shop-brand small {
   color: rgba(255, 255, 255, 0.64);
@@ -79,8 +79,9 @@
   font-size: 0.63rem;
 }
 @media (max-width: 650px) {
+  /* Same as the home page's header, so the logo has the same room above it. */
   .shop-topbar {
-    min-height: 72px;
+    min-height: 84px;
     padding: 0 1.1rem;
   }
   .shop-brand small,

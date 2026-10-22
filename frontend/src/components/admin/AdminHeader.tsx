@@ -1,3 +1,5 @@
+import LogoLockup from '../LogoLockup'
+
 interface AdminHeaderProps {
   adminName: string | null
   isLoggingOut: boolean
@@ -6,7 +8,7 @@ interface AdminHeaderProps {
 
 export default function AdminHeader({ adminName, isLoggingOut, onLogOut }: AdminHeaderProps) {
   return <header className="shop-topbar admin-topbar">
-    <a className="shop-brand" href="#admin"><span>GPEC</span><small>Admin</small></a>
+    <a className="shop-brand" href="#admin" aria-label="GPEC admin home"><LogoLockup /><small>Admin</small></a>
     {adminName && <nav className="shop-navigation" aria-label="Admin navigation">
       <a href="#shop">View shop</a>
       <span className="admin-user">{adminName}</span>

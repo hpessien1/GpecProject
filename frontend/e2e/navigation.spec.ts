@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mockApi } from './support/sampleApi'
+import { logInAsAdmin, mockApi } from './support/sampleApi'
 
 // The brief's menu (README.md): Home · About · Services · Products · Projects · Current Work · Contact,
 // plus the Shop button. Full menu on desktop; a hamburger menu where it does not fit (1100px and below).
@@ -92,4 +92,20 @@ test.describe('home page sections', () => {
       await expect(card).not.toContainText(/built by|delivered by|project portfolio/i)
     }
   })
+})
+
+test('every page shows the same GPEC logo in its header, including the admin screens', async ({ page }) => {
+  await mockApi(page)
+  const logoOn = async (hash: string) => {
+    await page.goto(`/${hash}`)
+    const logo = page.locator('header .brand-logo')
+    await expect(logo).toHaveCount(1)
+    await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+    return logo.getAttribute('src')
+  }
+  const homeLogo = await logoOn('')
+  expect(homeLogo).toContain('gpec-engineering-logo-plinth')
+  for (const hash of ['#privacy', '#shop', '#shop/order', '#admin']) expect(await logoOn(hash), hash).toBe(homeLogo)
+  await logInAsAdmin(page)
+  expect(await page.locator('header .brand-logo').getAttribute('src')).toBe(homeLogo)
 })
