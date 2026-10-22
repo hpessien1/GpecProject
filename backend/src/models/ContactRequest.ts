@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 import { REQUEST_STATUSES } from './requestStatus.js'
 
-// A general enquiry from the landing-page contact form (no products attached).
+// A question or quote request from the landing-page contact form (no products attached).
 const contactRequestSchema = new mongoose.Schema({
   reference: { type: String, required: true, unique: true, index: true },
   fullName: { type: String, required: true, trim: true, maxlength: 120 },

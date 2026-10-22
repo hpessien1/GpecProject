@@ -7,7 +7,7 @@ import type { ProductChanges } from '../validation/adminProduct.js'
 import type { AppConfig } from '../app.js'
 
 // Mounted behind requireAdmin in app.ts. There is no delete: products are archived (status), because
-// past enquiries and orders refer to them.
+// orders will refer to them.
 export default function adminProductsRouter(config: AppConfig) {
   const router = Router()
 

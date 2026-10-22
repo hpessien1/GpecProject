@@ -3,7 +3,6 @@ import type { Model } from 'mongoose'
 import { NotFoundError } from '../errors.js'
 import AuditRecord from '../models/AuditRecord.js'
 import ContactRequest from '../models/ContactRequest.js'
-import Enquiry from '../models/Enquiry.js'
 import RequestNote from '../models/RequestNote.js'
 import { REQUEST_STATUSES } from '../models/requestStatus.js'
 import type { RequestStatus } from '../models/requestStatus.js'
@@ -20,10 +19,11 @@ interface StoredRequest {
   updatedAt: Date
 }
 
-// What differs between order enquiries and contact requests; listing, status changes, and history
-// are shared.
+// What a kind of customer request needs: contact requests are the only kind (customers buy in the
+// shop or ask through the contact form); kept separate so another kind can reuse the listing,
+// status changes, history, and notes.
 interface RequestKind<Doc extends StoredRequest> {
-  targetType: 'enquiry' | 'contactRequest'
+  targetType: 'contactRequest'
   model: Model<Doc>
   // Fields the list search matches: the reference and the customer's name, company, and email.
   searchFields: string[]
@@ -38,24 +38,6 @@ function truncate(text: string, length: number) {
 // The search text is matched literally, so characters such as "." or "(" mean themselves.
 function literalPattern(text: string) {
   return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-}
-
-const enquiryKind: RequestKind<mongoose.InferSchemaType<typeof Enquiry.schema> & StoredRequest> = {
-  targetType: 'enquiry',
-  model: Enquiry,
-  searchFields: ['reference', 'customer.fullName', 'customer.company', 'customer.email'],
-  summarize: (doc) => ({
-    name: doc.customer?.fullName ?? '',
-    company: doc.customer?.company ?? '',
-    email: doc.customer?.email ?? '',
-    summary: truncate(doc.items.map((item) => `${item.quantity} × ${item.name}`).join(', '), 120),
-  }),
-  details: (doc) => ({
-    customer: { fullName: doc.customer?.fullName ?? '', company: doc.customer?.company ?? '', email: doc.customer?.email ?? '', phone: doc.customer?.phone ?? '' },
-    location: doc.location,
-    notes: doc.notes,
-    items: doc.items.map(({ productId, name, reference, quantity }) => ({ productId, name, reference, quantity })),
-  }),
 }
 
 const contactRequestKind: RequestKind<mongoose.InferSchemaType<typeof ContactRequest.schema> & StoredRequest> = {
@@ -145,6 +127,5 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
 }
 
 export const adminRequests = {
-  enquiry: makeService(enquiryKind),
   contactRequest: makeService(contactRequestKind),
 }

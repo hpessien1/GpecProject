@@ -14,7 +14,7 @@ interface AdminRequestListProps {
 
 const STATUS_FILTERS: (RequestStatus | null)[] = [null, 'new', 'in_progress', 'closed']
 
-// Order enquiries or contact requests, newest first, searchable and filterable by status.
+// Contact requests, newest first, searchable and filterable by status.
 export default function AdminRequestList({ kind, onSessionEnded }: AdminRequestListProps) {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<RequestStatus | null>(null)

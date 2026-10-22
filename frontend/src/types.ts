@@ -8,6 +8,8 @@ export interface Product {
   alt: string
   // Sample data not supplied by GPEC; the shop labels it.
   isPlaceholder: boolean
+  // False when out of stock: shown and labelled, but cannot be added to the cart.
+  inStock: boolean
 }
 
 export interface ProductsResponse {
@@ -26,24 +28,6 @@ export interface CartLine extends CartEntry {
 
 export type StoreMode = 'catalogue' | 'order'
 
-export interface EnquiryPayload {
-  customer: {
-    fullName: string
-    company: string
-    email: string
-    phone: string
-  }
-  location: string
-  notes: string
-  items: { productId: string, quantity: number }[]
-  // Spam trap (components/SpamTrapField.tsx): empty when a person fills in the form.
-  website: string
-}
-
-export interface EnquiryResponse {
-  reference: string
-  createdAt: string
-}
 
 export interface ContactRequestPayload {
   fullName: string
@@ -56,7 +40,10 @@ export interface ContactRequestPayload {
   website: string
 }
 
-export type ContactRequestResponse = EnquiryResponse
+export interface ContactRequestResponse {
+  reference: string
+  createdAt: string
+}
 
 // Admin panel
 
@@ -86,6 +73,9 @@ export interface EditableProductFields {
   alt: string
   price: number | null
   isPlaceholder: boolean
+  // Staff's out-of-stock switch, and an optional stock count (null: not counted; 0: out of stock).
+  outOfStock: boolean
+  stockQuantity: number | null
   status: ProductStatus
   sortOrder: number
 }
@@ -109,12 +99,12 @@ export interface ProductHistoryEntry {
   createdAt: string
 }
 
-// Follow-up status of order enquiries and contact requests (same list as the backend's
+// Follow-up status of contact requests (same list as the backend's
 // models/requestStatus.ts).
 export type RequestStatus = 'new' | 'in_progress' | 'closed'
 
-// URL segment for each kind of request: #admin/enquiries, #admin/contact-requests.
-export type AdminRequestKind = 'enquiries' | 'contact-requests'
+// URL segment for each kind of customer request: #admin/contact-requests (the only kind).
+export type AdminRequestKind = 'contact-requests'
 
 export interface AdminRequestSummary {
   reference: string
@@ -134,18 +124,14 @@ export interface AdminRequestsPage {
   counts: Record<RequestStatus, number>
 }
 
-// Order enquiries have location, notes, and items; contact requests have subject and message.
 export interface AdminRequestDetail {
   reference: string
   status: RequestStatus
   createdAt: string
   updatedAt: string
   customer: { fullName: string, company: string, email: string, phone: string }
-  location?: string
-  notes?: string
-  items?: { productId: string, name: string, reference: string, quantity: number }[]
-  subject?: string
-  message?: string
+  subject: string
+  message: string
 }
 
 export interface RequestHistoryEntry {

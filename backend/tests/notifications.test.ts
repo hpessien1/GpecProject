@@ -1,19 +1,9 @@
 import request from 'supertest'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import ContactRequest from '../src/models/ContactRequest.js'
-import Enquiry from '../src/models/Enquiry.js'
-import { seedSampleProducts } from '../src/services/products.js'
 import { RecordingMailer, TEST_EMAIL_SETTINGS, testApp, useTestDatabase } from './helpers.js'
 
 useTestDatabase()
-beforeEach(async () => { await seedSampleProducts() })
-
-const enquiry = (email = 'ada@example.org') => ({
-  customer: { fullName: 'Ada Buyer', company: 'Acme Ltd', email, phone: '0800 000 0000' },
-  location: 'Lagos',
-  notes: 'Needed this month.',
-  items: [{ productId: 'panel-001', quantity: 2 }],
-})
 const contact = (email = 'ada@example.org') => ({ fullName: 'Ada Buyer', email, subject: 'Solar energy', message: 'Please call me.' })
 
 // Emails are sent after the response, so wait for them to arrive.
@@ -21,30 +11,6 @@ async function emailsSent(mailer: RecordingMailer, count: number) {
   await vi.waitFor(() => expect(mailer.sent).toHaveLength(count))
   return mailer.sent
 }
-
-describe('order enquiry emails', () => {
-  it('notifies staff (reply goes to the customer) and confirms to the customer', async () => {
-    const mailer = new RecordingMailer()
-    const res = await request(testApp({ email: TEST_EMAIL_SETTINGS }, mailer)).post('/api/enquiries').send(enquiry())
-    expect(res.status).toBe(201)
-    const [staff, customer] = await emailsSent(mailer, 2)
-
-    expect(staff).toMatchObject({ to: TEST_EMAIL_SETTINGS.staffRecipients, replyTo: 'ada@example.org', subject: `New order enquiry ${res.body.reference}` })
-    expect(staff.text).toContain('2 × Custom control panel (GPEC-CP-001)')
-    expect(staff.text).toContain('Needed this month.')
-    expect(staff.text).toContain(`https://www.example.com/#admin/enquiries/${res.body.reference}`)
-
-    expect(customer).toMatchObject({ to: ['ada@example.org'], subject: `We have your GPEC enquiry (${res.body.reference})` })
-    expect(customer.text).toContain('No payment has been taken.')
-    expect(customer.replyTo).toBeUndefined()
-  })
-
-  it('never puts customer input in a subject line', async () => {
-    const mailer = new RecordingMailer()
-    await request(testApp({ email: TEST_EMAIL_SETTINGS }, mailer)).post('/api/enquiries').send({ ...enquiry(), customer: { ...enquiry().customer, fullName: 'Evil\nBcc: victim@example.org' } })
-    for (const email of await emailsSent(mailer, 2)) expect(email.subject).not.toMatch(/Evil|victim/)
-  })
-})
 
 describe('contact request emails', () => {
   it('notifies staff and confirms to the customer', async () => {
@@ -55,6 +21,13 @@ describe('contact request emails', () => {
     expect(staff.text).toContain('Please call me.')
     expect(staff.text).toContain(`#admin/contact-requests/${res.body.reference}`)
     expect(customer).toMatchObject({ to: ['ada@example.org'], subject: `We have your message (${res.body.reference})` })
+    expect(customer.replyTo).toBeUndefined()
+  })
+
+  it('never puts customer input in a subject line', async () => {
+    const mailer = new RecordingMailer()
+    await request(testApp({ email: TEST_EMAIL_SETTINGS }, mailer)).post('/api/contact-requests').send({ ...contact(), fullName: 'Evil\nBcc: victim@example.org' })
+    for (const email of await emailsSent(mailer, 2)) expect(email.subject).not.toMatch(/Evil|victim/)
   })
 
   it('confirms to the same address at most 3 times an hour, but always notifies staff', async () => {
@@ -69,11 +42,11 @@ describe('contact request emails', () => {
 describe('when email cannot or should not be sent', () => {
   it('sends nothing and still saves when email is not configured', async () => {
     const mailer = new RecordingMailer()
-    const res = await request(testApp({ email: null }, mailer)).post('/api/enquiries').send(enquiry())
+    const res = await request(testApp({ email: null }, mailer)).post('/api/contact-requests').send(contact())
     expect(res.status).toBe(201)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(mailer.sent).toHaveLength(0)
-    expect(await Enquiry.countDocuments()).toBe(1)
+    expect(await ContactRequest.countDocuments()).toBe(1)
   })
 
   it('keeps the request and logs only the reference when sending fails', async () => {
@@ -97,7 +70,7 @@ describe('when email cannot or should not be sent', () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => {})
     await request(app).post('/api/contact-requests').send({ ...contact(), website: 'spam' })
     info.mockRestore()
-    await request(app).post('/api/enquiries').send({ ...enquiry(), items: [] })
+    await request(app).post('/api/contact-requests').send({ ...contact(), message: '' })
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(mailer.sent).toHaveLength(0)
   })

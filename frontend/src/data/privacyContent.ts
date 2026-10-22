@@ -7,7 +7,7 @@ export const privacyStatus = 'Draft — this notice has not yet been approved by
 
 export const privacyLastUpdated = '[[date GPEC approves this notice]]'
 
-export const privacyIntro = 'This notice explains what information this website collects when you contact GPEC or send an order enquiry, why we collect it, who can see it, and the choices you have.'
+export const privacyIntro = 'This notice explains what information this website collects when you contact GPEC, why we collect it, who can see it, and the choices you have.'
 
 export interface PrivacySection {
   title: string
@@ -28,7 +28,6 @@ export const privacySections: PrivacySection[] = [
     paragraphs: ['We only collect what you type into our forms, and only to respond to you.'],
     list: [
       'Contact form: your name and email address (required), and your company, phone number, the topic you choose, and your message. We use these to reply to your enquiry and to email you a confirmation with your reference number.',
-      'Order enquiry form: your name, email address, and phone number (required), your company, project or delivery location, notes, and the products and quantities in your cart. We use these to confirm availability, pricing, and next steps with you, and to email you a confirmation with your reference number.',
       'We never ask for card or bank details on this website. If online payment is added later, payment details will be entered on our payment provider’s own secure page, and this notice will be updated before that happens.',
     ],
   },
@@ -57,7 +56,7 @@ export const privacySections: PrivacySection[] = [
   },
   {
     title: 'How long we keep it',
-    paragraphs: ['[[How long GPEC keeps enquiries and contact messages, and what happens after that, e.g. deleted after a set number of years]]'],
+    paragraphs: ['[[How long GPEC keeps contact messages, and what happens after that, e.g. deleted after a set number of years]]'],
   },
   {
     title: 'Your choices',

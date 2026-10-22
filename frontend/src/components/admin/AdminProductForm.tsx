@@ -66,6 +66,7 @@ export default function AdminProductForm({ product, currency, imageUploads, isSa
     }
     setPriceError('')
     const sortOrder = field('sortOrder')
+    const stockQuantity = field('stockQuantity')
     onSubmit({
       id: isNew ? field('id') : product.id,
       name: field('name'),
@@ -76,6 +77,9 @@ export default function AdminProductForm({ product, currency, imageUploads, isSa
       alt: field('alt'),
       price,
       isPlaceholder: formData.get('isPlaceholder') === 'on',
+      outOfStock: formData.get('outOfStock') === 'on',
+      // Empty: not counted. The input only accepts whole numbers from 0.
+      stockQuantity: stockQuantity === '' ? null : Number(stockQuantity),
       status: field('status') === 'archived' ? 'archived' : 'active',
       sortOrder: sortOrder === '' ? undefined : Number(sortOrder),
     })
@@ -99,6 +103,13 @@ export default function AdminProductForm({ product, currency, imageUploads, isSa
     </Field>
     <Field name="price" errors={errors} hint={currency ? `In ${currency.code}. Leave empty for no price. Prices are not shown in the shop until online checkout is built.` : 'Prices can be set once GPEC confirms the shop currency.'}>
       <input id="product-price" name="price" inputMode="decimal" disabled={!currency} defaultValue={currency ? minorUnitsToInput(product?.price ?? null, currency) : ''} aria-describedby={describedBy('price', errors, true)} />
+    </Field>
+    <div className="admin-field admin-checkbox">
+      <label><input name="outOfStock" type="checkbox" defaultChecked={product?.outOfStock ?? false} /> {productFieldLabels.outOfStock}: GPEC cannot supply this product for now. It stays in the shop, labelled “Out of stock”, and cannot be bought. To take it out of the shop instead, set its status to Archived.</label>
+      {errors.outOfStock && <small className="admin-field-error">{errors.outOfStock}</small>}
+    </div>
+    <Field name="stockQuantity" errors={errors} hint="Optional. Leave empty if GPEC does not count this product. When a number is set, the shop shows the product as out of stock at 0. Customers never see the number.">
+      <input id="product-stockQuantity" name="stockQuantity" type="number" min={0} max={1000000} step={1} inputMode="numeric" defaultValue={product?.stockQuantity ?? ''} aria-describedby={describedBy('stockQuantity', errors, true)} />
     </Field>
     <Field name="status" errors={errors}>
       <select id="product-status" name="status" defaultValue={product?.status ?? 'active'} aria-describedby={describedBy('status', errors, false)}>

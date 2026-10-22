@@ -30,6 +30,7 @@ describe('GET /api/products', () => {
       image: sampleProducts[0].image,
       alt: sampleProducts[0].alt,
       isPlaceholder: true,
+      inStock: true,
     })
   })
 

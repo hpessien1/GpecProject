@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-22
+- **Last updated:** 2026-10-22 (order enquiries removed; stock; Orders tab)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -105,8 +105,10 @@ The project owner deploys; the AI assistant prepares files and instructions only
 
 Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS.md`.
 
+- [x] Checkout page in place: shows the order and says online payment is not available yet, with a
+      link to the contact form (2026-10-22). The shop's order enquiry form was removed.
 - [ ] Order model, checkout form with pickup or delivery, and order summary with the Paystack fee
-      line.
+      line. Refuse out-of-stock products on the server; paid orders reduce counted stock.
 - [ ] Paystack initialize, redirect, callback verify, and signed webhook — one shared "mark paid"
       function.
 - [ ] Tests for tampered prices, currency mismatch, replayed webhooks, and double submission.
@@ -122,13 +124,17 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
       stays unset until GPEC confirms the currency.
 - [x] Each admin changes their own password in the panel (other sessions end); every command is
       listed in [`docs/COMMANDS.md`](docs/COMMANDS.md).
-- [x] Order enquiries and contact requests for GPEC staff: newest-first lists with status filters
+- [x] Contact requests for GPEC staff (order enquiries were removed on 2026-10-22: customers buy
+      in the shop or ask through the contact form): newest-first lists with status filters
       and counts, detail pages with email and phone links, and a follow-up status (New, In
       progress, Closed) whose every change is recorded (who, from, to, when).
 - [x] Search the request lists by reference, customer name, company, or email, and add internal
       staff notes to any request (who and when shown; notes cannot be edited or deleted)
       (2026-10-22).
-- [ ] Order lists (with step 5).
+- [x] Out-of-stock switch and optional stock count per product; out-of-stock products stay in the
+      shop, labelled, and cannot be added to the cart (2026-10-22).
+- [x] Orders tab, explaining that orders appear once Paystack checkout exists (2026-10-22).
+- [ ] Order list in the Orders tab (with step 5).
 - [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
 - [x] Product photo uploads from the admin's own device (laptop, phone, or tablet), with a preview:
       checked, resized, and stored in a private Amazon S3 bucket (2026-10-22). Off until GPEC's
@@ -164,7 +170,7 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Domain names for the website and the API (blocks the first deploy).
 - [ ] Named owners and logins for Coolify, Atlas, GitHub, Paystack, and the domain registrar
       (runbook Section 5).
-- [ ] Who receives order and enquiry notifications (`STAFF_NOTIFICATION_EMAILS`).
+- [ ] Who receives order and contact-request notifications (`STAFF_NOTIFICATION_EMAILS`).
 - [ ] An Amazon Web Services account for email (Amazon SES), the domain verified in SES, and
       production access approved. Email is built and stays off until then (RUNBOOK 1.6).
 - [ ] In the same AWS account, a private S3 bucket for product photos and its upload key. Photo

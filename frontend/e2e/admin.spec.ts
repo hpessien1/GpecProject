@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, ENQUIRY_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -53,7 +53,7 @@ test.describe('admin login', () => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
     api.loggedIn = false
-    await page.getByRole('link', { name: 'Order enquiries' }).click()
+    await page.getByRole('link', { name: 'Contact requests' }).click()
     await expect(page.getByText('Your session has ended. Please log in again.')).toBeVisible()
   })
 
@@ -174,6 +174,34 @@ test.describe('products and prices', () => {
     await expect(page.locator('.admin-image-preview figcaption')).toHaveText('No image found at this address.')
   })
 
+  test('marks out-of-stock products in the list, and saves the stock switch and count', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    const row = (name: string) => page.locator('.admin-product-list li', { hasText: name })
+    await expect(row('Industrial electrical components').locator('.admin-tag', { hasText: 'Out of stock' })).toBeVisible()
+    await expect(row('Panel accessories').locator('.admin-tag', { hasText: 'Out of stock' })).toBeVisible()
+    await expect(row('Custom control panel').locator('.admin-tag', { hasText: 'Out of stock' })).toHaveCount(0)
+    await page.getByRole('link', { name: 'Edit Custom control panel' }).click()
+    await page.getByRole('checkbox', { name: /Out of stock:/ }).check()
+    await page.getByLabel('Stock count').fill('5')
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Changes saved.')
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ outOfStock: true, stockQuantity: 5 })
+    await expect(page.locator('.admin-history li').first()).toContainText('Out of stock: No → Yes')
+    await expect(page.locator('.admin-history li').first()).toContainText('Stock count: (empty) → 5')
+  })
+
+  test('clearing the stock count sends it as not counted', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.getByRole('link', { name: 'Edit Panel accessories' }).click()
+    await expect(page.getByLabel('Stock count')).toHaveValue('0')
+    await page.getByLabel('Stock count').fill('')
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Changes saved.')
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ stockQuantity: null })
+  })
+
   test('price entry is switched off until the currency is configured', async ({ page }) => {
     await mockApi(page, { currency: null })
     await logInAsAdmin(page)
@@ -183,23 +211,43 @@ test.describe('products and prices', () => {
   })
 })
 
-test.describe('order enquiries and contact requests', () => {
-  test('filters enquiries by status, with counts', async ({ page }) => {
+test.describe('contact requests', () => {
+  test('has no order enquiries section: customers buy in the shop or use the contact form', async ({ page }) => {
     await mockApi(page)
     await logInAsAdmin(page)
-    await page.getByRole('link', { name: 'Order enquiries' }).click()
+    const sections = page.getByRole('navigation', { name: 'Admin sections' })
+    await expect(sections.getByRole('link')).toHaveText(['Products', 'Orders', 'Contact requests'])
+    await page.goto('/#admin/enquiries')
+    await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible()
+  })
+
+  test('the Orders tab explains that orders arrive with Paystack checkout', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    const requestsBefore = api.requests.length
+    await page.getByRole('link', { name: 'Orders' }).click()
+    await expect(page.getByRole('heading', { name: 'Orders' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Orders' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('status')).toContainText('No orders yet. Paid orders will appear here once online payment through Paystack is set up')
+    expect(api.requests.length).toBe(requestsBefore)
+  })
+
+  test('filters contact requests by status, with counts', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.getByRole('link', { name: 'Contact requests' }).click()
     await expect(page.locator('.admin-request-list li')).toHaveCount(3)
     await page.getByRole('button', { name: /^New/ }).click()
     await expect(page.locator('.admin-request-list li')).toHaveCount(1)
     await expect(page.getByRole('button', { name: /^New/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  test('shows an enquiry with reply links and records a status change', async ({ page }) => {
+  test('shows a contact request with reply links and records a status change', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
-    await page.goto(`/#admin/enquiries/${ENQUIRY_REF}`)
-    await expect(page.getByRole('heading', { name: ENQUIRY_REF })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'customer@example.com' })).toHaveAttribute('href', `mailto:customer@example.com?subject=${encodeURIComponent(`Your GPEC request ${ENQUIRY_REF}`)}`)
+    await page.goto(`/#admin/contact-requests/${CONTACT_REF}`)
+    await expect(page.getByRole('heading', { name: CONTACT_REF })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'customer@example.com' })).toHaveAttribute('href', `mailto:customer@example.com?subject=${encodeURIComponent(`Your GPEC request ${CONTACT_REF}`)}`)
     await expect(page.getByRole('link', { name: '+234 800 000 0000' })).toHaveAttribute('href', 'tel:+2348000000000')
     await page.getByLabel('Follow-up status').selectOption('in_progress')
     await page.getByRole('button', { name: 'Update status' }).click()
@@ -208,10 +256,10 @@ test.describe('order enquiries and contact requests', () => {
     await expect(page.locator('.admin-history li').first()).toContainText('New → In progress')
   })
 
-  test('searches enquiries, keeps the status filter, and clears the search', async ({ page }) => {
+  test('searches contact requests, keeps the status filter, and clears the search', async ({ page }) => {
     await mockApi(page)
     await logInAsAdmin(page)
-    await page.getByRole('link', { name: 'Order enquiries' }).click()
+    await page.getByRole('link', { name: 'Contact requests' }).click()
     await expect(page.locator('.admin-request-list li')).toHaveCount(3)
     const search = page.getByRole('searchbox', { name: 'Search' })
     await search.fill('  second customer ')
@@ -231,7 +279,7 @@ test.describe('order enquiries and contact requests', () => {
   test('adds an internal note and shows it first, with the author', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
-    await page.goto(`/#admin/enquiries/${ENQUIRY_REF}`)
+    await page.goto(`/#admin/contact-requests/${CONTACT_REF}`)
     const notes = page.locator('.admin-note-list li')
     await expect(notes).toHaveCount(1)
     await page.getByLabel('Add a note').fill('Customer accepted the quote.')
@@ -247,7 +295,7 @@ test.describe('order enquiries and contact requests', () => {
   test('keeps the note text when saving fails, and sends nothing when it is empty', async ({ page }) => {
     const api = await mockApi(page, { notesFail: true })
     await logInAsAdmin(page)
-    await page.goto(`/#admin/contact-requests/${CONTACT_REF}`)
+    await page.goto('/#admin/contact-requests/GPEC-C-2026-0000000B')
     await expect(page.getByText('No notes yet.')).toBeVisible()
     await page.getByRole('button', { name: 'Add note' }).click()
     await expect(page.getByText('Write a note before adding it.')).toBeFocused()
@@ -263,7 +311,7 @@ test.describe('order enquiries and contact requests', () => {
     await logInAsAdmin(page)
     await page.getByRole('link', { name: 'Contact requests' }).click()
     await page.getByRole('link', { name: new RegExp(`Open ${CONTACT_REF}`) }).click()
-    await expect(page.locator('.admin-request-message')).toHaveText('Please call me about a solar system.')
+    await expect(page.locator('.admin-request-detail > .admin-request-message')).toHaveText('Please call me about a solar system.\nMornings are best.')
   })
 })
 

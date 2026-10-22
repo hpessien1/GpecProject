@@ -135,6 +135,61 @@ describe('PATCH /api/admin/products/:id', () => {
     expect(await AuditRecord.countDocuments({ targetId: 'panel-001' })).toBe(1)
   })
 
+  describe('stock', () => {
+    async function shopProduct(id: string) {
+      const res = await request(app).get('/api/products')
+      return res.body.products.find((product: { id: string }) => product.id === id)
+    }
+
+    it('shows a product as out of stock when staff switch it off, keeping it in the shop, and records it', async () => {
+      const res = await patch('solar-001', { outOfStock: true })
+      expect(res.status).toBe(200)
+      expect(res.body.product).toMatchObject({ outOfStock: true, stockQuantity: null })
+      expect(await shopProduct('solar-001')).toMatchObject({ id: 'solar-001', inStock: false })
+      const [record] = await AuditRecord.find({ targetId: 'solar-001' }).lean()
+      expect(record.changes).toEqual([{ field: 'outOfStock', from: false, to: true }])
+      await patch('solar-001', { outOfStock: false })
+      expect((await shopProduct('solar-001')).inStock).toBe(true)
+    })
+
+    it('counts stock when a number is given: 0 is out of stock, and customers never see the number', async () => {
+      await patch('solar-001', { stockQuantity: 3 })
+      const inStock = await shopProduct('solar-001')
+      expect(inStock.inStock).toBe(true)
+      expect(inStock).not.toHaveProperty('stockQuantity')
+      expect(inStock).not.toHaveProperty('outOfStock')
+      await patch('solar-001', { stockQuantity: 0 })
+      expect((await shopProduct('solar-001')).inStock).toBe(false)
+      await patch('solar-001', { stockQuantity: null })
+      expect((await shopProduct('solar-001')).inStock).toBe(true)
+    })
+
+    it('treats the switch as stronger than a count', async () => {
+      await patch('solar-001', { stockQuantity: 10, outOfStock: true })
+      expect((await shopProduct('solar-001')).inStock).toBe(false)
+    })
+
+    it.each([
+      [{ stockQuantity: -1 }, 'stockQuantity'],
+      [{ stockQuantity: 2.5 }, 'stockQuantity'],
+      [{ stockQuantity: '5' }, 'stockQuantity'],
+      [{ stockQuantity: 1_000_001 }, 'stockQuantity'],
+      [{ outOfStock: 'yes' }, 'outOfStock'],
+    ])('rejects %j', async (body, field) => {
+      const res = await patch('solar-001', body)
+      expect(res.status).toBe(400)
+      expect(Object.keys(res.body.errors)).toEqual([field])
+    })
+
+    it('reads a product saved before the stock fields existed as in stock and not counted', async () => {
+      await Product.collection.updateOne({ _id: 'solar-001' as never }, { $unset: { outOfStock: '', stockQuantity: '' } })
+      expect((await agent.get('/api/admin/products/solar-001')).body.product).toMatchObject({ outOfStock: false, stockQuantity: null })
+      expect((await shopProduct('solar-001')).inStock).toBe(true)
+      await patch('solar-001', { outOfStock: false })
+      expect(await AuditRecord.countDocuments({ targetId: 'solar-001' })).toBe(0)
+    })
+  })
+
   it('hides an archived product from the public shop', async () => {
     await patch('solar-001', { status: 'archived' })
     const res = await request(app).get('/api/products')

@@ -15,7 +15,7 @@ export interface EmailSettings {
   // "GPEC <notifications@example.com>" or a bare address, on a domain verified in SES.
   from: string
   staffRecipients: string[]
-  // The public site (FRONTEND_URL), for links in emails (e.g. to an enquiry in the admin panel).
+  // The public site (FRONTEND_URL), for links in emails (e.g. to a contact request in the admin panel).
   siteUrl: string
 }
 

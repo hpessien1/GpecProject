@@ -86,7 +86,7 @@ test.describe('cart', () => {
   test('adds, changes, and removes products, and remembers the cart after a reload', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#shop')
-    await page.locator('.shop-product-card').first().getByRole('button', { name: 'Add to order' }).click()
+    await page.locator('.shop-product-card').first().getByRole('button', { name: 'Add to cart' }).click()
     await page.getByRole('button', { name: 'Increase Custom control panel quantity' }).click()
     await expect(page.getByLabel('Custom control panel quantity', { exact: true })).toHaveText('2')
     await page.reload()
@@ -106,41 +106,57 @@ test.describe('cart', () => {
   })
 })
 
-test.describe('order enquiry', () => {
-  async function fillOrder(page: import('@playwright/test').Page) {
-    await page.goto('/#shop')
-    await page.locator('.shop-product-card').first().getByRole('button', { name: 'Add to order' }).click()
-    await page.getByRole('button', { name: 'Submit order enquiry' }).click()
-    await page.getByLabel('Full name').fill('Ada Buyer')
-    await page.getByLabel('Email address').fill('ada@example.com')
-    await page.getByLabel('Phone number').fill('0800 000 0000')
+test.describe('out of stock', () => {
+  function withSolarOutOfStock() {
+    return sampleProducts().map((product) => product.id === 'solar-001' ? { ...product, inStock: false } : product)
   }
 
-  test('sends only product IDs and quantities, then confirms and empties the cart', async ({ page }) => {
-    const api = await mockApi(page)
-    await fillOrder(page)
-    await page.getByRole('button', { name: 'Submit enquiry' }).click()
-    const confirmation = page.locator('.shop-confirmation')
-    await expect(confirmation).toContainText('GPEC-2026-AAAAAAAA')
-    await expect(confirmation).toBeFocused()
-    const sent = api.requests.find((r) => r.path === '/api/enquiries')?.body
-    expect(sent).toMatchObject({ customer: { fullName: 'Ada Buyer', email: 'ada@example.com' }, items: [{ productId: 'panel-001', quantity: 1 }], website: '' })
-    expect(JSON.stringify(sent)).not.toMatch(/price|name":"Custom/)
+  test('shows the product, labelled, and it cannot be added to the cart', async ({ page }) => {
+    const api = await mockApi(page, { products: withSolarOutOfStock() })
+    await page.goto('/#shop')
+    const card = page.locator('.shop-product-card', { hasText: 'Solar power package' })
+    await expect(card.locator('.shop-stock-label')).toHaveText('Out of stock')
+    const button = card.getByRole('button', { name: 'Out of stock: Solar power package' })
+    await expect(button).toBeDisabled()
+    await expect(page.locator('.shop-product-card', { hasText: 'Custom control panel' }).locator('.shop-stock-label')).toHaveCount(0)
+    await card.getByRole('button', { name: /View Solar power package/ }).click()
+    await expect(page.getByRole('dialog').locator('.shop-stock-label')).toHaveText('Out of stock')
     expect(await page.evaluate(() => localStorage.getItem('gpec-order-cart'))).toBe('[]')
+    expect(api.requests.every((r) => r.method === 'GET')).toBe(true)
   })
 
-  test('shows a visible, focused error when sending fails, and keeps what was typed', async ({ page }) => {
-    await mockApi(page, { formsFail: true })
-    await fillOrder(page)
-    await page.getByRole('button', { name: 'Submit enquiry' }).click()
-    const error = page.locator('.shop-form-error')
-    await expect(error).toHaveText('Check enquiry details and try again.')
-    await expect(error).toBeFocused()
-    await expect(error).toHaveCSS('color', 'rgb(6, 23, 71)')
-    await expect(page.getByLabel('Full name')).toHaveValue('Ada Buyer')
+  test('a product that ran out after it was added is marked in the cart and at checkout', async ({ page }) => {
+    await mockApi(page, { products: withSolarOutOfStock() })
+    await page.addInitScript(() => localStorage.setItem('gpec-order-cart', JSON.stringify([{ id: 'solar-001', quantity: 1 }, { id: 'panel-001', quantity: 1 }])))
+    await page.goto('/#shop')
+    const line = page.locator('.shop-cart-list li', { hasText: 'Solar power package' })
+    await expect(line.locator('.shop-stock-label')).toHaveText('Out of stock')
+    await expect(page.getByRole('button', { name: 'Increase Solar power package quantity' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Increase Custom control panel quantity' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Go to checkout' }).click()
+    await expect(page.locator('.shop-stock-note')).toHaveText('One product is out of stock and cannot be bought for now. Remove it from your cart in the catalogue.')
+  })
+})
+
+test.describe('checkout', () => {
+  test('shows the order and says online payment is not available yet, with a way to contact GPEC', async ({ page }) => {
+    const api = await mockApi(page)
+    await page.goto('/#shop')
+    await page.locator('.shop-product-card').first().getByRole('button', { name: 'Add to cart' }).click()
+    await page.getByRole('button', { name: 'Go to checkout' }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Review\s*your order\./)
+    await expect(page.getByRole('heading', { name: 'Online payment is not available yet' })).toBeVisible()
+    await expect(page.locator('.shop-order-summary')).toContainText('Custom control panel')
+    // No enquiry form: nothing to fill in or send until Paystack checkout exists.
+    await expect(page.locator('main').getByRole('textbox')).toHaveCount(0)
+    await expect(page.locator('main form')).toHaveCount(0)
+    expect(api.requests.some((r) => r.method !== 'GET')).toBe(false)
+    expect(await page.evaluate(() => localStorage.getItem('gpec-order-cart'))).toBe('[{"id":"panel-001","quantity":1}]')
+    await page.getByRole('link', { name: 'Contact GPEC' }).click()
+    await expect(page.locator('#contact')).toBeInViewport()
   })
 
-  test('the order page explains an empty cart', async ({ page }) => {
+  test('the checkout page explains an empty cart', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#shop/order')
     await expect(page.getByRole('heading', { name: 'Your cart is empty.' })).toBeVisible()

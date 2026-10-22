@@ -11,7 +11,6 @@ const now = new Date('2026-10-21T10:00:00Z').toISOString()
 const NGN: CurrencyInfo = { code: 'NGN', minorUnitDigits: 2 }
 
 export const ADMIN = { name: 'Sample Admin', email: 'admin@example.com', password: 'a long sample passphrase' }
-export const ENQUIRY_REF = 'GPEC-2026-0000000A'
 export const CONTACT_REF = 'GPEC-C-2026-0000000A'
 // What the "server" answers for any photo upload, and the picture it serves for uploaded photos.
 export const UPLOADED_IMAGE = `product-images/${'b'.repeat(64)}.webp`
@@ -21,7 +20,7 @@ export const BREACHED_PASSWORD = 'password password password'
 const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
 
 function sampleProduct(id: string, name: string, reference: string, image: string): Product {
-  return { id, name, reference, description: `${name}: sample description for testing.`, specs: ['Spec one', 'Spec two'], image, alt: `${name} photo`, isPlaceholder: true }
+  return { id, name, reference, description: `${name}: sample description for testing.`, specs: ['Spec one', 'Spec two'], image, alt: `${name} photo`, isPlaceholder: true, inStock: true }
 }
 
 export function sampleProducts(): Product[] {
@@ -43,7 +42,6 @@ export interface ApiState {
   products: Product[] | 'error'
   adminProducts: AdminProduct[]
   productHistory: Record<string, ProductHistoryEntry[]>
-  enquiries: AdminRequestDetail[]
   contactRequests: AdminRequestDetail[]
   requestHistory: Record<string, RequestHistoryEntry[]>
   requestNotes: Record<string, RequestNote[]>
@@ -63,16 +61,15 @@ function initialState(): ApiState {
   const products = sampleProducts()
   return {
     products,
-    adminProducts: products.map((p, index) => ({ ...p, price: index === 0 ? 150050 : null, status: index === 1 ? 'archived' : 'active', sortOrder: (index + 1) * 10, updatedAt: now })),
+    adminProducts: products.map(({ inStock: _inStock, ...p }, index) => ({ ...p, price: index === 0 ? 150050 : null, outOfStock: index === 2, stockQuantity: index === 3 ? 0 : null, status: index === 1 ? 'archived' : 'active', sortOrder: (index + 1) * 10, updatedAt: now })),
     productHistory: { 'panel-001': [{ action: 'product.update', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'price', from: 100000, to: 150050 }], createdAt: now }] },
-    enquiries: [
-      { reference: ENQUIRY_REF, status: 'new', createdAt: now, updatedAt: now, customer, location: 'Lagos', notes: 'First line.\nSecond line.', items: [{ productId: 'panel-001', name: 'Custom control panel', reference: 'GPEC-CP-001', quantity: 2 }] },
-      { reference: 'GPEC-2026-0000000B', status: 'in_progress', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Second Customer' }, location: '', notes: '', items: [{ productId: 'solar-001', name: 'Solar power package', reference: 'GPEC-SOL-020', quantity: 1 }] },
-      { reference: 'GPEC-2026-0000000C', status: 'closed', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Third Customer' }, location: '', notes: '', items: [{ productId: 'terminal-001', name: 'Terminal block set', reference: 'GPEC-TB-074', quantity: 5 }] },
+    contactRequests: [
+      { reference: CONTACT_REF, status: 'new', createdAt: now, updatedAt: now, customer, subject: 'Solar energy', message: 'Please call me about a solar system.\nMornings are best.' },
+      { reference: 'GPEC-C-2026-0000000B', status: 'in_progress', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Second Customer' }, subject: 'Electrical sales', message: 'Do you stock 63A breakers?' },
+      { reference: 'GPEC-C-2026-0000000C', status: 'closed', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Third Customer' }, subject: '', message: 'Thank you for the quick reply.' },
     ],
-    contactRequests: [{ reference: CONTACT_REF, status: 'new', createdAt: now, updatedAt: now, customer, subject: 'Solar energy', message: 'Please call me about a solar system.' }],
     requestHistory: {},
-    requestNotes: { [ENQUIRY_REF]: [{ author: { name: ADMIN.name, email: ADMIN.email }, text: 'Called the customer.\nSending a quote today.', createdAt: now }] },
+    requestNotes: { [CONTACT_REF]: [{ author: { name: ADMIN.name, email: ADMIN.email }, text: 'Called the customer.\nSending a quote today.', createdAt: now }] },
     notesFail: false,
     imageUploads: true,
     uploadFails: false,
@@ -103,7 +100,7 @@ function listRequests(allItems: AdminRequestDetail[], url: URL): Reply {
   const shown = status ? items.filter((item) => item.status === status) : items
   const summary = (item: AdminRequestDetail) => ({
     reference: item.reference, status: item.status, createdAt: item.createdAt, name: item.customer.fullName, company: item.customer.company, email: item.customer.email,
-    summary: item.items ? item.items.map((line) => `${line.quantity} × ${line.name}`).join(', ') : `${item.subject}: ${item.message}`,
+    summary: item.subject ? `${item.subject}: ${item.message}` : item.message,
   })
   return [200, { items: shown.map(summary), page: 1, totalPages: 1, total: shown.length, counts }]
 }
@@ -117,7 +114,6 @@ function reply(state: ApiState, request: Request): Reply {
 
   if (path === '/api/products') return state.products === 'error' ? [500, { message: 'Something went wrong on our side. Please try again.' }] : [200, { products: state.products }]
   if (path === '/api/contact-requests') return state.formsFail ? [400, { message: 'Check your details and try again.' }] : [201, { reference: 'GPEC-C-2026-AAAAAAAA', createdAt: now }]
-  if (path === '/api/enquiries') return state.formsFail ? [400, { message: 'Check enquiry details and try again.' }] : [201, { reference: 'GPEC-2026-AAAAAAAA', createdAt: now }]
 
   if (path === '/api/admin/session' && method === 'POST') {
     if (body.email !== ADMIN.email || body.password !== ADMIN.password) return [401, { message: 'Email or password is incorrect.', code: 'INVALID_CREDENTIALS' }]
@@ -155,9 +151,9 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, { product }]
   }
 
-  const requestMatch = /^\/api\/admin\/(enquiries|contact-requests)(?:\/([^/]+))?(\/notes)?$/.exec(path)
+  const requestMatch = /^\/api\/admin\/(contact-requests)(?:\/([^/]+))?(\/notes)?$/.exec(path)
   if (requestMatch) {
-    const items = requestMatch[1] === 'enquiries' ? state.enquiries : state.contactRequests
+    const items = state.contactRequests
     if (!requestMatch[2]) return listRequests(items, url)
     const item = items.find((candidate) => candidate.reference === requestMatch[2])
     if (!item) return [404, { message: 'Request not found.', code: 'NOT_FOUND' }]

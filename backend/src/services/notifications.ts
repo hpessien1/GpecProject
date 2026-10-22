@@ -1,7 +1,7 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
-import { customerContactEmail, customerEnquiryEmail, staffContactEmail, staffEnquiryEmail } from './emailTemplates.js'
-import type { ContactEmailData, EnquiryEmailData } from './emailTemplates.js'
+import { customerContactEmail, staffContactEmail } from './emailTemplates.js'
+import type { ContactEmailData } from './emailTemplates.js'
 
 const HOUR = 60 * 60 * 1000
 // Confirmations per recipient address per hour. Stops the public forms being used to flood a stranger's
@@ -9,7 +9,6 @@ const HOUR = 60 * 60 * 1000
 const CONFIRMATIONS_PER_HOUR = 3
 
 export interface Notifier {
-  enquiryReceived(enquiry: EnquiryEmailData): Promise<void>
   contactRequestReceived(request: ContactEmailData): Promise<void>
 }
 
@@ -39,12 +38,6 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
   }
 
   return {
-    async enquiryReceived(enquiry) {
-      if (!mailer || !settings) return
-      const messages: EmailMessage[] = [{ to: settings.staffRecipients, replyTo: enquiry.customer.email, ...staffEnquiryEmail(enquiry, settings.siteUrl) }]
-      if (mayConfirm(enquiry.customer.email)) messages.push({ to: [enquiry.customer.email], ...customerEnquiryEmail(enquiry, settings.siteUrl) })
-      await deliver(enquiry.reference, messages)
-    },
     async contactRequestReceived(request) {
       if (!mailer || !settings) return
       const messages: EmailMessage[] = [{ to: settings.staffRecipients, replyTo: request.email, ...staffContactEmail(request, settings.siteUrl) }]

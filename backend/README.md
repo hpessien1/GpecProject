@@ -1,4 +1,4 @@
-# GPEC Enquiry API
+# GPEC API
 
 ## Local setup
 
@@ -29,25 +29,25 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
 - `GET /api/health`: `200 {"status":"ok"}` when MongoDB answers a ping within 2 seconds, otherwise
   `503 {"status":"unavailable"}` (also used by the Docker health check)
 - `GET /api/products`
-- `POST /api/enquiries`
 - `POST /api/contact-requests`
 - Admin (login required; see below): `POST`, `GET`, `DELETE /api/admin/session`;
   `POST /api/admin/session/password`;
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
-  `GET /api/admin/products/:id/history`; `GET /api/admin/enquiries`, `GET`, `PATCH /api/admin/enquiries/:reference`,
-  `POST /api/admin/enquiries/:reference/notes`; `GET /api/admin/contact-requests`, `GET`,
+  `GET /api/admin/products/:id/history`; `GET /api/admin/contact-requests`, `GET`,
   `PATCH /api/admin/contact-requests/:reference`, `POST /api/admin/contact-requests/:reference/notes`;
   `POST /api/admin/product-images`
 - Public product photos: `GET /api/product-images/:hash.webp`
 
 `GET /api/products` returns `{ products: [...] }`: every active product in display order, with `id`,
-`name`, `reference`, `description`, `specs`, `image`, `alt`, and `isPlaceholder` (true for sample
-data not supplied by GPEC). Prices are not returned until checkout (roadmap step 5) configures the
+`name`, `reference`, `description`, `specs`, `image`, `alt`, `isPlaceholder` (true for sample
+data not supplied by GPEC), and `inStock` (false when staff marked it out of stock or its counted
+stock is 0; the count itself is never returned). Prices are not returned until checkout (roadmap step 5) configures the
 currency.
 
-`POST /api/enquiries` accepts customer details, optional location and notes, plus order items (`productId` and `quantity`). Each product must be active in the database; its name and reference are copied from there, never from the request. It saves an enquiry only. No payment details are accepted or stored.
+There are no order enquiries: customers buy in the shop (Paystack checkout, roadmap step 5) or ask
+through the contact form.
 
-After saving, both public form routes email GPEC staff and send the customer a confirmation, when
+After saving, the contact form route emails GPEC staff and send the customer a confirmation, when
 Amazon SES is configured (`docs/RUNBOOK.md` Section 1.6); otherwise email is off and nothing is sent.
 Email never delays or breaks the response.
 
@@ -78,7 +78,8 @@ All admin responses are sent with `Cache-Control: no-store`.
 - `GET /api/admin/products?page=N` lists all products, archived ones included, 50 per page, with
   `price` in the smallest currency unit.
 - `POST` creates a product (`id`, `name`, `reference`, `description`, `image`, `alt` required; `specs`,
-  `price`, `isPlaceholder`, `status`, `sortOrder` optional). `PATCH /:id` changes any of those
+  `price`, `isPlaceholder`, `outOfStock` (true/false), `stockQuantity` (`null` = not counted, or a
+  whole number from 0), `status`, `sortOrder` optional). `PATCH /:id` changes any of those
   except `id`. Unknown fields and wrong types get `400`; a duplicate `id` or `reference` gets
   `409 PRODUCT_CONFLICT`; a price while `CURRENCY` is unset gets `409 CURRENCY_NOT_CONFIGURED`.
   There is no delete: set `status` to `archived`.
@@ -92,13 +93,13 @@ All admin responses are sent with `Cache-Control: no-store`.
 - `GET /api/product-images/<sha256>.webp` (public) serves an uploaded photo from the bucket, cached
   for a year (`immutable`); unknown names get `404`.
 - `GET /:id/history` returns the last 50 changes: who, when, and each field's old and new value.
-- `GET /api/admin/enquiries?page=N&status=new|in_progress|closed&q=text` (all optional) lists order
-  enquiries newest first, 25 per page, with `counts` per status. `q` (up to 100 characters) keeps
+- `GET /api/admin/contact-requests?page=N&status=new|in_progress|closed&q=text` (all optional) lists
+  contact requests newest first, 25 per page, with `counts` per status. `q` (up to 100 characters) keeps
   requests whose reference, customer name, company, or email contains it, ignoring case; the counts
   then cover only the matches. `GET /:reference` returns everything the customer sent plus the
   status history and staff `notes` (newest first, last 100). `PATCH /:reference` with `{ status }`
   (and nothing else) changes the follow-up status and records who, from, to, and when.
   `POST /:reference/notes` with `{ text }` (up to 2000 characters, and nothing else) adds an
   internal note under the logged-in admin's name and returns `201` with the same body as `GET`.
-  Unknown or malformed references get `404`. `/api/admin/contact-requests` works the same way.
+  Unknown or malformed references get `404`.
   New requests are always `new`; customer details and notes cannot be edited or deleted here.

@@ -403,7 +403,7 @@
     grid-template-columns: 1fr;
   }
 }
-/* Enquiries and contact requests: status labels, lists, and detail pages */
+/* Contact requests: status labels, lists, and detail pages */
 .admin-status {
   display: inline-block;
   justify-self: start;
@@ -492,15 +492,6 @@
   color: var(--forest);
   font-weight: 700;
   text-decoration: underline;
-}
-.admin-request-items {
-  margin: 0;
-  padding-left: 1.1rem;
-  font-size: 0.9rem;
-  line-height: 1.8;
-}
-.admin-request-items small {
-  font: 0.65rem var(--mono);
 }
 .admin-request-message {
   margin: 0;

@@ -50,7 +50,7 @@ Stop it and run `npm --prefix frontend run dev` from the repository root.
 | Home | http://localhost:5173/ |
 | Shop | http://localhost:5173/#shop |
 | Admin | http://localhost:5173/#admin |
-| Admin: order enquiries | http://localhost:5173/#admin/enquiries |
+| Admin: orders (explains they arrive with Paystack checkout) | http://localhost:5173/#admin/orders |
 | Admin: contact requests | http://localhost:5173/#admin/contact-requests |
 | API health | http://localhost:5001/api/health (should show `{"status":"ok"}`; `503` means MongoDB cannot be reached) |
 
@@ -126,7 +126,6 @@ Paste the `gpec_dev` URI from `backend/.env` in place of `<MONGODB_URI>`. Do not
 the live `gpec` database.
 
 ```bash
-mongosh "<MONGODB_URI>" --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5)'
 mongosh "<MONGODB_URI>" --eval 'db.contactrequests.find().sort({createdAt:-1}).limit(5)'
 mongosh "<MONGODB_URI>" --eval 'db.products.find({}, {name:1, reference:1, price:1, status:1})'
 mongosh "<MONGODB_URI>" --eval 'db.adminusers.find({}, {email:1, name:1, isActive:1, lastLoginAt:1})'

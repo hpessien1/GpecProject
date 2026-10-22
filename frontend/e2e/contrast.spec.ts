@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { ContrastAudit, EXEMPT } from './support/contrast'
-import { ADMIN, CONTACT_REF, ENQUIRY_REF, mockApi } from './support/sampleApi'
+import { ADMIN, CONTACT_REF, mockApi, sampleProducts } from './support/sampleApi'
 
 // Every page and state of the site must meet WCAG AA text contrast at phone and desktop width,
 // including hover (desktop only). Run with `npm run check:contrast`. A new page or state belongs here.
@@ -40,6 +40,8 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await contact.locator('.success-message').waitFor()
     await audit.page(page, `${label} contact form sent`)
 
+    // One product out of stock, so its label and disabled button are checked too.
+    api.products = sampleProducts().map((product) => product.id === 'solar-001' ? { ...product, inStock: false } : product)
     await open('#shop', '.shop-product-card')
     await audit.page(page, `${label} shop`)
     if (hovering) await audit.hover(page, `${label} shop`)
@@ -49,22 +51,16 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await page.keyboard.press('Escape')
     await page.locator('.shop-add-button').first().click()
     await audit.page(page, `${label} shop with cart`)
+    await page.evaluate(() => localStorage.setItem('gpec-order-cart', JSON.stringify([{ id: 'panel-001', quantity: 1 }, { id: 'solar-001', quantity: 1 }])))
+    await open('#shop', '.shop-cart-list .shop-stock-label')
+    await audit.page(page, `${label} cart with an out-of-stock product`)
     await page.locator('.shop-order-button').click()
-    await page.locator('.shop-order-form').waitFor()
-    await audit.page(page, `${label} order form`)
-    api.formsFail = true
-    await page.getByLabel('Full name').fill('Sample')
-    await page.getByLabel('Email address').fill('sample@example.com')
-    await page.getByLabel('Phone number').fill('0800')
-    await page.getByRole('button', { name: 'Submit enquiry' }).click()
-    await page.locator('.shop-form-error').waitFor()
-    await audit.page(page, `${label} order error`)
-    api.formsFail = false
-    await page.getByRole('button', { name: 'Submit enquiry' }).click()
-    await page.locator('.shop-confirmation').waitFor()
-    await audit.page(page, `${label} order confirmation`)
+    await page.locator('.shop-checkout-unavailable').waitFor()
+    await audit.page(page, `${label} checkout`)
+    if (hovering) await audit.hover(page, `${label} checkout`)
+    await page.evaluate(() => localStorage.setItem('gpec-order-cart', '[]'))
     await open('#shop/order', '.shop-empty-order')
-    await audit.page(page, `${label} empty order page`)
+    await audit.page(page, `${label} empty checkout page`)
     api.products = 'error'
     await open('#shop', '.shop-status')
     await audit.page(page, `${label} shop load error`)
@@ -113,29 +109,32 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await page.getByLabel('New password', { exact: true }).fill('a long enough password')
     await page.locator('.admin-password-count-ok').waitFor()
     await audit.page(page, `${label} admin password long enough`)
-    await open('#admin/enquiries', '.admin-request-list')
-    await audit.page(page, `${label} admin enquiries`)
+    await open('#admin/orders', '.shop-status')
+    await audit.page(page, `${label} admin orders`)
+    await open('#admin/contact-requests', '.admin-request-list')
+    await audit.page(page, `${label} admin contact requests`)
     await page.getByRole('searchbox', { name: 'Search' }).fill('no such customer')
     await page.getByRole('button', { name: 'Search', exact: true }).click()
     await page.locator('.admin-search-row .text-link').waitFor()
     await page.locator('.shop-status').waitFor()
-    await audit.page(page, `${label} admin enquiries search with no matches`)
-    if (hovering) await audit.hover(page, `${label} admin enquiries search with no matches`)
-    await open(`#admin/enquiries/${ENQUIRY_REF}`, '.admin-request-detail')
-    await audit.page(page, `${label} admin enquiry`)
-    if (hovering) await audit.hover(page, `${label} admin enquiry`)
+    await audit.page(page, `${label} admin contact requests search with no matches`)
+    if (hovering) await audit.hover(page, `${label} admin contact requests search with no matches`)
+    await open(`#admin/contact-requests/${CONTACT_REF}`, '.admin-request-detail')
+    await audit.page(page, `${label} admin contact request`)
+    if (hovering) await audit.hover(page, `${label} admin contact request`)
     await page.getByLabel('Add a note').fill('Sample note')
     await page.getByRole('button', { name: 'Add note' }).click()
     await page.locator('.admin-note-form .success-message').waitFor()
-    await audit.page(page, `${label} admin enquiry note added`)
+    await audit.page(page, `${label} admin contact request note added`)
     api.notesFail = true
     await page.getByLabel('Add a note').fill('Sample note')
     await page.getByRole('button', { name: 'Add note' }).click()
     await page.locator('.admin-note-form .form-error').waitFor()
-    await audit.page(page, `${label} admin enquiry note error`)
+    await audit.page(page, `${label} admin contact request note error`)
     api.notesFail = false
-    await open(`#admin/contact-requests/${CONTACT_REF}`, '.admin-request-detail')
-    await audit.page(page, `${label} admin contact request`)
+    // One without a subject, so the detail page's other layout is checked too.
+    await open('#admin/contact-requests/GPEC-C-2026-0000000C', '.admin-request-detail')
+    await audit.page(page, `${label} admin contact request without subject`)
     await context.close()
 
     test.info().annotations.push(...EXEMPT.map((e) => ({ type: 'exempt', description: e.reason })))

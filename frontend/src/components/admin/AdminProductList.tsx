@@ -3,6 +3,7 @@ import Arrow from '../Arrow'
 import { ApiError } from '../../services/apiClient'
 import { listAdminProducts } from '../../services/adminApi'
 import { formatPrice } from '../../utils/money'
+import { isInStock } from '../../utils/stock'
 import type { AdminProductsPage, CurrencyInfo } from '../../types'
 
 interface AdminProductListProps {
@@ -47,7 +48,7 @@ export default function AdminProductList({ currency, onSessionEnded }: AdminProd
         <ul className="admin-product-list">{result.products.map((product) => <li key={product.id} className={product.status === 'archived' ? 'is-archived' : ''}>
           <div className="admin-product-main"><strong>{product.name}</strong><span>{product.reference} · {product.id}</span></div>
           <span className="admin-product-price">{product.price === null || !currency ? 'No price' : formatPrice(product.price, currency)}</span>
-          <span className="admin-product-tags">{product.status === 'archived' && <span className="admin-tag">Archived</span>}{product.isPlaceholder && <span className="admin-tag">Sample</span>}</span>
+          <span className="admin-product-tags">{product.status === 'archived' && <span className="admin-tag">Archived</span>}{isInStock(product) || <span className="admin-tag">Out of stock</span>}{product.isPlaceholder && <span className="admin-tag">Sample</span>}</span>
           <a className="admin-edit-link" href={`#admin/products/${encodeURIComponent(product.id)}`} aria-label={`Edit ${product.name}`}>Edit <Arrow /></a>
         </li>)}</ul>
         {result.totalPages > 1 && <nav className="shop-pagination" aria-label="Product list pages">

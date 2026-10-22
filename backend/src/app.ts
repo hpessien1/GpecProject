@@ -19,7 +19,6 @@ import adminProductsRouter from './routes/adminProducts.js'
 import adminRequestsRouter from './routes/adminRequests.js'
 import adminSessionRouter from './routes/adminSession.js'
 import contactRequestsRouter from './routes/contactRequests.js'
-import enquiriesRouter from './routes/enquiries.js'
 import productImagesRouter from './routes/productImages.js'
 import productsRouter from './routes/products.js'
 
@@ -31,7 +30,7 @@ function isBodyReadError(error: unknown): error is { status: number } {
     && typeof error.status === 'number' && error.status >= 400 && error.status < 500
 }
 
-// Each public form route gets its own per-IP budget, so one form cannot exhaust the other's.
+// Each public form route gets its own per-IP budget (the contact form; the checkout will get its own).
 function formLimiter({ windowMs, limit }: RateLimitSettings) {
   return rateLimit({
     windowMs,
@@ -69,14 +68,12 @@ export default function createApp(
   })
   app.use('/api/products', productsRouter)
   app.use('/api/product-images', productImagesRouter(imageStore))
-  app.use('/api/enquiries', formLimiter(config.formRateLimit), enquiriesRouter(notifier))
   app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter(notifier))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.
   app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
   app.use('/api/admin/session', adminSessionRouter(config, breachCheck, imageStore !== null))
   app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
   app.use('/api/admin/product-images', requireAdmin(config.clientOrigins), adminProductImagesRouter(imageStore))
-  app.use('/api/admin/enquiries', requireAdmin(config.clientOrigins), adminRequestsRouter('enquiry'))
   app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest'))
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

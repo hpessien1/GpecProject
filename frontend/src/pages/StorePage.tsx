@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { SubmitEvent } from 'react'
 import ShopHeader from '../components/shop/ShopHeader'
 import ProductCard from '../components/shop/ProductCard'
 import Cart from '../components/shop/Cart'
-import OrderForm from '../components/shop/OrderForm'
+import Checkout from '../components/shop/Checkout'
 import ProductModal from '../components/shop/ProductModal'
 import CatalogueStatus from '../components/shop/CatalogueStatus'
 import { readStoredCart, storeCart } from '../services/cartStorage'
-import { submitOrderEnquiry } from '../services/enquiryApi'
 import { fetchProducts } from '../services/productApi'
 import type { CartEntry, CartLine, Product, StoreMode } from '../types'
 
@@ -27,10 +25,7 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [activeProduct, setActiveProduct] = useState<Product | null>(null)
-  const [orderReference, setOrderReference] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submissionError, setSubmissionError] = useState('')
   const catalogue = products ?? []
   const cartItems = cart.map((item) => ({ ...item, product: catalogue.find((product) => product.id === item.id) })).filter((item): item is CartLine => item.product !== undefined)
   // Until the catalogue loads, count the stored cart so the header does not briefly show zero.
@@ -58,7 +53,10 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
     return () => window.removeEventListener('keydown', closeLightboxOnEscape)
   }, [])
 
+  // Out-of-stock products cannot be added; the card's button is disabled too. (The checkout will
+  // refuse them on the server as well.)
   function addToCart(productId: string) {
+    if (!catalogue.find((product) => product.id === productId)?.inStock) return
     setCart((currentCart) => {
       const existingItem = currentCart.find((item) => item.id === productId)
       return existingItem ? currentCart.map((item) => item.id === productId ? { ...item, quantity: item.quantity + 1 } : item) : [...currentCart, { id: productId, quantity: 1 }]
@@ -66,41 +64,12 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
   }
 
   function updateQuantity(productId: string, change: number) {
+    if (change > 0 && !catalogue.find((product) => product.id === productId)?.inStock) return
     setCart((currentCart) => currentCart.flatMap((item) => {
       if (item.id !== productId) return [item]
       const quantity = item.quantity + change
       return quantity > 0 ? [{ ...item, quantity }] : []
     }))
-  }
-
-  async function handleOrderSubmit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSubmissionError('')
-    setIsSubmitting(true)
-    const form = event.currentTarget
-    const formData = new FormData(form)
-    const field = (name: string) => String(formData.get(name) ?? '')
-    try {
-      const response = await submitOrderEnquiry({
-        customer: {
-          fullName: field('fullName'),
-          company: field('company'),
-          email: field('email'),
-          phone: field('phone'),
-        },
-        location: field('location'),
-        notes: field('notes'),
-        items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })),
-        website: field('website'),
-      })
-      setOrderReference(response.reference)
-      setCart([])
-      form.reset()
-    } catch (error) {
-      setSubmissionError(error instanceof Error ? error.message : 'Unable to submit enquiry. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
   }
 
   function retryLoading() {
@@ -120,11 +89,11 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
     <ShopHeader mode={mode} itemCount={itemCount} onGoHome={goHome} onGoToCatalogue={goToCatalogue} onShowCart={showCart} />
     <main id="shop-main" tabIndex={-1}>
       {mode === 'catalogue' && <>
-        <section className="shop-hero"><div><p className="eyebrow"><span /> GPEC product catalogue</p><h1>Source what<br /><em>your work needs.</em></h1></div><p>Browse selected electrical, solar, and industrial products. Add items to your order enquiry and GPEC will confirm availability and final pricing.</p></section>
+        <section className="shop-hero"><div><p className="eyebrow"><span /> GPEC product catalogue</p><h1>Source what<br /><em>your work needs.</em></h1></div><p>Browse GPEC’s electrical, solar, and industrial products and add what you need to your cart. Questions about a product? <a href="#contact">Ask GPEC</a>.</p></section>
         {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products"><div className="shop-section-heading"><p className="eyebrow"><span /> Available products</p><p>Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}–{Math.min(currentPage * PRODUCTS_PER_PAGE, catalogue.length)} of {catalogue.length} products</p></div><div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} onOpen={setActiveProduct} onAdd={addToCart} />)}</div><nav className="shop-pagination" aria-label="Product catalogue pages"><button type="button" onClick={() => selectPage(currentPage - 1)} disabled={currentPage === 1}>Previous</button>{Array.from({ length: totalPages }, (_, index) => { const page = index + 1; return <button type="button" key={page} className={page === currentPage ? 'is-active' : ''} aria-current={page === currentPage ? 'page' : undefined} onClick={() => selectPage(page)}>{page}</button> })}<button type="button" onClick={() => selectPage(currentPage + 1)} disabled={currentPage === totalPages}>Next</button></nav></div><Cart cartItems={cartItems} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} /></section>}
       </>}
       {mode === 'order' && products === null && <section className="shop-order-page"><CatalogueStatus state={loadError ? 'error' : 'loading'} errorMessage={loadError} onRetry={retryLoading} /></section>}
-      {mode === 'order' && products !== null && <section className="shop-order-page"><OrderForm cartItems={cartItems} itemCount={itemCount} orderReference={orderReference} isSubmitting={isSubmitting} submissionError={submissionError} onSubmit={handleOrderSubmit} onGoToCatalogue={goToCatalogue} /></section>}
+      {mode === 'order' && products !== null && <section className="shop-order-page"><Checkout cartItems={cartItems} itemCount={itemCount} onGoToCatalogue={goToCatalogue} /></section>}
     </main>
     <ProductModal product={activeProduct} onClose={() => setActiveProduct(null)} />
   </div>

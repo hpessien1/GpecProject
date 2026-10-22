@@ -11,6 +11,8 @@ export const productFieldLabels: Record<keyof EditableProductFields | 'id', stri
   alt: 'Image description',
   price: 'Price',
   isPlaceholder: 'Sample listing',
+  outOfStock: 'Out of stock',
+  stockQuantity: 'Stock count',
   status: 'Status',
   sortOrder: 'Position in shop',
 }
@@ -27,8 +29,15 @@ export const requestStatusLabels: Record<RequestStatus, string> = {
 }
 
 export const requestKindContent: Record<AdminRequestKind, { title: string, eyebrow: string, empty: string }> = {
-  'enquiries': { title: 'Order enquiries', eyebrow: 'From the shop', empty: 'No order enquiries here yet.' },
   'contact-requests': { title: 'Contact requests', eyebrow: 'From the contact form', empty: 'No contact requests here yet.' },
+}
+
+// Orders from the shop. The list arrives with Paystack checkout (ROADMAP step 5); until then there
+// are no orders, and the tab says why.
+export const ordersContent = {
+  eyebrow: 'From the shop',
+  title: 'Orders',
+  empty: 'No orders yet. Paid orders will appear here once online payment through Paystack is set up: who ordered, what they bought, the amount paid, and whether they chose pickup or delivery (with the delivery address).',
 }
 
 export const requestSearchContent = {

@@ -1,8 +1,6 @@
-/* Shop (#shop, #shop/order): catalogue, cart, order enquiry, and product window. The admin screens
+/* Shop (#shop, #shop/order): catalogue, cart, checkout, and product window. The admin screens
    reuse the shop header, page buttons, and status messages. */
-/* Messages and panels that receive focus from code, and the product window's scrollable text. */
-.shop-form-error:focus,
-.shop-confirmation:focus,
+/* The product window's scrollable text, which takes keyboard focus. */
 .shop-lightbox-details:focus-visible {
   outline: 2px solid var(--forest);
   outline-offset: 2px;
@@ -108,13 +106,11 @@
     var(--deep);
   color: #fff;
 }
-.shop-hero .eyebrow,
-.shop-confirmation .eyebrow {
+.shop-hero .eyebrow {
   color: var(--lime);
 }
 .shop-hero h1,
-.shop-order-heading h1,
-.shop-confirmation h1 {
+.shop-order-heading h1 {
   margin: 0;
   font-size: clamp(3.7rem, 7vw, 7rem);
   line-height: 0.86;
@@ -266,6 +262,14 @@
 .shop-add-button:hover {
   background: var(--forest);
 }
+/* Out of stock: an outline instead of the solid button, with full-strength text (no fading). */
+.shop-add-button:disabled,
+.shop-add-button:disabled:hover {
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  cursor: not-allowed;
+}
 @media (max-width: 650px) {
   .shop-product-grid {
     grid-template-columns: 1fr;
@@ -328,12 +332,6 @@
 }
 .shop-cart-heading h2 span {
   color: var(--lime);
-}
-.shop-cart-heading > span {
-  color: rgba(255, 255, 255, 0.62);
-  font: 0.54rem var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 .shop-empty-cart {
   margin: 1.3rem 0 0;
@@ -409,12 +407,6 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.shop-availability-note,
-.shop-form-note {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.7rem;
-  line-height: 1.55;
-}
 .shop-order-button {
   width: 100%;
   margin-top: 0.5rem;
@@ -424,20 +416,7 @@
     position: static;
   }
 }
-/* Order enquiry page (components/shop/OrderForm.tsx) */
-.shop-form-error {
-  margin: 1rem 0;
-  padding: 0.75rem;
-  border-left: 3px solid var(--lime);
-  background: rgba(255, 118, 0, 0.08);
-  color: var(--ink);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-.shop-order-form button:disabled {
-  cursor: wait;
-  opacity: 0.7;
-}
+/* Checkout page (components/shop/Checkout.tsx) */
 .shop-order-page {
   min-height: calc(100vh - 82px);
   padding: clamp(4rem, 7vw, 7rem) 9vw;
@@ -469,44 +448,26 @@
   gap: clamp(2rem, 5vw, 6rem);
   align-items: start;
 }
-.shop-order-form {
+.shop-checkout-unavailable {
   padding: clamp(1.25rem, 3vw, 2rem);
-  background: #fff;
   border: 1px solid rgba(6, 23, 71, 0.18);
-}
-.shop-order-form label {
-  display: grid;
-  gap: 0.55rem;
-  margin-bottom: 1.15rem;
+  border-top: 4px solid var(--lime);
+  background: #fff;
   color: var(--ink);
-  font: 0.62rem var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
 }
-.shop-order-form input,
-.shop-order-form textarea {
-  width: 100%;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  background: transparent;
-  padding: 0.5rem 0 0.7rem;
-  color: var(--ink);
-  font: 500 0.9rem var(--sans);
-  outline: 0;
-  text-transform: none;
+.shop-checkout-unavailable h2 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: -0.04em;
 }
-.shop-order-form input:focus,
-.shop-order-form textarea:focus {
-  border-bottom-color: var(--lime);
-  box-shadow: 0 1px var(--lime);
-}
-.shop-order-form textarea {
-  resize: vertical;
-  line-height: 1.5;
-}
-.shop-form-note {
-  margin: 1.4rem 0;
+.shop-checkout-unavailable p {
+  max-width: 560px;
+  margin: 0 0 1rem;
   color: var(--muted);
+  line-height: 1.7;
+}
+.shop-checkout-unavailable .button {
+  margin-top: 0.6rem;
 }
 .shop-order-summary {
   padding: 1.5rem;
@@ -548,15 +509,14 @@
   color: rgba(255, 255, 255, 0.65);
   font-size: 0.61rem;
 }
-.shop-order-summary > p:last-child {
+.shop-order-count {
   margin: 0;
   color: var(--lime);
   font: 0.6rem var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
-.shop-empty-order,
-.shop-confirmation {
+.shop-empty-order {
   max-width: 730px;
   padding: clamp(2rem, 5vw, 4rem);
   background: var(--deep);
@@ -566,26 +526,11 @@
   margin: 0;
   font-size: 2rem;
 }
-.shop-empty-order p,
-.shop-confirmation > p:not(.eyebrow) {
+.shop-empty-order p {
   max-width: 580px;
   margin: 1.2rem 0 1.8rem;
   color: rgba(255, 255, 255, 0.78);
   line-height: 1.7;
-}
-.shop-confirmation strong {
-  color: var(--lime);
-}
-.shop-form-note a {
-  color: var(--forest);
-  font-weight: 700;
-  text-decoration: underline;
-}
-@media (max-width: 650px) {
-  .shop-order-form .field-row {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
 }
 /* Product window (components/shop/ProductModal.tsx) */
 .shop-lightbox {
@@ -650,8 +595,8 @@
   letter-spacing: -0.07em;
 }
 .shop-lightbox-details
-  > p:not(.eyebrow):not(.shop-lightbox-reference):not(.shop-lightbox-note):not(
-    .shop-sample-label
+  > p:not(.eyebrow):not(.shop-lightbox-reference):not(.shop-sample-label):not(
+    .shop-stock-label
   ) {
   margin: 0;
   color: var(--muted);
@@ -677,14 +622,6 @@
   background: #f0f3f7;
   color: var(--ink);
   font-size: 0.73rem;
-}
-.shop-lightbox-note {
-  margin: 1.5rem 0 0;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(6, 23, 71, 0.14);
-  color: var(--muted);
-  font-size: 0.7rem;
-  line-height: 1.6;
 }
 .shop-lightbox-close {
   position: absolute;
@@ -750,6 +687,35 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+/* Out of stock (product cards, product window, cart, checkout summary) */
+.shop-stock-label {
+  display: inline-block;
+  margin: 0 0 0.8rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  font: 700 0.6rem/1.4 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+/* On the dark cart and summary panels, in the lighter orange. */
+.shop-cart .shop-stock-label,
+.shop-order-summary .shop-stock-label {
+  justify-self: start;
+  margin: 0.4rem 0 0;
+  border-color: var(--lime-soft);
+  color: var(--lime-soft);
+}
+.quantity-control button:disabled {
+  border-color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
+}
+.shop-stock-note {
+  margin: 1rem 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
 /* Tablets and phones: layout shared by the catalogue, order, and status pages */
 @media (max-width: 980px) {
   .shop-layout,
@@ -759,8 +725,7 @@
 }
 @media (max-width: 650px) {
   .shop-hero h1,
-  .shop-order-heading h1,
-  .shop-confirmation h1 {
+  .shop-order-heading h1 {
     font-size: clamp(3rem, 14vw, 4.5rem);
   }
   .shop-layout,

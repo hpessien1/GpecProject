@@ -3,9 +3,8 @@ import type { RequestStatus } from '../models/requestStatus.js'
 import { asFields, text } from './fields.js'
 import type { ValidationErrors } from './fields.js'
 
-// Customer-facing references (utils/reference.ts): GPEC-2026-1A2B3C4D and GPEC-C-2026-1A2B3C4D.
+// Customer-facing references (utils/reference.ts), e.g. GPEC-C-2026-1A2B3C4D.
 export const REFERENCE_PATTERNS = {
-  enquiry: /^GPEC-\d{4}-[0-9A-F]{8}$/,
   contactRequest: /^GPEC-C-\d{4}-[0-9A-F]{8}$/,
 }
 

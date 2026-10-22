@@ -20,8 +20,14 @@ describe('app', () => {
     expect(res.body).toEqual({ message: 'Route not found.' })
   })
 
+  it('no longer takes order enquiries: customers buy in the shop or use the contact form', async () => {
+    for (const [method, path] of [['post', '/api/enquiries'], ['get', '/api/admin/enquiries']] as const) {
+      expect((await request(app)[method](path).send({})).status).toBe(404)
+    }
+  })
+
   it('rejects malformed JSON with a clear 400', async () => {
-    const res = await request(app).post('/api/enquiries').set('Content-Type', 'application/json').send('{bad')
+    const res = await request(app).post('/api/contact-requests').set('Content-Type', 'application/json').send('{bad')
     expect(res.status).toBe(400)
     expect(res.body).toEqual({ message: 'Request body must be valid JSON.' })
   })

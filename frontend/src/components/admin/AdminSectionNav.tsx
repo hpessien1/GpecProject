@@ -1,4 +1,4 @@
-type AdminSection = 'products' | 'enquiries' | 'contact-requests' | null
+type AdminSection = 'products' | 'orders' | 'contact-requests' | null
 
 interface AdminSectionNavProps {
   current: AdminSection
@@ -6,7 +6,7 @@ interface AdminSectionNavProps {
 
 const sections = [
   { id: 'products', label: 'Products', href: '#admin' },
-  { id: 'enquiries', label: 'Order enquiries', href: '#admin/enquiries' },
+  { id: 'orders', label: 'Orders', href: '#admin/orders' },
   { id: 'contact-requests', label: 'Contact requests', href: '#admin/contact-requests' },
 ] as const
 

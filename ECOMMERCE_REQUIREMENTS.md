@@ -6,9 +6,9 @@ Provide a product catalogue where customers can view products and prices, inspec
 
 Prices are fixed and set by GPEC through an admin panel (planned). Payment happens on Paystack's hosted payment page: the customer is redirected to Paystack to pay and returned to the GPEC site afterwards. GPEC's website never collects, sees, or stores card details.
 
-General service requests and quotes (for example, a custom panel design or a solar site assessment) continue to use the contact and quote form described in `README.md`. They are not paid online.
+The shop is for buying: there are no "order enquiries" about price or availability. Customers either buy in the shop or ask GPEC through the contact form, which also handles general service requests and quotes (for example, a custom panel design or a solar site assessment). Contact requests are not paid online.
 
-> **Status (2026-10-21):** The catalogue (served from MongoDB), cart, and an enquiry-only order form are built. The products are labelled samples until GPEC supplies its real list. The admin panel's product and price management is built; prices stay unset until GPEC confirms the currency and are not shown to customers until checkout is built. Staff can read and search order enquiries in the admin panel, track each one as New, In progress, or Closed, and add internal notes that customers never see. Pickup/delivery choice, Paystack payment, and admin order views are not built yet.
+> **Status (2026-10-22):** The catalogue (served from MongoDB), cart, and stock handling are built. Checkout shows the order and says online payment is not available yet, with a link to the contact form, until GPEC's Paystack account is set up; the checkout form, pickup/delivery choice, and payment come with it. The products are labelled samples until GPEC supplies its real list. Admins manage products, prices (unset until GPEC confirms the currency), and stock, and follow up contact requests. The admin Orders tab explains that orders appear once Paystack checkout exists.
 
 ## Scope
 
@@ -48,7 +48,16 @@ General service requests and quotes (for example, a custom panel design or a sol
   - Available specifications where applicable
   - Product reference or part number where applicable
   - Add to cart action
+  - "Out of stock" when GPEC cannot supply it for now (see Stock)
 - Prices shown must come from GPEC's current price data. Never display invented or estimated prices.
+
+#### Stock
+
+- Availability is managed by GPEC staff in the admin panel, not asked about by customers.
+- A product GPEC no longer sells is archived: it leaves the shop.
+- A product GPEC cannot supply for now is marked out of stock: it stays in the shop, labelled "Out of stock", and cannot be added to the cart or bought. The server refuses it at checkout too.
+- Staff may also keep a stock count for a product (optional). When counted, the product is out of stock at 0. Paid orders reduce the count (with checkout). Customers see only in stock or out of stock, never the count.
+- Each product page offers a way to ask GPEC a question before buying, through the contact form.
 - Product cards must remain usable on desktop and mobile screens.
 
 ### 2. Full Product Image
@@ -131,7 +140,7 @@ Required fields must have visible labels and validation messages. Email format m
 ### 8. Admin Price and Product Management
 
 - GPEC staff sign in to a protected admin panel.
-- Admins can create, edit, and archive products and set their prices.
+- Admins can create, edit, and archive products, set their prices, and mark them out of stock or keep a stock count.
 - Price changes appear on the customer-facing catalogue.
 - A price change does not alter the price of orders already placed.
 - Every price, product, and order status change records who made it and when.
@@ -159,7 +168,6 @@ Required fields must have visible labels and validation messages. Email format m
 - Pickup location and collection hours.
 - Refund, cancellation, and returns policy.
 - Recipients for order notifications.
-- Whether any products remain enquiry-only rather than purchasable.
 
 ## Acceptance Criteria
 

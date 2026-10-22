@@ -1,4 +1,4 @@
-import Product from '../models/Product.js'
+import Product, { isInStock } from '../models/Product.js'
 import { sampleProducts } from '../data/sampleProducts.js'
 
 // What the public catalogue shows. Price is left out until step 5 configures the currency: a bare
@@ -12,6 +12,8 @@ export interface PublicProduct {
   image: string
   alt: string
   isPlaceholder: boolean
+  // Out of stock (switched off by staff, or a counted stock of 0): shown, labelled, not buyable.
+  inStock: boolean
 }
 
 // More than any realistic catalogue; stops one request from reading an unbounded collection.
@@ -28,13 +30,8 @@ export async function listActiveProducts(): Promise<PublicProduct[]> {
     image: product.image,
     alt: product.alt,
     isPlaceholder: product.isPlaceholder,
+    inStock: isInStock(product),
   }))
-}
-
-// Active products with these IDs, keyed by ID. Archived or unknown IDs are absent from the map.
-export async function findActiveProducts(ids: string[]) {
-  const products = await Product.find({ _id: { $in: ids }, status: 'active' }).lean()
-  return new Map(products.map((product) => [product._id, product]))
 }
 
 // Adds any sample product that is not in the database yet. Existing products are never changed, so

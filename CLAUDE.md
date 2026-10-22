@@ -47,14 +47,15 @@ Production runs in Docker containers managed by Coolify on a Hetzner Cloud VPS, 
 on MongoDB Atlas.
 
 **User roles:**
-- `customer` — anonymous visitor. Browses, adds to cart, submits enquiries, and (planned) pays for
-  orders through Paystack. No customer accounts.
-- `admin` — GPEC staff, at `#admin`. Today they log in and manage products and prices (with a
-  change history); viewing orders and enquiries is still planned. Accounts are created only with
+- `customer` — anonymous visitor. Browses, adds to cart, and (planned) buys and pays through
+  Paystack, choosing pickup or delivery. Questions of any kind go through the contact form; there
+  are no "order enquiries". No customer accounts.
+- `admin` — GPEC staff, at `#admin`. They log in, manage products, prices, and stock (with a
+  change history), and follow up contact requests; the Orders list arrives with checkout. Accounts are created only with
   `npm run admin:create` (Section 7); there is no sign-up.
 
 **Core domains:** products (catalogue, prices), cart, orders (planned, paid), payments (planned,
-Paystack), fulfilment (pickup or delivery), enquiries (quotes and general contact).
+Paystack), fulfilment (pickup or delivery), contact requests (questions, quotes, and general contact).
 
 ---
 
@@ -99,9 +100,9 @@ When a request is ambiguous, ask: **"Which persona is this for?"**
 - **Homeowner or small-business owner — considering solar.** Not technical, wants reliable power.
   Needs: plain explanations, guidance instead of choosing parts by price, a simple way to request an
   assessment. Primary risks: jargon, unclear costs, fear of being mis-sold.
-- **GPEC staff member — site administrator.** Updates prices and products and follows up
-  orders and enquiries. Needs: simple editing without touching code, a clear list of paid orders
-  and enquiries, a history of who changed what. Primary risks: a wrong price going live, missed
+- **GPEC staff member — site administrator.** Updates prices, products, and stock and follows up
+  orders and contact requests. Needs: simple editing without touching code, a clear list of paid
+  orders and contact requests, a history of who changed what. Primary risks: a wrong price going live, missed
   orders.
 
 ---
@@ -166,21 +167,21 @@ Paystack flow; the *Why* notes record the failure each one prevents.
 ### 4.2 Never accept server-controlled fields from the client
 
 Fields like `price`, `amount`, `deliveryFee`, `status`, `paid`, `reference`, `role`, `isAdmin` are
-decided by the server. Do not include them in input validation at all — use allowlists. The enquiry
-route already does this: it takes `{ productId, quantity }` and looks up name and reference in the
-`products` collection (`services/products.ts`), refusing unknown or archived products. Keep that
-pattern for orders.
+decided by the server. Do not include them in input validation at all — use allowlists. Orders
+must take only `{ productId, quantity }` per item and look up name, reference, price, and stock in
+the `products` collection, refusing unknown, archived, or out-of-stock products.
 
 ### 4.3 Validate every input
 
 Every route validates body, params, and query before any logic runs (see
-`backend/src/validation/enquiry.ts`). Unknown fields are rejected — the Mongoose schemas use
+`backend/src/validation/contactRequest.ts`). Unknown fields are rejected — the Mongoose schemas use
 `strict: 'throw'`. A route that accepts ad-hoc, unvalidated data is a bug.
 
 ### 4.4 Every UI restriction needs a matching server check
 
-A disabled button or client-side validation enforces nothing. Example: the "Submit order" button is
-hidden when the cart is empty, and the server separately rejects an empty `items` array. When you
+A disabled button or client-side validation enforces nothing. Example: an out-of-stock product's
+"Add to cart" button is disabled, and the checkout (step 5) must refuse that product on the server
+too; today nothing is sent to the server from the cart, so there is nothing to refuse yet. When you
 add a frontend gate, confirm the backend enforces the same condition.
 
 ### 4.5 Admin access
@@ -188,7 +189,7 @@ add a frontend gate, confirm the backend enforces the same condition.
 - Every admin route requires authentication **and** an admin role check, in one shared middleware:
   `middleware/requireAdmin.ts` (only the `admin` role exists, so a valid session is the role check).
   It also refuses changes whose `Origin` is not a `CLIENT_ORIGIN`.
-- Customer orders and enquiries are readable only by admins. Ask of every new list route: "If an
+- Customer orders and contact requests are readable only by admins. Ask of every new list route: "If an
   anonymous visitor calls this, do they see anyone's data?"
 - Admin sessions: a random session token in an `httpOnly`, `SameSite=Strict` cookie (`Secure` in
   production, path `/api/admin`), lasting 8 hours. Only its SHA-256 hash is stored
@@ -214,7 +215,7 @@ Every price change, product change, and order status change made by an admin rec
 **what** (old and new value), and **when**. *Why:* prices appear on the live site and drive real
 payments; GPEC must be able to answer "who changed this price and when?"
 
-Implemented for products and for enquiry and contact-request status (`models/AuditRecord.ts`,
+Implemented for products and for contact-request status (`models/AuditRecord.ts`,
 `services/adminProducts.ts`, `services/adminRequests.ts`): the change and its record are written in
 **one MongoDB transaction**, so nothing changes without a record.
 Only fields whose value actually changes are recorded. Transactions need a replica set: Atlas is
@@ -222,8 +223,8 @@ one, and the tests use an in-memory replica set.
 
 ### 4.7 Rate limiting and spam protection
 
-Implemented in `backend/src/app.ts` with `express-rate-limit`: `POST /api/enquiries` and
-`POST /api/contact-requests` each have their own per-IP budget — 10 requests per 15 minutes in
+Implemented in `backend/src/app.ts` with `express-rate-limit`: `POST /api/contact-requests` has a
+per-IP budget (each public form route gets its own) — 10 requests per 15 minutes in
 production, 100 in development and test (set in `src/config.ts`). The production limit is the
 security boundary; the looser one exists so manual and automated checks do not lock the developer
 out. Keep that difference deliberate. Admin login has a stricter budget that counts **failed**
@@ -268,7 +269,7 @@ Outside production it stays off, so a forged `X-Forwarded-For` header cannot dod
 
 ### 4.9 Customer personal data
 
-Orders and enquiries hold names, emails, phone numbers, and addresses. Collect only what is needed
+Orders and contact requests hold names, emails, phone numbers, and addresses. Collect only what is needed
 (Principle 5), never return it from public routes, and keep it out of logs.
 
 ---
@@ -292,28 +293,30 @@ name), and logs which database it found. The guard only works if production sets
 
 **Current entities:**
 
-- **Enquiry** (`backend/src/models/Enquiry.ts`) — `reference` (unique, `GPEC-YYYY-XXXXXXXX`),
-  `customer { fullName, company, email, phone }`, `location`, `notes`,
-  `items [{ productId, name, reference, quantity }]`, `status`, timestamps.
 - **ContactRequest** (`backend/src/models/ContactRequest.ts`) — `reference` (unique,
   `GPEC-C-YYYY-XXXXXXXX`), `fullName`, `company`, `email`, `phone`, `subject`, `message`, `status`,
   timestamps.
-- **Request status** (both of the above, `models/requestStatus.ts`; same list in the frontend's
+- **Request status** (contact requests, `models/requestStatus.ts`; same list in the frontend's
   `RequestStatus`): `new` → `in_progress` → `closed`. Every request starts as `new` (never taken
   from the customer); admins may move it to any status, including reopening. Admins read, search,
   and change the status of requests and add internal notes; they cannot edit or delete requests.
-- **RequestNote** (`backend/src/models/RequestNote.ts`) — a staff note on an enquiry or contact
-  request: `targetType` (`enquiry` | `contactRequest`), `targetId` (the request's `reference`),
+- **RequestNote** (`backend/src/models/RequestNote.ts`) — a staff note on a contact request:
+  `targetType` (`contactRequest`), `targetId` (the request's `reference`),
   `text` (up to 2000 characters), `author { adminId, email, name }` (copied at the time),
   `createdAt`. Admin-only; never edited or deleted, so each note is its own who/what/when record
   and needs no separate AuditRecord.
 - **Product** (`backend/src/models/Product.ts`) — the single source of the catalogue. `_id` is the
   short internal key (e.g. `panel-001`, lowercase letters, digits, hyphens), used in carts and
-  enquiry items; `reference` (unique, e.g. `GPEC-CP-001`) is the customer-facing product code. Do
+  orders; `reference` (unique, e.g. `GPEC-CP-001`) is the customer-facing product code. Do
   not confuse them. Also `name`, `description`, `specs`, `image` (a site file, `/assets/…`, or an
   uploaded photo, `product-images/<sha256>.webp`, served by the API; Section 8), `alt`, `price` (integer in the
   currency's smallest unit, `null` until GPEC sets it), `isPlaceholder` (sample data, labelled in
-  the shop), `status` (`active` | `archived`), `sortOrder`, timestamps. `GET /api/products` returns
+  the shop), `outOfStock` (staff's switch) and `stockQuantity` (optional count; `null` = not
+  counted), `status` (`active` | `archived`), `sortOrder`, timestamps. **Stock:** a product is out
+  of stock when the switch is on or the count is 0 (`isInStock`, same rule in the frontend's
+  `utils/stock.ts`). Out-of-stock products stay in the shop, labelled, and cannot be added to the
+  cart; archiving removes a product from the shop. Customers see only `inStock`, never the count.
+  The count goes down automatically only once paid orders exist (step 5); until then staff set it. `GET /api/products` returns
   active products **without** `price` until step 5 configures the currency.
   The 14 current products are samples from `backend/src/data/sampleProducts.ts`, loaded by
   `npm run seed:products` (Section 11).
@@ -369,9 +372,9 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── app.ts            # helmet, CORS, JSON parsing, rate limits, routes, 404, error handler
 │       ├── errors.ts         # HttpError, ValidationError, NotFoundError, ConflictError
 │       ├── middleware/       # requireAdmin.ts: the one admin login check
-│       ├── routes/           # HTTP wiring: public (products, enquiries, contact) and admin* routers
+│       ├── routes/           # HTTP wiring: public (products, product images, contact) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
-│       ├── models/           # Enquiry, ContactRequest, RequestNote, Product, AdminUser, AdminSession, AuditRecord
+│       ├── models/           # ContactRequest, RequestNote, Product, AdminUser, AdminSession, AuditRecord
 │       ├── services/         # Business logic: products, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, productImages
 │       ├── scripts/          # Commands: seedProducts.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers
@@ -387,7 +390,7 @@ name), and logs which database it found. The guard only works if production sets
     └── src/
         ├── main.tsx          # Entry point
         ├── App.tsx           # Hash router: #shop, #shop/order, #privacy, #admin… (lazy-loaded), else landing
-        ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, enquiry API
+        ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, contact and admin API
         ├── pages/            # LandingPage.tsx, StorePage.tsx, PrivacyPage.tsx, AdminPage.tsx
         ├── components/       # Header, Footer, ServiceShowcase, SpamTrapField, PlaceholderText, …; shop/, admin/
         ├── data/             # Site copy (landingContent.ts, privacyContent.ts, adminContent.ts)
@@ -400,8 +403,8 @@ name), and logs which database it found. The guard only works if production sets
 ### 6.2 Layering
 
 - **Today:** route → validator → service or model. `services/products.ts` holds the catalogue
-  queries; `routes/enquiries.ts` validates, looks products up through that service, then calls
-  `Enquiry.create` directly. Acceptable at this size.
+  queries; `routes/contactRequests.ts` validates, then calls `ContactRequest.create` directly.
+  Acceptable at this size.
 - **As the backend grows (orders, payments, admin):** put business logic in `services/`
   (pricing, Paystack calls, order state changes). Routes stay thin: authenticate → authorize →
   validate → call service → respond. Paystack API calls live in one module, not scattered across
@@ -431,7 +434,7 @@ by code.
 ### 6.5 Concurrency
 
 - Marking an order paid must happen at most once (Section 4.1): use a conditional update on status.
-- Disable submit buttons while a request is in flight (the order form already does this), and
+- Disable submit buttons while a request is in flight (the contact form already does this), and
   remember the server must still tolerate a double submit.
 
 ---
@@ -481,8 +484,8 @@ curl http://localhost:5001/api/health   # must return {"status":"ok"} (503 if Mo
 cd frontend && npm run build && npm run preview
 cd backend && npm run build && npm start   # node dist/server.js
 
-# Inspect saved enquiries (paste the gpec_dev URI from backend/.env; never print it in shared logs)
-mongosh "<MONGODB_URI>" --eval 'db.enquiries.find().sort({createdAt:-1}).limit(5)'
+# Inspect saved contact requests (paste the gpec_dev URI from backend/.env; never print it in shared logs)
+mongosh "<MONGODB_URI>" --eval 'db.contactrequests.find().sort({createdAt:-1}).limit(5)'
 ```
 
 **Ports:**
@@ -614,7 +617,7 @@ bugs) plus React hook and accessibility rules. Every switched-off rule and every
 - Validate every input with a validator in `backend/src/validation/` before any logic.
 - Look up names, references, and prices server-side from the canonical product data.
 - Use the central error handler and the `{ message, errors? }` shape.
-- Return only the fields the client needs (the enquiry route returns `reference` and `createdAt`).
+- Return only the fields the client needs (the contact route returns `reference` and `createdAt`).
 - Paginate list endpoints and cap page size server-side (admin lists).
 - Name files by resource (`routes/orders.ts`, `validation/order.ts`, `models/Order.ts`).
 
@@ -644,7 +647,7 @@ Section 4.1.
    as server errors.
 
 ### Email / notifications (Amazon SES)
-Each new enquiry and contact request emails GPEC staff (details, reply-to the customer, and a link
+Each new contact request emails GPEC staff (details, reply-to the customer, and a link
 to it in the admin panel) and sends the customer a plain-text confirmation with their reference.
 - `services/email.ts` is the only code that talks to SES (`@aws-sdk/client-sesv2`); `Mailer` lets
   tests use `RecordingMailer` (`tests/helpers.ts`) instead. Templates: `services/emailTemplates.ts`.
@@ -796,8 +799,10 @@ links for admins only, never store a raw public URL on the record, and update th
 2. **For any UI change, drive the real app in a browser** at 390px and desktop width. Rereading
    JSX/CSS is not verification.
    For style or layout changes, also run `npm run check:contrast` in `frontend/`.
-3. **For the shop:** catalogue → open product → add to cart → change quantity → order form → submit
-   → confirmation shown → record present in MongoDB (`mongosh` command in Section 7).
+3. **For the shop:** catalogue → open product → add to cart → change quantity → checkout (until
+   Paystack exists, it shows the order and says online payment is not available yet) → an
+   out-of-stock product is labelled and cannot be added. With payments: → pay in test mode →
+   confirmation → paid order present in MongoDB.
 4. **For payments:** use Paystack **test keys only**. Verify success, failure, and abandoned
    payment, and that a replayed webhook does not mark an order paid twice. Call the API directly
    with a tampered price or total and confirm the server ignores it.
@@ -846,8 +851,8 @@ links for admins only, never store a raw public URL on the record, and update th
    (`cd backend && npm run seed:products`); it never changes or removes existing ones.
 2. Real GPEC products are entered with "Sample listing" unticked (`isPlaceholder: false`). Use only
    GPEC-supplied data; anything else stays marked as a sample.
-3. Remove a product by setting `status: 'archived'`, not by deleting it — past enquiries and
-   orders refer to it.
+3. Remove a product by setting `status: 'archived'`, not by deleting it — orders will refer to it.
+   If GPEC only cannot supply it for now, mark it out of stock instead (it stays in the shop).
 4. The seed script refuses the production `gpec` database unless run with `--production`; that
    needs the project owner's go-ahead (runbook).
 
@@ -940,7 +945,14 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   Replace with GPEC's real details in `data/landingContent.ts` (`companyContact`) before launch.
 
 **Functionality**
-- The shop is still enquiry-only: no prices, no pickup/delivery choice, no Paystack integration.
+- The shop cannot take orders yet: checkout shows the order and says online payment is not
+  available until GPEC's Paystack account is set up (step 5). No prices are shown yet. The Orders
+  admin tab explains this until orders exist. Stock counts are not reduced by sales until then.
+- Order enquiries were removed (2026-10-22): the `enquiries` collection may still exist, empty or
+  with test records, in `gpec_dev`; nothing reads it. The sample product `replacement-001` was
+  renamed "Replacement parts" in `data/sampleProducts.ts` (was "Replacement parts enquiry"); the
+  seed script never changes existing products, so a database seeded earlier keeps the old name
+  until it is edited in the admin panel.
 - The contact-form topic list is duplicated (`frontend/src/data/landingContent.ts` and
   `backend/src/validation/contactRequest.ts`); a backend test fails if the two differ.
 - Services areas 2–9 use existing photos marked "Illustrative image" (some repeat; three are
@@ -978,7 +990,7 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - Delivery fee rule for delivery orders: unknown. Do not invent one.
 - Pickup location and hours.
 - Refund, cancellation, and returns policy for paid orders.
-- Who receives order and enquiry notifications.
+- Who receives order and contact-request notifications.
 - Paystack fee rule from GPEC's Paystack plan, and confirmation that passing the fee to customers is
   allowed under GPEC's Paystack terms.
 - Atlas cluster tier (must include backups before launch).
@@ -998,6 +1010,11 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   with `git rm -r --cached`. **Rule:** a `.gitignore` only applies to its own folder and below,
   and does not untrack files already committed — check `git status` for generated files before
   committing.
+- **2026-10-22 — Scope correction: no order enquiries.** The shop still carried an enquiry form
+  ("GPEC will confirm availability and pricing"), and a reply described enquiries as staying beside
+  checkout. The owner corrected it: customers either buy (Paystack, pickup or delivery) or ask
+  through the contact form; availability is managed by staff (archive, or mark out of stock).
+  **Rule:** the shop never asks customers to "enquire" about price or availability.
 - **2026-10-20 — Scope change: online payment.** The shop was built as enquiry-only; GPEC then
   decided to take payment through Paystack with fixed, admin-managed prices and pickup or delivery.
   **Rule:** when scope changes, update `ECOMMERCE_REQUIREMENTS.md`, `README.md`, `AGENTS.md`, and

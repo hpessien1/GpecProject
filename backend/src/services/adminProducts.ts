@@ -7,7 +7,9 @@ import type { AdminIdentity } from './adminAuth.js'
 
 export const ADMIN_PAGE_SIZE = 50
 const HISTORY_LIMIT = 50
-const AUDITED_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'status', 'sortOrder'] as const
+const AUDITED_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'status', 'sortOrder'] as const
+// Products saved before a field existed have no value for it; read them as the schema's default.
+const MISSING_FIELD_DEFAULTS: Record<string, unknown> = { outOfStock: false }
 
 type StoredProduct = Record<string, unknown> & { _id: string, updatedAt?: Date }
 
@@ -15,7 +17,7 @@ type StoredProduct = Record<string, unknown> & { _id: string, updatedAt?: Date }
 function toAdminProduct(product: StoredProduct) {
   return {
     id: product._id,
-    ...Object.fromEntries(AUDITED_FIELDS.map((field) => [field, product[field] ?? null])),
+    ...Object.fromEntries(AUDITED_FIELDS.map((field) => [field, product[field] ?? MISSING_FIELD_DEFAULTS[field] ?? null])),
     updatedAt: product.updatedAt,
   }
 }
@@ -79,8 +81,8 @@ export async function updateProduct(admin: AdminIdentity, id: string, changes: P
       const before: StoredProduct | null = await Product.findById(id).session(session).lean()
       if (!before) throw new NotFoundError('Product not found.')
       const diffs = Object.entries(changes)
-        .filter(([field, value]) => !isSameValue(before[field], value))
-        .map(([field, value]) => ({ field, from: before[field] ?? null, to: value }))
+        .filter(([field, value]) => !isSameValue(before[field] ?? MISSING_FIELD_DEFAULTS[field], value))
+        .map(([field, value]) => ({ field, from: before[field] ?? MISSING_FIELD_DEFAULTS[field] ?? null, to: value }))
       if (diffs.length === 0) {
         updated = toAdminProduct(before)
         return

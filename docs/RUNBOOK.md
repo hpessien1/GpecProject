@@ -105,7 +105,7 @@ with a link to the contact form. Until GPEC's real product list arrives, there a
 
 ### 1.6 Email (Amazon SES)
 
-The site emails GPEC staff about each new enquiry or contact message (with a link to it in the admin
+The site emails GPEC staff about each new contact message (with a link to it in the admin
 panel) and sends the customer a confirmation with their reference. **Until this is set up, email is
 simply off**: everything else works, and the API log says `Email notifications are off`.
 
@@ -120,7 +120,7 @@ simply off**: everything else works, and the API log says `Email notifications a
 4. **Leave the sandbox.** A new SES account can only email addresses verified in SES, about 200 a
    day. For a first test, verify the staff addresses (*Identities* → *Email address*). Then request
    production access (SES → *Account dashboard* → *Request production access*): use case
-   *Transactional*, describing "confirmations and staff notifications for enquiries submitted on our
+   *Transactional*, describing "confirmations and staff notifications for messages submitted on our
    website". Approval usually takes about a day. Customer confirmations to unverified addresses
    only work after this.
 5. **A sending-only key.** IAM → *Users* → create `gpec-ses-sender` (no console access) with this

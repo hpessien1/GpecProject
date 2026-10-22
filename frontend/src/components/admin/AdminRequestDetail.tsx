@@ -108,14 +108,9 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
             {item.customer.company && <><dt>Company</dt><dd>{item.customer.company}</dd></>}
             <dt>Email</dt><dd><a href={`mailto:${item.customer.email}?subject=${encodeURIComponent(`Your GPEC request ${item.reference}`)}`}>{item.customer.email}</a></dd>
             {item.customer.phone && <><dt>Phone</dt><dd><a href={`tel:${item.customer.phone.replace(/[^\d+]/g, '')}`}>{item.customer.phone}</a></dd></>}
-            {item.location && <><dt>Location</dt><dd>{item.location}</dd></>}
           </dl>
-          {item.items && <>
-            <h2>Products requested</h2>
-            <ul className="admin-request-items">{item.items.map((line) => <li key={line.productId}><strong>{line.quantity} ×</strong> {line.name} <small>{line.reference}</small></li>)}</ul>
-          </>}
           {item.subject && <><h2>Subject</h2><p>{item.subject}</p></>}
-          {(item.message || item.notes) && <><h2>{item.message ? 'Message' : 'Notes from the customer'}</h2><p className="admin-request-message">{item.message || item.notes}</p></>}
+          <h2>Message</h2><p className="admin-request-message">{item.message}</p>
           <section className="admin-notes" aria-labelledby="admin-notes-title">
             <h2 id="admin-notes-title">{requestNotesContent.title}</h2>
             <form className="admin-form admin-note-form" onSubmit={handleNoteSubmit}>

@@ -1,4 +1,4 @@
-import { PRODUCT_STATUSES } from '../models/Product.js'
+import { MAX_STOCK_QUANTITY, PRODUCT_STATUSES } from '../models/Product.js'
 import { PRODUCT_IMAGE_KEY_PATTERN } from '../services/productImages.js'
 import { asFields, text } from './fields.js'
 import type { Fields, ValidationErrors } from './fields.js'
@@ -11,7 +11,7 @@ const SITE_IMAGE_PATTERN = /^\/assets\/[A-Za-z0-9._-]+\.(png|jpe?g|webp)$/
 // In the smallest currency unit: 10^12 kobo is 10 billion naira, far above any real product.
 const MAX_PRICE = 1_000_000_000_000
 
-const EDITABLE_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'status', 'sortOrder'] as const
+const EDITABLE_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'status', 'sortOrder'] as const
 const REQUIRED_ON_CREATE = ['id', 'name', 'reference', 'description', 'image', 'alt'] as const
 
 export interface ProductChanges {
@@ -23,6 +23,8 @@ export interface ProductChanges {
   alt?: string
   price?: number | null
   isPlaceholder?: boolean
+  outOfStock?: boolean
+  stockQuantity?: number | null
   status?: typeof PRODUCT_STATUSES[number]
   sortOrder?: number
 }
@@ -60,6 +62,15 @@ function readEditableFields(source: Fields, errors: ValidationErrors): ProductCh
   if (has('isPlaceholder')) {
     if (typeof source.isPlaceholder === 'boolean') value.isPlaceholder = source.isPlaceholder
     else errors.isPlaceholder = 'isPlaceholder must be true or false.'
+  }
+  if (has('outOfStock')) {
+    if (typeof source.outOfStock === 'boolean') value.outOfStock = source.outOfStock
+    else errors.outOfStock = 'outOfStock must be true or false.'
+  }
+  if (has('stockQuantity')) {
+    const stock = source.stockQuantity
+    if (stock === null || (typeof stock === 'number' && Number.isInteger(stock) && stock >= 0 && stock <= MAX_STOCK_QUANTITY)) value.stockQuantity = stock
+    else errors.stockQuantity = `stockQuantity must be empty (not counted) or a whole number from 0 to ${MAX_STOCK_QUANTITY}.`
   }
   if (has('status')) {
     const status = PRODUCT_STATUSES.find((option) => option === source.status)

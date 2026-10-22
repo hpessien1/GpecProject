@@ -69,6 +69,16 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
     28 and 48 kB) instead of the 1.1 MB PNG, which stays in `public/assets/` unchanged as the source.
     The shop header's "Product ordering" label is plain text beside the logo, no longer part of the
     link home (it looked like a shop link but went to the landing page).
+  - Then (committed, not pushed): **scope correction from the owner: no order enquiries.** Customers
+    buy in the shop (Paystack; pickup or delivery) or ask through the contact form. Removed the
+    shop's enquiry form, `POST /api/enquiries`, the Enquiry model, its emails, and the Order
+    enquiries admin tab. Added a stock switch and optional stock count per product (out-of-stock
+    products stay in the shop, labelled, not buyable; customers never see the count), a Checkout
+    page that says online payment is not available yet (link to the contact form), and an Orders
+    admin tab that explains orders arrive with Paystack. CLAUDE.md Lessons Learned has the rule.
+    The sample product `replacement-001` is renamed "Replacement parts" in the seed data; in
+    `gpec_dev` it keeps its old name until edited in the admin panel (the seed never changes
+    existing products).
 - **Session before (2026-10-21)** (commit `eb436d7`, pushed; CI green):
   - Stylesheet cleanup and split (options A then B from the old item 6): 5,172 lines in one file
     became about 4,000 lines in six files; the public pages' CSS went from 76 kB to 54 kB (admin
@@ -106,7 +116,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   - Admin accounts by command only (`npm run admin:create`); none exists in `gpec_dev`.
   - `CURRENCY` is unset everywhere until GPEC confirms it (prices cannot be entered until then).
   - Email through Amazon SES is built but **off**: GPEC has no AWS account yet (RUNBOOK 1.6).
-- **Tests:** 200 backend tests (Vitest, in-memory MongoDB replica set). 120 frontend Playwright
+- **Tests:** 185 backend tests (Vitest, in-memory MongoDB replica set). 130 frontend Playwright
   tests (2 run at one width only) in `frontend/e2e/` (`npm test`; `npm run check:contrast` for contrast) against the production
   build with sample API data. oxlint in both packages (not ESLint: it cannot run on TypeScript 7).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, backend tests, browser tests and
@@ -125,9 +135,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Open items for the next session
 
-1. Everything up to `eb436d7` is pushed and CI is green. Six later commits (handover update,
+1. Everything up to `eb436d7` is pushed and CI is green. Seven later commits (handover update,
    search and notes, password Show/Hide, breach check and counter, product photo uploads, same logo
-   everywhere) are
+   everywhere, no order enquiries with stock and Orders tab) are
    committed but not pushed; the user pushes. CI has not yet run on them (it also builds both
    Docker images, which matters for `sharp`).
 2. Step 3: Coolify is **not set up yet**; the user will say when it is. Then help with Atlas and

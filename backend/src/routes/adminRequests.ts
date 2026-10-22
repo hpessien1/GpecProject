@@ -4,10 +4,9 @@ import { currentAdmin } from '../middleware/requireAdmin.js'
 import { adminRequests } from '../services/adminRequests.js'
 import { REFERENCE_PATTERNS, validateNote, validateRequestListQuery, validateStatusChange } from '../validation/adminRequest.js'
 
-// Order enquiries (/api/admin/enquiries) and contact requests (/api/admin/contact-requests) for GPEC
-// staff. Mounted behind requireAdmin in app.ts: customers' personal details never reach an anonymous
-// visitor. Admins can read and search requests, change their status, and add internal notes; they
-// cannot edit or delete requests or notes.
+// Contact requests (/api/admin/contact-requests) for GPEC staff. Mounted behind requireAdmin in
+// app.ts: customers' personal details never reach an anonymous visitor. Admins can read and search
+// requests, change their status, and add internal notes; they cannot edit or delete requests or notes.
 export default function adminRequestsRouter(kind: keyof typeof adminRequests) {
   const router = Router()
   const service = adminRequests[kind]

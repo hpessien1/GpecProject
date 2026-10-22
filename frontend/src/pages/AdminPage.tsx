@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import '../styles/admin.css'
 import AdminHeader from '../components/admin/AdminHeader'
 import AdminLogin from '../components/admin/AdminLogin'
+import AdminOrders from '../components/admin/AdminOrders'
 import AdminPasswordForm from '../components/admin/AdminPasswordForm'
 import AdminProductEditor from '../components/admin/AdminProductEditor'
 import AdminProductList from '../components/admin/AdminProductList'
@@ -14,8 +15,8 @@ import { getAdminSession, logOut } from '../services/adminApi'
 import type { AdminRequestKind, AdminSessionInfo } from '../types'
 
 interface AdminPageProps {
-  // #admin, #admin/new, #admin/products/<id>, #admin/password,
-  // #admin/enquiries[/<reference>], or #admin/contact-requests[/<reference>]
+  // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/orders,
+  // or #admin/contact-requests[/<reference>]
   route: string
 }
 
@@ -24,24 +25,27 @@ type AdminView =
   | { kind: 'new' }
   | { kind: 'edit', productId: string }
   | { kind: 'password' }
+  | { kind: 'orders' }
   | { kind: 'requests', requestKind: AdminRequestKind }
   | { kind: 'request', requestKind: AdminRequestKind, reference: string }
 
 function parseView(route: string): AdminView {
   if (route === '#admin/new') return { kind: 'new' }
   if (route === '#admin/password') return { kind: 'password' }
+  if (route === '#admin/orders') return { kind: 'orders' }
   const product = /^#admin\/products\/([^/]+)$/.exec(route)
   if (product) return { kind: 'edit', productId: decodeURIComponent(product[1]) }
-  const request = /^#admin\/(enquiries|contact-requests)(?:\/([^/]+))?$/.exec(route)
+  const request = /^#admin\/contact-requests(?:\/([^/]+))?$/.exec(route)
   if (request) {
-    const requestKind = request[1] === 'enquiries' ? 'enquiries' : 'contact-requests'
-    return request[2] ? { kind: 'request', requestKind, reference: decodeURIComponent(request[2]) } : { kind: 'requests', requestKind }
+    const requestKind = 'contact-requests'
+    return request[1] ? { kind: 'request', requestKind, reference: decodeURIComponent(request[1]) } : { kind: 'requests', requestKind }
   }
   return { kind: 'list' }
 }
 
 function sectionOf(view: AdminView) {
   if (view.kind === 'requests' || view.kind === 'request') return view.requestKind
+  if (view.kind === 'orders') return 'orders'
   return view.kind === 'password' ? null : 'products'
 }
 
@@ -111,6 +115,7 @@ export default function AdminPage({ route }: AdminPageProps) {
         <AdminSectionNav current={sectionOf(view)} />
         {view.kind === 'list' ? <AdminProductList currency={session.currency} onSessionEnded={handleSessionEnded} />
         : view.kind === 'password' ? <AdminPasswordForm onSessionEnded={handleSessionEnded} />
+        : view.kind === 'orders' ? <AdminOrders />
         : view.kind === 'requests' ? <AdminRequestList key={view.requestKind} kind={view.requestKind} onSessionEnded={handleSessionEnded} />
         : view.kind === 'request' ? <AdminRequestDetail key={route} kind={view.requestKind} reference={view.reference} onSessionEnded={handleSessionEnded} />
         : <AdminProductEditor key={route} productId={view.kind === 'edit' ? view.productId : undefined} currency={session.currency} imageUploads={session.imageUploads} flash={flashMessage} onCreated={handleCreated} onSessionEnded={handleSessionEnded} />}
