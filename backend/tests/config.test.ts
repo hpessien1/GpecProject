@@ -123,7 +123,7 @@ describe('loadConfig', () => {
     const payments = {
       CURRENCY: 'NGN',
       FRONTEND_URL: 'https://www.example.com/',
-      PAYSTACK_SECRET_KEY: 'sk_test_abc123',
+      PAYSTACK_SECRET_KEY: 'sk_test_fake',
       PAYSTACK_FEE_PERCENT: '1.5',
       PAYSTACK_FEE_FLAT: '10000',
       PAYSTACK_FEE_FLAT_WAIVED_BELOW: '250000',
@@ -136,13 +136,13 @@ describe('loadConfig', () => {
 
     it('turns payments on with every setting, reading the percentage exactly, in test mode for a test key', () => {
       expect(loadConfig(payments).payments).toEqual({
-        secretKey: 'sk_test_abc123',
+        secretKey: 'sk_test_fake',
         testMode: true,
         fee: { percentBasisPoints: 150, flat: 10_000, flatWaivedBelow: 250_000, cap: 200_000 },
         siteUrl: 'https://www.example.com',
       })
       expect(loadConfig({ ...payments, PAYSTACK_FEE_PERCENT: '1.95' }).payments?.fee.percentBasisPoints).toBe(195)
-      expect(loadConfig({ ...payments, PAYSTACK_SECRET_KEY: 'sk_live_abc123' }).payments?.testMode).toBe(false)
+      expect(loadConfig({ ...payments, PAYSTACK_SECRET_KEY: 'sk_live_fake' }).payments?.testMode).toBe(false)
     })
 
     it('refuses a partial setup and names what is missing', () => {
@@ -155,7 +155,7 @@ describe('loadConfig', () => {
     })
 
     it.each([
-      ['PAYSTACK_SECRET_KEY', 'pk_test_abc123'],
+      ['PAYSTACK_SECRET_KEY', 'pk_test_fake'],
       ['PAYSTACK_FEE_PERCENT', '15'],
       ['PAYSTACK_FEE_PERCENT', '1,5'],
       ['PAYSTACK_FEE_FLAT', '100.50'],

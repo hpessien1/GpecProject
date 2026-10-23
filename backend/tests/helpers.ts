@@ -105,7 +105,7 @@ export class MemoryImageStore implements ImageStore {
 // Paystack settings for tests: a test key and Paystack's published local rate (1.5% + ₦100, the ₦100
 // waived under ₦2,500, at most ₦2,000), in kobo.
 export const TEST_PAYMENTS = {
-  secretKey: 'sk_test_0123456789abcdef',
+  secretKey: 'sk_test_fake',
   testMode: true,
   fee: { percentBasisPoints: 150, flat: 10_000, flatWaivedBelow: 250_000, cap: 200_000 },
   siteUrl: 'https://www.example.com',
