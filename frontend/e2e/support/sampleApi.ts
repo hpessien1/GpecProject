@@ -18,6 +18,9 @@ export const UPLOADED_IMAGE = `product-images/${'b'.repeat(64)}.webp`
 const uploadedPhoto = readFileSync(join(process.cwd(), 'public/assets/product-lineup.png'))
 // The server refuses this new password as known from a data breach.
 export const BREACHED_PASSWORD = 'password password password'
+// The one reset-link token the sample server accepts (43 characters, like the real ones).
+export const RESET_TOKEN = 'r'.repeat(43)
+export const RESET_REQUESTED_MESSAGE = 'If this email address belongs to a GPEC admin account, a link to reset the password is on its way. It works for 30 minutes. Check the spam folder if it does not arrive.'
 const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
 
 function sampleProduct(id: string, name: string, reference: string, image: string): Product {
@@ -67,6 +70,8 @@ export interface ApiState {
   imageUploads: boolean
   uploadFails: boolean
   currency: CurrencyInfo | null
+  // Whether email is set up, which "forgot password" needs.
+  emailOn: boolean
   formsFail: boolean
   loggedIn: boolean
   // Every API request the site made, for tests to inspect.
@@ -97,6 +102,7 @@ function initialState(): ApiState {
     imageUploads: true,
     uploadFails: false,
     currency: NGN,
+    emailOn: true,
     formsFail: false,
     loggedIn: false,
     requests: [],
@@ -158,6 +164,16 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, session]
   }
   if (path === '/api/admin/session' && method === 'DELETE') {
+    state.loggedIn = false
+    return [204, null]
+  }
+  if (path === '/api/admin/session/password-reset') {
+    if (!state.emailOn) return [503, { message: 'Password reset by email is not set up yet. Ask the site administrator to reset your password.', code: 'PASSWORD_RESET_UNAVAILABLE' }]
+    return [202, { message: RESET_REQUESTED_MESSAGE }]
+  }
+  if (path === '/api/admin/session/password-reset/confirm') {
+    if (body.token !== RESET_TOKEN) return [400, { message: 'This reset link has expired or has already been used. Ask for a new one.', code: 'RESET_LINK_INVALID' }]
+    if (body.newPassword === BREACHED_PASSWORD) return [400, { message: BREACHED_MESSAGE, code: 'PASSWORD_BREACHED', errors: { newPassword: BREACHED_MESSAGE } }]
     state.loggedIn = false
     return [204, null]
   }

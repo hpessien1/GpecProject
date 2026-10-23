@@ -53,6 +53,10 @@
   font-size: 0.8rem;
   line-height: 1.6;
 }
+/* "Forgot your password?" and "Back to login" under the login-style forms. */
+.admin-login .admin-form + .admin-help {
+  margin-top: 1.5rem;
+}
 .admin-main section > .success-message,
 .admin-main section > .form-error {
   max-width: 640px;
@@ -87,6 +91,10 @@
 .admin-field {
   display: grid;
   gap: 0.45rem;
+}
+/* Groups the new-password fields in one component without changing the form's layout. */
+.admin-new-password {
+  display: contents;
 }
 .admin-form input:not([type="checkbox"]),
 .admin-form select,

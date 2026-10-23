@@ -19,6 +19,16 @@ export function changePassword(currentPassword: string, newPassword: string) {
   return requestJson<void>('/admin/session/password', 'Unable to change your password. Please try again.', { ...admin, method: 'POST', payload: { currentPassword, newPassword } })
 }
 
+// The server answers the same whether or not the address has an account.
+export function requestPasswordReset(email: string) {
+  return requestJson<{ message: string }>('/admin/session/password-reset', 'Unable to send the reset link. Please try again.', { method: 'POST', payload: { email } })
+}
+
+// Sent with credentials so the server can clear this browser's session cookie: a reset logs out everywhere.
+export function resetPassword(token: string, newPassword: string) {
+  return requestJson<void>('/admin/session/password-reset/confirm', 'Unable to set your new password. Please try again.', { ...admin, method: 'POST', payload: { token, newPassword } })
+}
+
 export function listAdminProducts(page: number) {
   return requestJson<AdminProductsPage>(`/admin/products?page=${page}`, 'Unable to load products.', admin)
 }

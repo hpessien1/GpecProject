@@ -1,10 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto'
+import AdminPasswordReset from '../models/AdminPasswordReset.js'
 import AdminSession from '../models/AdminSession.js'
 import AdminUser from '../models/AdminUser.js'
 import { getDecoyHash, hashPassword, verifyPassword } from './passwords.js'
 
 export const SESSION_COOKIE = 'gpec_admin_session'
 export const SESSION_DURATION_MS = 8 * 60 * 60 * 1000
+// How long a "forgot password" link works. Short, because the link is as good as a password.
+export const RESET_LINK_MINUTES = 30
 
 export interface AdminIdentity {
   id: string
@@ -51,6 +54,35 @@ export async function changePassword(adminId: string, currentPassword: string, n
   await admin.save()
   await AdminSession.deleteMany({ admin: admin._id, tokenHash: { $ne: hashToken(currentToken) } })
   return true
+}
+
+// Starts a "forgot password" reset for an active admin: returns the token for the emailed link, or
+// null when no active account has this email (the caller answers the same either way). A new link
+// cancels any earlier one.
+export async function createPasswordReset(email: string) {
+  const admin = await AdminUser.findOne({ email: email.toLowerCase(), isActive: true })
+  if (!admin) return null
+  const token = randomBytes(32).toString('base64url')
+  await AdminPasswordReset.deleteMany({ admin: admin._id })
+  await AdminPasswordReset.create({ tokenHash: hashToken(token), admin: admin._id, expiresAt: new Date(Date.now() + RESET_LINK_MINUTES * 60 * 1000) })
+  return { token, admin: { email: admin.email, name: admin.name } }
+}
+
+// Sets a new password from a reset link. The link is used up in the same step that checks it, so it
+// works at most once even if sent twice at the same moment. Every session of that admin is ended,
+// since someone else may have known the old password. Returns the admin, or null if the link is
+// unknown, expired, already used, or the account has been deactivated.
+export async function resetPassword(token: string, newPassword: string) {
+  const reset = await AdminPasswordReset.findOneAndDelete({ tokenHash: hashToken(token), expiresAt: { $gt: new Date() } }).lean()
+  if (!reset) return null
+  const admin = await AdminUser.findOne({ _id: reset.admin, isActive: true })
+  if (!admin) return null
+  admin.passwordHash = await hashPassword(newPassword)
+  admin.passwordChangedAt = new Date()
+  await admin.save()
+  await AdminSession.deleteMany({ admin: admin._id })
+  await AdminPasswordReset.deleteMany({ admin: admin._id })
+  return { email: admin.email, name: admin.name }
 }
 
 export async function logOut(token: string) {

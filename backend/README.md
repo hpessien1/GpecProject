@@ -30,6 +30,8 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `503 {"status":"unavailable"}` (also used by the Docker health check)
 - `GET /api/products`
 - `POST /api/contact-requests`
+- Admin "forgot password" (no login): `POST /api/admin/session/password-reset`,
+  `POST /api/admin/session/password-reset/confirm`
 - Admin (login required; see below): `POST`, `GET`, `DELETE /api/admin/session`;
   `POST /api/admin/session/password`;
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
@@ -74,6 +76,16 @@ All admin responses are sent with `Cache-Control: no-store`.
   server asks `api.pwnedpasswords.com` (sending only the first 5 characters of the password's
   SHA-1 hash) and, if that service cannot be reached within 3 seconds, allows the change and logs
   a warning.
+- `POST /api/admin/session/password-reset` with `{ email }` always answers `202` with the same
+  message, then (after answering) emails an active admin a link `<FRONTEND_URL>/#admin/reset-password/<token>`
+  that works once for 30 minutes and cancels any earlier link. At most 3 emails per address per hour;
+  every request counts toward a per-IP limit (5 per 15 minutes in production). `503
+  PASSWORD_RESET_UNAVAILABLE` when email is not configured; `400` for a missing or invalid address.
+- `POST /api/admin/session/password-reset/confirm` with `{ token, newPassword }` sets the password
+  (same rules and breach check as above; a refused password leaves the link usable), ends all that
+  admin's sessions, clears this browser's cookie, emails the admin that the password changed, and
+  returns `204`. An unknown, expired, used, or malformed link, or a deactivated account, gets `400
+  RESET_LINK_INVALID`, which counts toward a per-IP limit.
 - Every command (creating admins, seeding, checks) is listed in [`docs/COMMANDS.md`](../docs/COMMANDS.md).
 - Every `/api/admin/products` route needs that cookie (`401 ADMIN_AUTH_REQUIRED` otherwise), and
   changes from an origin not in `CLIENT_ORIGIN` get `403`.

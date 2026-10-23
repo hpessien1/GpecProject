@@ -150,9 +150,9 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 - [x] Product photo uploads from the admin's own device (laptop, phone, or tablet), with a preview:
       checked, resized, and stored in a private Amazon S3 bucket (2026-10-22). Off until GPEC's
       bucket exists.
-- [ ] **"Forgot password" for admins, required once email works** (the user's decision,
-      2026-10-22). Until GPEC's Amazon SES account is set up, a forgotten password is reset only by
-      command (`npm run admin:create -- --reset`). Build it as soon as email is switched on.
+- [x] "Forgot password" for admins (2026-10-23): an emailed link that works once for 30 minutes,
+      the same reply for any address, its own limits, and a reset logs out everywhere and emails the
+      admin. The command (`admin:create -- --reset`) stays as a fallback.
 
 ---
 

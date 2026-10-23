@@ -45,6 +45,7 @@ export default function AdminLogin({ notice, onLoggedIn }: AdminLoginProps) {
       {error && <p className="form-error" role="alert" tabIndex={-1} ref={errorRef}>{error}</p>}
       <button className="button button-primary" type="submit" disabled={isSending}>{isSending ? 'Logging in…' : <>Log in <Arrow /></>}</button>
     </form>
-    <p className="admin-help">Accounts are created by the site administrator. If you have forgotten your password, ask them to reset it.</p>
+    <p className="admin-help"><a className="text-link" href="#admin/forgot-password">Forgot your password?</a></p>
+    <p className="admin-help">Accounts are created by the site administrator.</p>
   </section>
 }

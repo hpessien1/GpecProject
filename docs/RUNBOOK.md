@@ -135,8 +135,10 @@ It prints a random password **once**. Pass it to that person privately (not by o
 chat if avoidable). They log in at `https://gpecengineering.com/#admin` and set their own password under
 **Change password** straight away (at least 15 characters).
 
-- **Forgotten password:** run the same command with `--reset` instead of `--name`. It prints a new
-  password and logs that person out everywhere.
+- **Forgotten password:** they click **Forgot your password?** on the login screen and get a link
+  by email that works once, for 30 minutes (needs email, Section 1.6). If the email does not arrive
+  (spam folder, SES sandbox, email off), run the same command with `--reset` instead of `--name`. It
+  prints a new password and logs that person out everywhere.
 - **Someone leaves GPEC:** set their `isActive` to `false` in the `adminusers` collection in Atlas.
   Their sessions stop working at once. (There is no screen for this yet.)
 - Admin login allows 5 failed attempts per 15 minutes from one address, then asks them to wait.
@@ -326,7 +328,8 @@ database separately (or restored from an Atlas backup).
 | `MongoDB connection failed` in the API log | Atlas network access, wrong password, or Atlas outage | Check the Hetzner IP is allowed in Atlas, the `gpec-prod` password, and [status.mongodb.com](https://status.mongodb.com). |
 | Coolify shows the API as unhealthy | `/api/health` returns `503`: the database does not answer | As for `MongoDB connection failed` above. The health check turns healthy again by itself once the database answers. |
 | Forms say they cannot reach GPEC | API down, database unreachable, or the site was built with the wrong API address | Check `/api/health` (`503` means the database cannot be reached: see the row above). If it is fine, check `VITE_API_BASE_URL` on the website resource and rebuild. The browser console will show a Content-Security-Policy or CORS error if the addresses do not match `CLIENT_ORIGIN`. |
-| An admin cannot log in | Wrong password, account deactivated, or too many failed attempts | Wait 15 minutes after "Too many failed login attempts". Otherwise reset the password (Section 1.4). |
+| An admin cannot log in | Wrong password, account deactivated, or too many failed attempts | Wait 15 minutes after "Too many failed login attempts". Otherwise use **Forgot your password?**, or reset the password by command (Section 1.4). |
+| "Forgot your password?" email never arrives | Unknown or deactivated address (the screen answers the same on purpose), SES sandbox (address not verified), spam folder, or 3 links already sent to that address this hour | Check the address is an active admin and look in spam. `Email for an admin password reset could not be sent` in the API log means an SES problem (rows below). Otherwise reset by command (Section 1.4). |
 | `the breached-password check could not be made` in the API log | The API cannot reach `api.pwnedpasswords.com` (outage, or outgoing HTTPS blocked on the server) | Password changes still work; only the breach check was skipped. If it keeps happening, check that the server allows outgoing HTTPS. |
 | Admin cannot set prices ("currency is configured") | `CURRENCY` is unset on the API | Expected until GPEC confirms the currency. Then set `CURRENCY` in Coolify and redeploy the API. |
 | Forms say "Too many requests" for everyone | Proxy trust broken, so all visitors share one limit | Confirm `NODE_ENV=production` on the API. Report it to the developer. |

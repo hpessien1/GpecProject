@@ -1,7 +1,7 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
-import { customerContactEmail, staffContactEmail } from './emailTemplates.js'
-import type { ContactEmailData } from './emailTemplates.js'
+import { adminPasswordChangedEmail, adminPasswordResetEmail, customerContactEmail, staffContactEmail } from './emailTemplates.js'
+import type { AdminEmailData, ContactEmailData } from './emailTemplates.js'
 
 const HOUR = 60 * 60 * 1000
 // Confirmations per recipient address per hour. Stops the public forms being used to flood a stranger's
@@ -9,7 +9,12 @@ const HOUR = 60 * 60 * 1000
 const CONFIRMATIONS_PER_HOUR = 3
 
 export interface Notifier {
+  // Whether emails can be sent at all (email settings present).
+  readonly isOn: boolean
   contactRequestReceived(request: ContactEmailData): Promise<void>
+  // token: for the link only; it is never logged.
+  passwordResetRequested(admin: AdminEmailData, token: string, minutes: number): Promise<void>
+  passwordChanged(admin: AdminEmailData): Promise<void>
 }
 
 // Sends staff notifications and customer confirmations after a request is saved. Never throws: a
@@ -38,11 +43,22 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
   }
 
   return {
+    isOn: mailer !== null && settings !== null,
     async contactRequestReceived(request) {
       if (!mailer || !settings) return
       const messages: EmailMessage[] = [{ to: settings.staffRecipients, replyTo: request.email, ...staffContactEmail(request, settings.siteUrl) }]
       if (mayConfirm(request.email)) messages.push({ to: [request.email], ...customerContactEmail(request, settings.siteUrl) })
       await deliver(request.reference, messages)
+    },
+    // The token goes after # in the link: browsers never send that part to a server, so it stays out
+    // of server and proxy logs.
+    async passwordResetRequested(admin, token, minutes) {
+      if (!mailer || !settings) return
+      await deliver('an admin password reset', [{ to: [admin.email], ...adminPasswordResetEmail(admin, `${settings.siteUrl}/#admin/reset-password/${token}`, minutes) }])
+    },
+    async passwordChanged(admin) {
+      if (!mailer || !settings) return
+      await deliver('an admin password change', [{ to: [admin.email], ...adminPasswordChangedEmail(admin, settings.siteUrl) }])
     },
   }
 }

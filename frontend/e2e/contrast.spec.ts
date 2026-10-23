@@ -71,6 +71,22 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await open('#privacy', '.privacy-page')
     await audit.page(page, `${label} privacy notice`)
 
+    await open('#admin/forgot-password', '.admin-login')
+    await page.getByLabel('Email address').fill(ADMIN.email)
+    await page.getByRole('button', { name: 'Email me a reset link' }).click()
+    await page.locator('.success-message').waitFor()
+    await audit.page(page, `${label} admin forgot password sent`)
+    if (hovering) await audit.hover(page, `${label} admin forgot password sent`)
+    // Not open(): its reload would find the token already removed from the address.
+    await page.goto(`/#admin/reset-password/${'x'.repeat(43)}`)
+    await page.locator('#newPassword').waitFor()
+    await page.getByLabel('New password', { exact: true }).fill('a long enough password')
+    await page.getByLabel('New password again').fill('a long enough password')
+    await page.getByRole('button', { name: 'Save new password' }).click()
+    await page.locator('.form-error a').waitFor()
+    await audit.page(page, `${label} admin reset link expired`)
+    if (hovering) await audit.hover(page, `${label} admin reset link expired`)
+
     await open('#admin', '.admin-login')
     await audit.page(page, `${label} admin login`)
     if (hovering) await audit.hover(page, `${label} admin login`)

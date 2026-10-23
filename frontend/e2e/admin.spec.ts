@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -437,5 +437,77 @@ test.describe('changing your own password', () => {
     await page.getByLabel('Current password').fill(ADMIN.password)
     await page.getByRole('button', { name: 'Change password' }).click()
     await expect(page.locator('.success-message')).toContainText('Your password has been changed.')
+  })
+})
+
+test.describe('forgot password', () => {
+  test('the login screen links to it, and the same reply comes back for any address', async ({ page }) => {
+    const api = await mockApi(page)
+    await page.goto('/#admin')
+    await page.getByRole('link', { name: 'Forgot your password?' }).click()
+    await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeFocused()
+    await page.getByLabel('Email address').fill(ADMIN.email)
+    await page.getByRole('button', { name: 'Email me a reset link' }).click()
+    await expect(page.locator('.success-message')).toHaveText(RESET_REQUESTED_MESSAGE)
+    await expect(page.locator('.success-message')).toBeFocused()
+    expect(api.requests.find((r) => r.path === '/api/admin/session/password-reset')?.body).toEqual({ email: ADMIN.email })
+    await page.getByRole('link', { name: 'Back to login' }).click()
+    await expect(page.getByRole('heading', { name: 'Admin login' })).toBeVisible()
+  })
+
+  test('says so when email is not set up', async ({ page }) => {
+    await mockApi(page, { emailOn: false })
+    await page.goto('/#admin/forgot-password')
+    await page.getByLabel('Email address').fill(ADMIN.email)
+    await page.getByRole('button', { name: 'Email me a reset link' }).click()
+    await expect(page.locator('.form-error')).toHaveText('Password reset by email is not set up yet. Ask the site administrator to reset your password.')
+  })
+
+  test('a reset link sets a new password and returns to the login screen', async ({ page }) => {
+    const api = await mockApi(page)
+    await page.goto(`/#admin/reset-password/${RESET_TOKEN}`)
+    await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible()
+    // The token leaves the address bar (and the history) at once.
+    await expect.poll(() => new URL(page.url()).hash).toBe('#admin/reset-password')
+
+    await page.getByLabel('New password', { exact: true }).fill('too short')
+    await page.getByLabel('New password again').fill('too short')
+    await page.getByRole('button', { name: 'Save new password' }).click()
+    await expect(page.locator('#newPassword-error')).toContainText('Use at least 15 characters')
+    await page.getByLabel('New password', { exact: true }).fill('a brand new long passphrase')
+    await page.getByRole('button', { name: 'Save new password' }).click()
+    await expect(page.locator('#confirmPassword-error')).toHaveText('The two new passwords do not match.')
+    expect(api.requests.some((r) => r.path === '/api/admin/session/password-reset/confirm')).toBe(false)
+
+    await page.getByLabel('New password', { exact: true }).fill(BREACHED_PASSWORD)
+    await page.getByLabel('New password again').fill(BREACHED_PASSWORD)
+    await page.getByRole('button', { name: 'Save new password' }).click()
+    await expect(page.locator('#newPassword-error')).toHaveText('This password has appeared in a data breach, so attackers try it early. Choose a different one.')
+
+    await page.getByLabel('New password', { exact: true }).fill('a brand new long passphrase')
+    await page.getByLabel('New password again').fill('a brand new long passphrase')
+    await page.getByRole('button', { name: 'Save new password' }).click()
+    await expect(page.getByRole('heading', { name: 'Admin login' })).toBeFocused()
+    await expect(page.getByText('Your new password is saved. Log in with it.')).toBeVisible()
+    expect(api.requests.at(-1)?.body).toEqual({ token: RESET_TOKEN, newPassword: 'a brand new long passphrase' })
+  })
+
+  test('an expired or used link offers a new one', async ({ page }) => {
+    await mockApi(page)
+    await page.goto(`/#admin/reset-password/${'x'.repeat(43)}`)
+    await page.getByLabel('New password', { exact: true }).fill('a brand new long passphrase')
+    await page.getByLabel('New password again').fill('a brand new long passphrase')
+    await page.getByRole('button', { name: 'Save new password' }).click()
+    await expect(page.locator('.form-error')).toContainText('This reset link has expired, has already been used, or is incomplete.')
+    await expect(page.locator('.form-error')).toBeFocused()
+    await page.getByRole('link', { name: 'Ask for a new one' }).click()
+    await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible()
+  })
+
+  test('a link cut short says so instead of showing the form', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#admin/reset-password')
+    await expect(page.locator('.form-error')).toContainText('This reset link is incomplete.')
+    await expect(page.getByRole('button', { name: 'Save new password' })).toHaveCount(0)
   })
 })

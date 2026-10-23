@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 // Only the admin screens use these styles, so they load with this page (lazy-loaded in App.tsx).
 import '../styles/admin.css'
+import AdminForgotPassword from '../components/admin/AdminForgotPassword'
 import AdminHeader from '../components/admin/AdminHeader'
 import AdminLogin from '../components/admin/AdminLogin'
 import AdminOrderDetail from '../components/admin/AdminOrderDetail'
@@ -10,6 +11,7 @@ import AdminProductEditor from '../components/admin/AdminProductEditor'
 import AdminProductList from '../components/admin/AdminProductList'
 import AdminRequestDetail from '../components/admin/AdminRequestDetail'
 import AdminRequestList from '../components/admin/AdminRequestList'
+import AdminResetPassword from '../components/admin/AdminResetPassword'
 import AdminSectionNav from '../components/admin/AdminSectionNav'
 import { ApiError } from '../services/apiClient'
 import { getAdminSession, logOut } from '../services/adminApi'
@@ -17,11 +19,14 @@ import type { AdminRequestKind, AdminSessionInfo } from '../types'
 
 interface AdminPageProps {
   // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/orders[/<reference>],
-  // or #admin/contact-requests[/<reference>]
+  // #admin/contact-requests[/<reference>], or (without logging in) #admin/forgot-password and
+  // #admin/reset-password/<token>
   route: string
 }
 
 type AdminView =
+  | { kind: 'forgot' }
+  | { kind: 'reset', token: string }
   | { kind: 'list' }
   | { kind: 'new' }
   | { kind: 'edit', productId: string }
@@ -32,6 +37,9 @@ type AdminView =
   | { kind: 'request', requestKind: AdminRequestKind, reference: string }
 
 function parseView(route: string): AdminView {
+  if (route === '#admin/forgot-password') return { kind: 'forgot' }
+  const reset = /^#admin\/reset-password(?:\/([^/]*))?$/.exec(route)
+  if (reset) return { kind: 'reset', token: reset[1] ?? '' }
   if (route === '#admin/new') return { kind: 'new' }
   if (route === '#admin/password') return { kind: 'password' }
   if (route === '#admin/orders') return { kind: 'orders' }
@@ -102,6 +110,13 @@ export default function AdminPage({ route }: AdminPageProps) {
     }
   }
 
+  // A reset logs the admin out everywhere, this browser included.
+  function handlePasswordReset() {
+    setSession(null)
+    setNotice('Your new password is saved. Log in with it.')
+    window.location.hash = '#admin'
+  }
+
   function handleCreated(productId: string) {
     const productRoute = `#admin/products/${encodeURIComponent(productId)}`
     setFlash({ route: productRoute, message: 'Product created.' })
@@ -113,7 +128,9 @@ export default function AdminPage({ route }: AdminPageProps) {
     <a className="skip-link" href="#admin-main" onClick={(event) => { event.preventDefault(); document.getElementById('admin-main')?.focus() }}>Skip to admin content</a>
     <AdminHeader adminName={session?.admin.name ?? null} isLoggingOut={isLoggingOut} onLogOut={handleLogOut} />
     <main id="admin-main" className="admin-main" tabIndex={-1}>
-      {isCheckingSession ? <p className="admin-loading" role="status">Checking your login…</p>
+      {view.kind === 'forgot' ? <AdminForgotPassword />
+        : view.kind === 'reset' ? <AdminResetPassword token={view.token} onPasswordReset={handlePasswordReset} />
+        : isCheckingSession ? <p className="admin-loading" role="status">Checking your login…</p>
         : !session ? <AdminLogin notice={notice} onLoggedIn={handleLoggedIn} />
         : <>
         <AdminSectionNav current={sectionOf(view)} />

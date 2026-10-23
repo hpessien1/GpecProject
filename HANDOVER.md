@@ -56,7 +56,7 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
 1. Admin search and internal notes on requests.
 2. Admin passwords: Show/Hide button; new passwords checked against Have I Been Pwned's free
    Pwned Passwords API (user-approved; only a 5-character hash prefix leaves the server); a live
-   "9 of 15 characters" counter. "Forgot password" is required once email works (not built).
+   "9 of 15 characters" counter. ("Forgot password" followed on 2026-10-23.)
 3. Product photo uploads to a private Amazon S3 bucket via the API, resized and re-encoded with
    `sharp` (user-approved), with previews. Off until GPEC's S3 bucket exists (RUNBOOK 1.7). The CSP
    now allows images from the API and `blob:`; `e2e/csp.spec.ts` checks the real policy.
@@ -131,7 +131,8 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
    photo upload worked. Still to do: verify a staff
    address in SES and send a `[TEST]` contact request; set `STAFF_NOTIFICATION_EMAILS` to GPEC's
    staff once they say who (it is the user's own for now); fill in the email region (Stockholm) in
-   the privacy notice. **Then build "forgot password" for admins** (rules in CLAUDE.md Known Gaps).
+   the privacy notice. "Forgot password" for admins was built on 2026-10-23 (CLAUDE.md 4.5); try it
+   on the live site once your address is verified in SES (deploy the API and the site first).
 4. Paystack: the user has test-mode access as a member. When GPEC confirms the details, build step 5 checkout on the existing Order model (CLAUDE.md 4.1 and
    8): checkout form with pickup or delivery, server-computed totals, refuse out-of-stock products,
    reduce counted stock on payment, the same `markOrderPaid` for webhook and verify, test keys only.

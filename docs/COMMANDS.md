@@ -195,7 +195,8 @@ node dist/scripts/createAdmin.js --production --email staff@example.com --name "
 
 Create one for yourself too: your `gpec_dev` account does not exist on the live site.
 
-**Forgotten password** (prints a new one and logs them out everywhere):
+**Forgotten password:** normally they use **Forgot your password?** on the login screen (an emailed
+link). If that email does not arrive, this prints a new password and logs them out everywhere:
 
 ```sh
 node dist/scripts/createAdmin.js --production --email staff@example.com --reset

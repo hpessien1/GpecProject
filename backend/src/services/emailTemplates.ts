@@ -38,6 +38,45 @@ export function staffContactEmail(request: ContactEmailData, siteUrl: string) {
   }
 }
 
+export interface AdminEmailData {
+  name: string
+  email: string
+}
+
+export function adminPasswordResetEmail(admin: AdminEmailData, link: string, minutes: number) {
+  return {
+    subject: 'Reset your GPEC admin password',
+    text: [
+      `Hello ${admin.name},`,
+      '',
+      'Someone asked to reset the password for your GPEC website admin account. To choose a new password, open this link:',
+      '',
+      link,
+      '',
+      `The link works once, for ${minutes} minutes. Choosing a new password logs you out everywhere.`,
+      '',
+      'If you did not ask for this, ignore this email: your password stays as it is.',
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
+export function adminPasswordChangedEmail(admin: AdminEmailData, siteUrl: string) {
+  return {
+    subject: 'Your GPEC admin password was changed',
+    text: [
+      `Hello ${admin.name},`,
+      '',
+      'The password for your GPEC website admin account was just changed using a reset link, and you were logged out everywhere.',
+      '',
+      `If this was you, there is nothing to do. If it was not, ask for a new reset link at ${siteUrl}/#admin/forgot-password straight away and tell the site administrator.`,
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
 export function customerContactEmail(request: ContactEmailData, siteUrl: string) {
   return {
     subject: `We have your message (${request.reference})`,
