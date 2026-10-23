@@ -125,7 +125,10 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
    pushed: the user pushes, then check CI)**. Bank transfer (owner's request, after Vision 25): GPEC staff enter the Nigerian bank
    details at `#admin/bank-transfer`, customers get them plus the reference as narration, press "I
    have sent the transfer", and staff confirm on the order; unpaid ones are closed by hand. It
-   works without Paystack. Paystack part and tested with a stand-in Paystack, never against Paystack's real test API (no key
+   works without Paystack. **The live site is a test environment until the owner says it is
+   production ready** (2026-10-23): `seed:demo --production` now also adds 10 delivery areas across
+   Nigeria, demo prices on the sample products, two bank-transfer orders, and switches bank transfer
+   on with the sample details (labelled "do not send money"). Paystack part and tested with a stand-in Paystack, never against Paystack's real test API (no key
    here). To switch it on: RUNBOOK 1.8 (GPEC's fee rate, test key and webhook URL in Coolify),
    delivery areas and prices entered by staff, then a test-mode order on the live site with a
    Paystack test card. Live keys only with GPEC's approval.

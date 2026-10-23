@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { ContrastAudit, EXEMPT } from './support/contrast'
-import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, TRANSFER_ORDER_REF, mockApi, sampleProducts } from './support/sampleApi'
+import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, mockApi, sampleProducts } from './support/sampleApi'
 
 // Every page and state of the site must meet WCAG AA text contrast at phone and desktop width,
 // including hover (desktop only). Run with `npm run check:contrast`. A new page or state belongs here.
@@ -199,6 +199,11 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await open(`#admin/orders/${TRANSFER_ORDER_REF}`, '.admin-transfer-actions')
     await audit.page(page, `${label} admin order awaiting bank transfer`)
     if (hovering) await audit.hover(page, `${label} admin order awaiting bank transfer`)
+    const realBank = api.bankTransfer
+    api.bankTransfer = { ...SITE_SAMPLE_BANK, instructions: '', payWithinDays: 3, enabled: false }
+    await open('#admin/bank-transfer', '.admin-notice-strong')
+    await audit.page(page, `${label} admin bank details, still the sample`)
+    api.bankTransfer = realBank
     await open('#admin/bank-transfer', '#bank-accountNumber')
     await audit.page(page, `${label} admin bank details`)
     if (hovering) await audit.hover(page, `${label} admin bank details`)

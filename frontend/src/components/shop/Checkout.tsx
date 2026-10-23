@@ -203,6 +203,7 @@ export default function Checkout({ cartItems, currency, itemCount, onGoToCatalog
 
           <p className="shop-checkout-privacy">{checkoutContent.privacy} See our <a href="#privacy" target="_blank" rel="noopener">privacy notice<span className="visually-hidden"> (opens in a new tab)</span></a>.</p>
           <p className="shop-field-note">{chosenPayment === 'paystack' ? checkoutContent.paystackNote : checkoutContent.transferNote(info.bankTransfer?.payWithinDays ?? 0)}</p>
+          {chosenPayment === 'bank_transfer' && info.bankTransfer?.isSample && <p className="shop-test-mode" role="note">{checkoutContent.sampleBank}</p>}
           {submitError && <p className="form-error" role="alert" tabIndex={-1} ref={errorRef}>{submitError}</p>}
           <button className="button button-primary" type="submit" disabled={!canPay}>{chosenPayment === 'paystack'
             ? isSubmitting ? 'Going to Paystack…' : quote ? <>Pay {formatPrice(quote.total, quote.currency)} with Paystack <Arrow /></> : 'Pay with Paystack'

@@ -144,6 +144,7 @@ The customer chooses how to pay when both are open: **Paystack** (Section 6 belo
 Added 2026-10-23 at the project owner's request, adapted from the sister project Vision 25.
 
 - **Bank details for Nigeria:** staff enter the bank name, the account name, and the 10-digit account number (NUBAN), plus optional instructions and how many days customers have to pay (1 to 30; 3 to start). No sort code, branch, or SWIFT code: Nigerian transfers do not need them. Bank transfer is offered only while the shop currency is naira (NGN).
+- The screen starts with plainly fake sample details ("Sample Bank (not real)", account number 0000000000) for staff to replace. While the site is being tested they can be switched on (the demo data does this), always labelled "do not send money". They must be replaced before launch.
 - Every change to the bank details is recorded (who, old and new value, when) and emailed to every active admin, because a quietly changed account number would send customers' money elsewhere.
 - **No payment processing fee**: that fee is Paystack's charge, and Paystack is not involved.
 - Placing the order creates it unpaid, with a copy of the bank details given, and empties the cart. The customer sees, and is emailed, the account details, the exact amount, the order reference to use as the **narration**, and the date to pay by. GPEC staff are emailed that an order awaits a transfer.

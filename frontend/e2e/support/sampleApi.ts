@@ -19,7 +19,9 @@ export const PAYMENT_REF = 'abcdef0123456789abcdef01'
 export const AREA_ID = '0123456789abcdef01234567'
 // A bank-transfer order the customer has reported as sent, waiting for staff.
 export const TRANSFER_ORDER_REF = 'GPEC-O-2026-0000000F'
-// Sample details only: not GPEC's account.
+// Test details only: not GPEC's account. (The site's own starting sample is SITE_SAMPLE_BANK below.)
+// What the real server starts with (backend services/bankTransfer.ts, SAMPLE_BANK_DETAILS).
+export const SITE_SAMPLE_BANK = { bankName: 'Sample Bank (not real)', accountName: 'SAMPLE – replace with GPEC’s account name', accountNumber: '0000000000' }
 export const SAMPLE_BANK = { bankName: 'Sample Bank', accountName: 'GPEC Engineering Company Limited', accountNumber: '0123456789', instructions: 'Send proof of payment to the email in the footer.', payWithinDays: 3 }
 // What the "server" answers for any photo upload, and the picture it serves for uploaded photos.
 export const UPLOADED_IMAGE = `product-images/${'b'.repeat(64)}.webp`
@@ -59,7 +61,7 @@ function sampleOrder(reference: string, fullName: string, method: 'pickup' | 'de
   const stage: OrderStage = paymentStatus === 'pending_payment' ? (isTransfer ? 'transfer_reported' : 'awaiting_payment') : paymentStatus === 'failed' ? 'payment_failed' : fulfilmentStatus
   const paystackFee = isTransfer ? 0 : 200000
   return {
-    reference, paymentReference: '6718a9c2f1e4b5a3c2d1e0f9', stage, paymentMethod, bankTransfer: isTransfer ? SAMPLE_BANK : null, transferReportedAt: isTransfer ? now : null, paymentStatus, fulfilmentStatus, paidAt: paymentStatus === 'paid' ? now : null, createdAt: now, updatedAt: now,
+    reference, paymentReference: '6718a9c2f1e4b5a3c2d1e0f9', stage, paymentMethod, bankTransfer: isTransfer ? { ...SAMPLE_BANK, isSample: false } : null, transferReportedAt: isTransfer ? now : null, paymentStatus, fulfilmentStatus, paidAt: paymentStatus === 'paid' ? now : null, createdAt: now, updatedAt: now,
     customer: { ...customer, fullName }, fulfilmentMethod: method, deliveryAddress: method === 'delivery' ? '14 Sample Street\nLekki, Lagos' : '',
     deliveryAreaName: method === 'delivery' ? 'Lagos' : null, customerNotes: method === 'delivery' ? 'Please call before delivery.' : '',
     items, currency: NGN_INFO, subtotal, deliveryFee, paystackFee, total: subtotal + deliveryFee + paystackFee,
@@ -197,7 +199,7 @@ function checkout(state: ApiState, path: string, method: string, body: Record<st
   const { enabled, ...bank } = state.bankTransfer
   const methods: PaymentMethod[] = state.currency === null ? [] : [...(state.paymentsOn ? ['paystack' as const] : []), ...(enabled && state.currency.code === 'NGN' ? ['bank_transfer' as const] : [])]
   const available = methods.length > 0
-  if (path === '/api/checkout') return [200, { paymentsAvailable: available, paymentMethods: methods, testMode: state.paymentsOn && state.testMode, currency: state.currency, bankTransfer: methods.includes('bank_transfer') ? bank : null, deliveryAreas: available ? state.deliveryAreas.filter((area) => area.status === 'active').map(({ id, name, description, fee }) => ({ id, name, description, fee })) : [] }]
+  if (path === '/api/checkout') return [200, { paymentsAvailable: available, paymentMethods: methods, testMode: state.paymentsOn && state.testMode, currency: state.currency, bankTransfer: methods.includes('bank_transfer') ? { ...bank, isSample: bank.accountNumber === '0000000000' } : null, deliveryAreas: available ? state.deliveryAreas.filter((area) => area.status === 'active').map(({ id, name, description, fee }) => ({ id, name, description, fee })) : [] }]
   const isTransfer = body.paymentMethod === 'bank_transfer'
   if (!available) return [503, { message: 'Online payment is not available yet.', code: 'PAYMENT_CONFIG_ERROR' }]
   const products = state.products === 'error' ? [] : state.products
@@ -236,7 +238,7 @@ function checkout(state: ApiState, path: string, method: string, body: Record<st
     const paystackFee = transfer ? 0 : 14502
     return [200, {
       reference: NEW_ORDER_REF, paymentMethod: transfer ? 'bank_transfer' : 'paystack', paymentStatus: state.paymentResult, paidAt: state.paymentResult === 'paid' ? now : null, fulfilmentMethod: 'pickup', deliveryAreaName: null, items, currency: state.currency, subtotal: 300100, deliveryFee: 0, paystackFee, total: 300100 + paystackFee,
-      bankTransfer: transfer ? { ...SAMPLE_BANK, payBy: '2026-10-24T10:00:00.000Z', reportedAt: state.transferReported ? now : null } : null,
+      bankTransfer: transfer ? { ...SAMPLE_BANK, isSample: false, payBy: '2026-10-24T10:00:00.000Z', reportedAt: state.transferReported ? now : null } : null,
     }]
   }
   return [404, { message: 'Route not found.' }]
@@ -328,7 +330,7 @@ function reply(state: ApiState, request: Request): Reply {
       Object.assign(state.bankTransfer, body)
       state.bankTransferHistory = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: changes as BankTransferHistoryEntry['changes'], createdAt: new Date().toISOString() }, ...state.bankTransferHistory]
     }
-    return [200, { settings: state.bankTransfer, history: state.bankTransferHistory }]
+    return [200, { settings: state.bankTransfer, isSample: state.bankTransfer.accountNumber === '0000000000', history: state.bankTransferHistory }]
   }
   if (path === '/api/admin/orders') return listOrders(state.orders, url)
   const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/transfer-received|\/transfer-not-received)?$/.exec(path)

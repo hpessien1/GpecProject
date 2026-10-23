@@ -1,4 +1,6 @@
-// Adds demo orders and contact requests, for showing the admin screens. Refuses the production "gpec"
+// Adds demo orders, contact requests, and delivery areas, prices the sample products, and switches
+// bank transfer on with the sample details, so GPEC can see everything working (run
+// `npm run seed:products` first, so the sample products exist). Refuses the production "gpec"
 // database unless --production is given; demo data there must be removed before launch.
 //
 //   npm run seed:demo                (add the demo records that are missing)
@@ -15,11 +17,12 @@ try {
   const databaseName = mongoose.connection.name
   assertDemoAllowed(databaseName, config.nodeEnv, process.argv.includes('--production'))
   if (process.argv.includes('--remove')) {
-    const { orders, contactRequests } = await removeDemoData()
-    console.log(`Database "${databaseName}": removed ${orders} demo orders and ${contactRequests} demo contact requests.`)
+    const { orders, contactRequests, deliveryAreas } = await removeDemoData()
+    console.log(`Database "${databaseName}": removed ${orders} demo orders, ${contactRequests} demo contact requests, and ${deliveryAreas} demo delivery areas; bank transfer is off unless real bank details were entered.`)
   } else {
-    const { orders, contactRequests, withHistory } = await seedDemoData()
-    console.log(`Database "${databaseName}": added ${orders} demo orders and ${contactRequests} demo contact requests (the rest were already there).`)
+    const { orders, contactRequests, withHistory, deliveryAreas, bankTransferOn, pricesSet } = await seedDemoData()
+    console.log(`Database "${databaseName}": added ${orders} demo orders, ${contactRequests} demo contact requests, and ${deliveryAreas} demo delivery areas, and priced ${pricesSet} sample products (the rest were already there).`)
+    console.log(bankTransferOn ? 'Bank transfer is on, with the sample bank details (customers are told not to send money).' : 'Bank transfer left as it is: real bank details have been entered.')
     if (!withHistory) console.log('No admin account exists, so no status history or notes were added. Create one (npm run admin:create), remove the demo data, and run this again to include them.')
   }
   await mongoose.disconnect()

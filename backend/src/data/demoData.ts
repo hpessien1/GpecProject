@@ -29,10 +29,15 @@ export interface DemoOrder {
   customer: { fullName: string, company: string, email: string, phone: string }
   fulfilmentMethod: 'pickup' | 'delivery'
   deliveryAddress: string
-  // Naira; stored in kobo.
+  // Naira; stored in kobo. For delivery orders, the fee of their demo area (deliveryAreaName).
   deliveryFee: number
+  deliveryAreaName?: string
   items: DemoOrderLine[]
   paymentStatus: 'pending_payment' | 'paid' | 'failed'
+  // Bank transfer orders carry the sample bank details and no Paystack fee; transferReported: the
+  // customer pressed "I have sent the transfer" this long after ordering.
+  paymentMethod?: 'paystack' | 'bank_transfer'
+  transferReported?: number
   // The fulfilment steps staff took, in order (paid orders only).
   steps: DemoStatusStep[]
   note?: { text: string, after: number }
@@ -57,7 +62,7 @@ export const demoOrders: DemoOrder[] = [
   {
     reference: 'GPEC-O-2026-DE000001', age: 2 * HOUR,
     customer: { fullName: 'Adaeze Okafor', company: 'Brightline Facilities Ltd', email: 'adaeze.okafor@example.com', phone: '+234 000 000 0101' },
-    fulfilmentMethod: 'delivery', deliveryAddress: '14 Admiralty Way, Lekki Phase 1, Lagos', deliveryFee: 15000,
+    fulfilmentMethod: 'delivery', deliveryAddress: '14 Admiralty Way, Lekki Phase 1, Lagos', deliveryFee: 35000, deliveryAreaName: 'Lagos',
     items: [line('panel-001', 'Custom control panel', 'GPEC-CP-001', 1850000, 1), line('terminal-001', 'Terminal block set', 'GPEC-TB-074', 45000, 2)],
     paymentStatus: 'paid', steps: [],
   },
@@ -71,7 +76,7 @@ export const demoOrders: DemoOrder[] = [
   {
     reference: 'GPEC-O-2026-DE000003', age: 3 * DAY,
     customer: { fullName: 'Chinedu Eze', company: 'Eze & Sons Engineering', email: 'chinedu.eze@example.com', phone: '+234 000 000 0103' },
-    fulfilmentMethod: 'delivery', deliveryAddress: '27 Ogui Road, Enugu, Enugu State', deliveryFee: 25000,
+    fulfilmentMethod: 'delivery', deliveryAddress: '27 Ogui Road, Enugu, Enugu State', deliveryFee: 25000, deliveryAreaName: 'South-East states',
     items: [line('solar-001', 'Solar power package', 'GPEC-SOL-020', 2450000, 1)],
     paymentStatus: 'paid', steps: [{ to: 'processing', after: 5 * HOUR }, { to: 'out_for_delivery', after: 2 * DAY }],
     note: { text: 'Dispatched with the GPEC van this morning. Customer asked for a call 30 minutes before arrival.', after: 2 * DAY + HOUR },
@@ -87,7 +92,7 @@ export const demoOrders: DemoOrder[] = [
   {
     reference: 'GPEC-O-2026-DE000005', age: 12 * DAY,
     customer: { fullName: 'Emeka Nwosu', company: 'Nwosu Cold Rooms', email: 'emeka@example.com', phone: '+234 000 000 0105' },
-    fulfilmentMethod: 'delivery', deliveryAddress: 'Plot 9, Kubwa Industrial Layout, Abuja, FCT', deliveryFee: 20000,
+    fulfilmentMethod: 'delivery', deliveryAddress: 'Plot 9, Kubwa Industrial Layout, Abuja, FCT', deliveryFee: 30000, deliveryAreaName: 'Abuja (FCT)',
     items: [line('inverter-001', 'Variable speed drive', 'GPEC-VSD-097', 640000, 2)],
     paymentStatus: 'paid', steps: [{ to: 'processing', after: 4 * HOUR }, { to: 'out_for_delivery', after: 2 * DAY }, { to: 'completed', after: 3 * DAY }],
   },
@@ -101,7 +106,7 @@ export const demoOrders: DemoOrder[] = [
   {
     reference: 'GPEC-O-2026-DE000007', age: 6 * DAY,
     customer: { fullName: 'Tunde Bakare', company: 'Bakare Printing Press', email: 'tunde.bakare@example.com', phone: '+234 000 000 0107' },
-    fulfilmentMethod: 'delivery', deliveryAddress: '5 Iwo Road, Ibadan, Oyo State', deliveryFee: 20000,
+    fulfilmentMethod: 'delivery', deliveryAddress: '5 Iwo Road, Ibadan, Oyo State', deliveryFee: 35000, deliveryAreaName: 'South-West states (outside Lagos)',
     items: [line('starter-001', 'Motor starter assembly', 'GPEC-MSA-085', 385000, 1)],
     paymentStatus: 'paid', steps: [{ to: 'cancelled', after: 4 * HOUR }],
     note: { text: 'Customer asked to cancel before dispatch: they ordered the wrong rating.', after: 3 * HOUR },
@@ -116,17 +121,47 @@ export const demoOrders: DemoOrder[] = [
   {
     reference: 'GPEC-O-2026-DE000009', age: 1 * DAY + 6 * HOUR,
     customer: { fullName: 'Samuel Okon', company: 'Okon Marine Services', email: 'samuel.okon@example.com', phone: '+234 000 000 0109' },
-    fulfilmentMethod: 'delivery', deliveryAddress: '42 Marian Road, Calabar, Cross River State', deliveryFee: 25000,
+    fulfilmentMethod: 'delivery', deliveryAddress: '42 Marian Road, Calabar, Cross River State', deliveryFee: 25000, deliveryAreaName: 'South-South states',
     items: [line('cable-001', 'Industrial cable accessories', 'GPEC-ICA-119', 64000, 3)],
     paymentStatus: 'failed', steps: [],
   },
   {
     reference: 'GPEC-O-2026-DE00000A', age: 1 * DAY + 2 * HOUR,
     customer: { fullName: 'Aisha Lawal', company: 'Lawal Hospitality', email: 'aisha.lawal@example.com', phone: '+234 000 000 0110' },
-    fulfilmentMethod: 'delivery', deliveryAddress: '18 Aba Road, Port Harcourt, Rivers State', deliveryFee: 25000,
+    fulfilmentMethod: 'delivery', deliveryAddress: '18 Aba Road, Port Harcourt, Rivers State', deliveryFee: 3500, deliveryAreaName: 'Port Harcourt: GRA, D-Line, Rumuola, Aba Road',
     items: [line('protection-001', 'Circuit protection assembly', 'GPEC-CPA-014', 295000, 2), line('terminal-001', 'Terminal block set', 'GPEC-TB-074', 45000, 1)],
     paymentStatus: 'paid', steps: [{ to: 'processing', after: 2 * HOUR }],
   },
+  {
+    reference: 'GPEC-O-2026-DE00000B', age: 3 * HOUR,
+    customer: { fullName: 'Blessing Amadi', company: 'Amadi Water Works', email: 'blessing.amadi@example.com', phone: '+234 000 000 0111' },
+    fulfilmentMethod: 'delivery', deliveryAddress: '7 Woji Road, Woji, Port Harcourt, Rivers State', deliveryFee: 2500, deliveryAreaName: 'Port Harcourt: Woji, Trans-Amadi, Elelenwo',
+    items: [line('metering-001', 'Power metering kit', 'GPEC-PMK-051', 210000, 2)],
+    paymentStatus: 'pending_payment', paymentMethod: 'bank_transfer', transferReported: 2 * HOUR, steps: [],
+  },
+  {
+    reference: 'GPEC-O-2026-DE00000C', age: 20 * HOUR,
+    customer: { fullName: 'Yusuf Danjuma', company: '', email: 'yusuf.danjuma@example.com', phone: '+234 000 000 0112' },
+    fulfilmentMethod: 'pickup', deliveryAddress: '', deliveryFee: 0,
+    items: [line('isolation-001', 'Main isolator switch', 'GPEC-MIS-062', 38500, 1)],
+    paymentStatus: 'pending_payment', paymentMethod: 'bank_transfer', steps: [],
+  },
+]
+
+// Demo delivery areas across Nigeria, from GPEC's base in Woji, Port Harcourt (the owner's request,
+// 2026-10-23: GPEC's team should see delivery working; they change or replace them later). The fees
+// are invented. Removed by name with the rest of the demo data.
+export const demoDeliveryAreas: { name: string, description: string, fee: number }[] = [
+  { name: 'Port Harcourt: Woji, Trans-Amadi, Elelenwo', description: 'Close to GPEC in Woji: Woji, Trans-Amadi, Elelenwo, Rumuibekwe, Peter Odili Road.', fee: 2500 },
+  { name: 'Port Harcourt: GRA, D-Line, Rumuola, Aba Road', description: 'Old and New GRA, D-Line, Rumuola, Aba Road, Mile 1 to Mile 3, Diobu.', fee: 3500 },
+  { name: 'Port Harcourt: Rumuokoro, Choba, Eliozu, Ada George', description: 'Rumuokoro, Choba, Eliozu, Rukpokwu, Ada George, Rumuodara.', fee: 4500 },
+  { name: 'Rivers State, outside Port Harcourt', description: 'e.g. Onne, Eleme, Oyigbo, Bori, Ahoada, Omoku.', fee: 10000 },
+  { name: 'South-South states', description: 'Akwa Ibom, Bayelsa, Cross River, Delta, Edo.', fee: 25000 },
+  { name: 'South-East states', description: 'Abia, Anambra, Ebonyi, Enugu, Imo.', fee: 25000 },
+  { name: 'Abuja (FCT)', description: 'Federal Capital Territory.', fee: 30000 },
+  { name: 'Lagos', description: 'Lagos State.', fee: 35000 },
+  { name: 'South-West states (outside Lagos)', description: 'Ekiti, Ogun, Ondo, Osun, Oyo.', fee: 35000 },
+  { name: 'Northern states', description: 'All states in the North Central, North East, and North West.', fee: 40000 },
 ]
 
 export const demoContactRequests: DemoContactRequest[] = [
@@ -181,3 +216,23 @@ export const demoContactRequests: DemoContactRequest[] = [
     steps: [{ to: 'in_progress', after: 2 * HOUR }],
   },
 ]
+
+// Demo prices (naira) for the sample products, so GPEC can try buying (the owner's request,
+// 2026-10-23); the same prices as in the demo orders above. Invented. Set only on sample products that
+// have no price, and cleared again on removal only where staff have not changed them.
+// "Replacement parts" stays unpriced, so the shop's "Price to be confirmed" shows too.
+export const demoPrices: Record<string, number> = {
+  'panel-001': 1850000,
+  'protection-001': 295000,
+  'solar-001': 2450000,
+  'distribution-001': 980000,
+  'components-001': 45000,
+  'accessories-001': 27500,
+  'metering-001': 210000,
+  'isolation-001': 38500,
+  'terminal-001': 45000,
+  'starter-001': 385000,
+  'inverter-001': 640000,
+  'solar-inverter-001': 1275000,
+  'cable-001': 64000,
+}

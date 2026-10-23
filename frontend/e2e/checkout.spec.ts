@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { AREA_ID, NEW_ORDER_REF, PAYMENT_REF, SAMPLE_BANK, mockApi, sampleProducts } from './support/sampleApi'
+import { AREA_ID, NEW_ORDER_REF, PAYMENT_REF, SAMPLE_BANK, SITE_SAMPLE_BANK, mockApi, sampleProducts } from './support/sampleApi'
 
 // Checkout with Paystack (ECOMMERCE_REQUIREMENTS.md). The sample "Paystack" sends the customer straight
 // back to the site, as if they had paid; the sample server says how the payment went.
@@ -192,5 +192,12 @@ test.describe('checkout', () => {
     await page.getByRole('button', { name: /^Place order: / }).click()
     await expect(page.getByRole('heading', { name: 'This order was closed' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Contact GPEC' })).toBeVisible()
+  })
+
+  test('with GPEC’s sample bank details, checkout says plainly not to send money', async ({ page }) => {
+    await mockApi(page, { bankTransfer: { ...SITE_SAMPLE_BANK, instructions: '', payWithinDays: 3, enabled: true } })
+    await openCheckout(page)
+    await page.getByRole('radio', { name: /Bank transfer/ }).check()
+    await expect(page.getByText('Sample bank details for testing: do not send money.')).toBeVisible()
   })
 })

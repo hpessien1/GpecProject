@@ -9,6 +9,7 @@ const bankTransferSettingsSchema = new mongoose.Schema({
   _id: { type: String, default: BANK_TRANSFER_SETTINGS_ID, enum: [BANK_TRANSFER_SETTINGS_ID] },
   // Customers see the option at checkout only while this is on and the details are complete.
   enabled: { type: Boolean, default: false },
+  // Saved in full by services/bankTransfer.ts, which starts from the sample details.
   bankName: { type: String, trim: true, maxlength: 120, default: '' },
   accountName: { type: String, trim: true, maxlength: 120, default: '' },
   // A Nigerian NUBAN account number: 10 digits.

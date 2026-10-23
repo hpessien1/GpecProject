@@ -87,6 +87,7 @@ export default function AdminDeliveryAreaEditor({ areaId, currency, onSessionEnd
         <section className="admin-history" aria-labelledby="admin-area-history-title">
           <h2 id="admin-area-history-title">Change history</h2>
           <p>{deliveryAreasContent.pastOrders}</p>
+          {history.length === 0 && <p>No changes recorded yet. Demo areas added by the demo command have no history until someone edits them.</p>}
           <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
             <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email}) · {entry.action === 'deliveryArea.create' ? 'Added' : 'Changed'}</p>
             <ul>{entry.changes.filter((change) => entry.action === 'deliveryArea.update' || change.to !== null).map((change) => <li key={change.field}>

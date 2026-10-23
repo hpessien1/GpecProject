@@ -173,6 +173,10 @@ Paystack flow; the *Why* notes record the failure each one prevents.
   proves nothing. GPEC's bank details (`BankTransferSettings`) decide where money goes: every change
   is recorded and emailed to all active admins. The account is Nigerian (bank, account name, 10-digit
   NUBAN), so bank transfer is offered only while `CURRENCY` is NGN. No Paystack fee on transfers.
+  The screen starts with plainly fake **sample details** (`SAMPLE_BANK_DETAILS`: "Sample Bank (not
+  real)", account number `0000000000`) for staff to replace (owner's request, 2026-10-23). They can
+  be switched on, including on the live site while it is being tested (`seed:demo` does it), and are
+  always labelled "do not send money" at checkout, on the instructions, and in the email.
 - **Paystack fee is passed to the customer** as a separate, visible line in the order summary
   before they pay. The fee rule (percentage, flat amount, cap) is configuration taken from GPEC's
   Paystack plan, never hard-coded from memory. The product prices themselves are never changed.
@@ -651,6 +655,8 @@ database outage the proxy may then stop sending traffic to the API, so the site'
 - API replica count is 1 with no autoscaling.
 - The AWS project upgraded from the free plan (which ends 2027-04-22) to a paid plan with a spend
   limit.
+- **Real bank details entered** in the admin panel (*Bank details*): the sample ones ("Sample Bank
+  (not real)", `0000000000`) replaced, or bank transfer switched off.
 - **Demo data removed from the live `gpec` database** (`node dist/scripts/seedDemoData.js
   --production --remove` in the `gpec-api` terminal; it reports how many it removed), and the sample
   products archived once GPEC's real ones are in.
@@ -1037,26 +1043,30 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - No business hours or social media links yet (not in GPEC's profile); the footer shows none.
 
 **Functionality**
-- Checkout with Paystack is built and tested (test mode), but **off on the live site** until the
-  `PAYSTACK_*` settings are added in Coolify (RUNBOOK 1.8); until then checkout says online payment
-  is not available yet. No sample product has a price yet, so nothing can be bought until staff
-  enter prices. No delivery areas exist yet (GPEC's to enter), so only pickup is offered until then.
-  Collection hours are not known: the site says GPEC will contact the customer to agree a time.
-- Bank transfer is built but off until GPEC's staff enter the bank details and switch it on. Staff
-  confirm each transfer by hand, so there is no automatic match with the bank statement, and stock is
+- Checkout is built. Paystack (test keys) works once the `PAYSTACK_*` settings are in Coolify
+  (RUNBOOK 1.8); bank transfer, demo delivery areas, and demo prices on the sample products come with
+  `seed:demo`. Collection hours are not known: the site says GPEC will contact the customer to agree
+  a time.
+- Bank transfer shows the sample bank details until GPEC's staff enter real ones. Staff confirm each
+  transfer by hand, so there is no automatic match with the bank statement, and stock is
   not held while a transfer is awaited. Unpaid transfer orders are closed by hand (owner's choice).
   An admin's login can now confirm payments and change the bank account: another reason to decide
   on admin 2FA before launch.
-- **Demo data** (owner's request, 2026-10-22, for showing GPEC the admin screens): 10 orders and 8
-  contact requests from `data/demoData.ts`, realistic and unmarked on screen at the owner's request,
+- **The live site is a test environment until the owner says it is production ready** (owner,
+  2026-10-23): GPEC's team uses it to see how everything behaves, so new features come with demo data
+  there too, rather than staying off.
+- **Demo data** (owner's request, 2026-10-22, for showing GPEC the admin screens): 12 orders (two by
+  bank transfer), 8 contact requests, and 10 delivery areas across Nigeria with invented fees, from
+  `data/demoData.ts`, plus bank transfer switched on with the sample details; realistic and unmarked on screen at the owner's request,
   with `example.com` emails and `+234 000` phone numbers. `npm run seed:demo` adds them,
-  `npm run seed:demo -- --remove` removes exactly them (by their `DE0000` references) with their
-  history and notes. The command refuses the `gpec` database and `NODE_ENV=production` unless run
+  `npm run seed:demo -- --remove` removes exactly them (orders and requests by their `DE0000`
+  references, with their history and notes; delivery areas by name) and switches bank transfer back
+  off, unless real bank details were entered. The command refuses the `gpec` database and `NODE_ENV=production` unless run
   with `--production`: the owner chose (2026-10-23) to show the demo data on the live site too, so
   GPEC can try it before launch. **It must be removed from `gpec` before launch** (checklist in
   Section 7); until then real contact requests sent through the live site would sit among the demo
   ones. Their prices and Paystack fees are invented (the fee uses an illustrative 1.5% + ₦100,
-  capped at ₦2,000, only in the demo data). Stock counts are not reduced by sales until then.
+  capped at ₦2,000, only in the demo data). Demo orders do not change stock counts.
 - Order enquiries were removed (2026-10-22): the `enquiries` collection may still exist, empty or
   with test records, in `gpec_dev`; nothing reads it. The sample product `replacement-001` was
   renamed "Replacement parts" in `data/sampleProducts.ts` (was "Replacement parts enquiry"); the

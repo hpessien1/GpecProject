@@ -106,7 +106,7 @@ export interface OrderEmailData {
   deliveryArea?: { name: string } | null
   customerNotes?: string | null
   paymentMethod?: string | null
-  bankTransfer?: { bankName: string, accountName: string, accountNumber: string, instructions?: string | null, payWithinDays: number } | null
+  bankTransfer?: { bankName: string, accountName: string, accountNumber: string, instructions?: string | null, payWithinDays: number, isSample?: boolean | null } | null
   createdAt?: Date
   currency: string
   subtotal: number
@@ -152,6 +152,7 @@ function transferLines(order: OrderEmailData) {
   const bank = order.bankTransfer
   if (!bank) return []
   return [
+    ...(bank.isSample ? ['SAMPLE DETAILS FOR TESTING: DO NOT SEND MONEY. GPEC has not entered its real bank account yet.', ''] : []),
     `Bank: ${bank.bankName}`,
     `Account name: ${bank.accountName}`,
     `Account number: ${bank.accountNumber}`,

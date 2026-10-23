@@ -58,6 +58,12 @@ export interface BankTransferDetails {
   payWithinDays: number
 }
 
+// At checkout and on orders: also whether these are still the sample details (development only),
+// shown as "do not send money".
+export interface OfferedBankTransfer extends BankTransferDetails {
+  isSample: boolean
+}
+
 export interface CheckoutInfo {
   // False while no way to pay is open: checkout then says payment is not available yet.
   paymentsAvailable: boolean
@@ -66,7 +72,7 @@ export interface CheckoutInfo {
   testMode: boolean
   currency: CurrencyInfo | null
   // Shown at checkout while bank transfer is on.
-  bankTransfer: BankTransferDetails | null
+  bankTransfer: OfferedBankTransfer | null
   deliveryAreas: DeliveryArea[]
 }
 
@@ -122,7 +128,7 @@ export interface PaymentResult extends OrderQuote {
   fulfilmentMethod: FulfilmentMethod
   // For bank transfers: the details the customer was given, the date to pay by, and when they said
   // they had paid.
-  bankTransfer: (BankTransferDetails & { payBy: string, reportedAt: string | null }) | null
+  bankTransfer: (OfferedBankTransfer & { payBy: string, reportedAt: string | null }) | null
 }
 
 
@@ -290,7 +296,7 @@ export interface AdminOrderDetail {
   paymentReference: string
   stage: OrderStage
   paymentMethod: PaymentMethod
-  bankTransfer: BankTransferDetails | null
+  bankTransfer: OfferedBankTransfer | null
   transferReportedAt: string | null
   paymentStatus: PaymentStatus
   fulfilmentStatus: FulfilmentStatus
@@ -365,5 +371,7 @@ export interface BankTransferHistoryEntry {
 
 export interface BankTransferResponse {
   settings: BankTransferSettings
+  // Still the sample details staff started with: the live site will not offer them.
+  isSample: boolean
   history: BankTransferHistoryEntry[]
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { paymentResultContent } from '../../data/shopContent'
+import { checkoutContent, paymentResultContent } from '../../data/shopContent'
 import { reportTransferSent } from '../../services/checkoutApi'
 import { formatDateTime } from '../../utils/dates'
 import { formatPrice } from '../../utils/money'
@@ -38,6 +38,7 @@ export default function TransferInstructions({ paymentReference, result, onRepor
   return <>
     <h2 id="payment-result-title">{paymentResultContent.transferTitle}</h2>
     <p>Your order reference is <strong>{result.reference}</strong>. {paymentResultContent.transferText}</p>
+    {bank.isSample && <p className="shop-test-mode" role="note">{checkoutContent.sampleBank}</p>}
     <dl className="shop-transfer-details">
       <dt>Bank</dt><dd>{bank.bankName}</dd>
       <dt>Account name</dt><dd>{bank.accountName}</dd>

@@ -47,6 +47,12 @@
   font-size: 0.85rem;
   line-height: 1.5;
 }
+/* Sample bank details: must be replaced before real use, so it stands out. */
+.admin-notice-strong {
+  border-left-width: 6px;
+  background: var(--sand);
+  font-weight: 700;
+}
 /* A screen's explanation under its heading (delivery areas). */
 .admin-intro {
   max-width: 720px;

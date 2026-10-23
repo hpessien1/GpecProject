@@ -147,6 +147,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
           </dl>
           {order.bankTransfer && <>
             <h2>Bank details given</h2>
+            {order.bankTransfer.isSample && <p className="admin-notice">Sample details (testing only): this customer was told not to send money.</p>}
             <dl>
               <dt>Bank</dt><dd>{order.bankTransfer.bankName}</dd>
               <dt>Account name</dt><dd>{order.bankTransfer.accountName}</dd>

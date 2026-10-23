@@ -120,15 +120,20 @@ cd backend && npm run seed:products        # adds any missing sample product; ne
 
 Everything else (adding real products, prices, stock, archiving) is done in the admin panel.
 
-### Demo orders and contact requests
+### Demo data
 
-For showing the admin screens: 10 orders in every stage and 8 contact requests in every status.
+So GPEC can see everything working (the live site is a test environment until the owner says it is
+production ready): 12 orders in every stage (two paid by bank transfer), 8 contact requests in every
+status, 10 delivery areas across Nigeria, demo prices on the sample products (run
+`npm run seed:products` first), and bank transfer switched on with the sample bank details. Fees and
+prices are invented; GPEC's staff change them in the admin panel.
 The command refuses the production `gpec` database unless given `--production` (live site:
 Section 8).
 
 ```bash
 cd backend && npm run seed:demo                # adds the demo records that are missing (safe to repeat)
-cd backend && npm run seed:demo -- --remove    # removes exactly the demo records, with their history and notes
+cd backend && npm run seed:demo -- --remove    # removes exactly the demo records (history and notes too), demo areas and prices staff
+                                               # have not changed, and switches bank transfer off unless real details were entered
 ```
 
 Status history and notes are added only if an admin account exists. If the API is already running

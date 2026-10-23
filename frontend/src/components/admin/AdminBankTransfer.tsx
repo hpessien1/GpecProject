@@ -96,6 +96,7 @@ export default function AdminBankTransfer({ currency, onSessionEnded }: AdminBan
     <p className="admin-intro">{bankTransferContent.intro}</p>
     <p className="admin-notice">{bankTransferContent.warning}</p>
     {currency?.code !== 'NGN' && <p className="admin-notice">{bankTransferContent.noCurrency}</p>}
+    {data?.isSample && <p className="admin-notice admin-notice-strong">{bankTransferContent.sample}</p>}
     {result && <p className={result.kind === 'success' ? 'success-message' : 'form-error'} role={result.kind === 'success' ? 'status' : 'alert'} tabIndex={-1} ref={resultRef}>{result.message}</p>}
     {loadError ? <p className="form-error" role="alert">{loadError}</p>
       : !data ? <p className="admin-loading" role="status">Loading bank details…</p>

@@ -14,6 +14,8 @@ export const checkoutContent = {
   paystackNote: 'You will go to Paystack’s secure page to pay by card, bank transfer, or another option Paystack offers, then come back here.',
   paystackChoice: 'By card or another option Paystack offers, on Paystack’s secure page. Confirmed straight away. A payment processing fee is added.',
   transferChoice: 'Transfer the total to GPEC’s bank account from your banking app. No processing fee. GPEC prepares your order once the money arrives.',
+  // Shown while GPEC's real bank account is not entered yet (the sample details, while the site is tested).
+  sampleBank: 'Sample bank details for testing: do not send money. GPEC has not entered its real bank account yet.',
   transferNote: (days: number) => `After you place the order, you will see GPEC’s bank details, the amount, and your order reference to use as the narration (they are emailed to you too). Please pay within ${days} day${days === 1 ? '' : 's'}.`,
   feeNote: 'The payment processing fee is what Paystack charges for handling the payment.',
 }

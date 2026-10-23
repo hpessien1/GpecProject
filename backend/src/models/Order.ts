@@ -49,6 +49,8 @@ const bankTransferSnapshotSchema = new mongoose.Schema({
   accountNumber: { type: String, required: true },
   instructions: { type: String, default: '' },
   payWithinDays: { type: Number, required: true },
+  // The sample details (development only): shown as "do not send money".
+  isSample: { type: Boolean, default: false },
 }, { _id: false })
 
 // The MongoDB _id is also the Paystack transaction reference; `reference` is what the customer sees.

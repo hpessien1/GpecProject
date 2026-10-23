@@ -70,6 +70,7 @@ export const bankTransferContent = {
   intro: 'Customers who choose bank transfer at checkout see these details, with the amount and their order reference to use as the narration. Their order waits as “Awaiting transfer” until you confirm on the order that the money arrived.',
   warning: 'These details decide where customers send their money. Every change is recorded and emailed to all admins. Check them carefully before saving.',
   noCurrency: 'Bank transfer is offered only while the shop currency is naira (NGN).',
+  sample: 'These are sample details, not a real account, for testing. Customers are told not to send money while they are shown. Replace the bank, account name, and account number with GPEC’s own before the site is used for real.',
   hints: {
     bankName: 'The bank as customers will find it in their banking app, e.g. Access Bank, GTBank, Zenith Bank.',
     accountName: 'Exactly as the bank has it, e.g. GPEC Engineering Company Limited. Customers check it before sending.',

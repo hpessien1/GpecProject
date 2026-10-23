@@ -1,9 +1,13 @@
 import AdminUser from '../models/AdminUser.js'
 import AuditRecord from '../models/AuditRecord.js'
+import BankTransferSettings, { BANK_TRANSFER_SETTINGS_ID } from '../models/BankTransferSettings.js'
 import ContactRequest from '../models/ContactRequest.js'
+import DeliveryArea from '../models/DeliveryArea.js'
 import Order from '../models/Order.js'
 import RequestNote from '../models/RequestNote.js'
-import { demoContactRequests, demoOrders } from '../data/demoData.js'
+import { demoContactRequests, demoDeliveryAreas, demoOrders, demoPrices } from '../data/demoData.js'
+import Product from '../models/Product.js'
+import { SAMPLE_BANK_DETAILS, isSampleAccount } from './bankTransfer.js'
 import type { DemoStatusStep } from '../data/demoData.js'
 
 export const PRODUCTION_DATABASE = 'gpec'
@@ -28,6 +32,8 @@ function demoPaystackFee(amount: number) {
 }
 
 const ORDER_REFERENCES = demoOrders.map((order) => order.reference)
+const AREA_NAMES = demoDeliveryAreas.map((area) => area.name)
+const DEMO_BANK = { ...SAMPLE_BANK_DETAILS, instructions: '', payWithinDays: 3 }
 const CONTACT_REFERENCES = demoContactRequests.map((request) => request.reference)
 
 // Status history entries, from "new" through each step, by the given admin.
@@ -46,7 +52,26 @@ function historyRecords(admin: { _id: unknown, email: string, name: string }, ta
 // Adds the demo orders and contact requests that are not there yet; existing ones are left alone, so
 // running it twice changes nothing. Status history and notes need an author, so they are added (by
 // the first active admin) only when an admin account exists.
+// Demo delivery areas that are missing (by name), and bank transfer switched on with the sample
+// details, unless staff have entered real ones. Areas already there, even edited, are left alone.
+async function seedShopSettings() {
+  const existing = new Set((await DeliveryArea.find({ name: { $in: AREA_NAMES } }).select('name').lean()).map((area) => area.name))
+  const missing = demoDeliveryAreas.map((area, index) => ({ ...area, fee: kobo(area.fee), sortOrder: (index + 1) * 10 })).filter((area) => !existing.has(area.name))
+  if (missing.length > 0) await DeliveryArea.insertMany(missing)
+  const bank = await BankTransferSettings.findById(BANK_TRANSFER_SETTINGS_ID).lean()
+  const bankSwitchedOn = !bank || isSampleAccount(bank)
+  if (bankSwitchedOn) await BankTransferSettings.updateOne({ _id: BANK_TRANSFER_SETTINGS_ID }, { $set: { ...(bank ? {} : DEMO_BANK), enabled: true } }, { upsert: true })
+  let pricesSet = 0
+  for (const [id, naira] of Object.entries(demoPrices)) {
+    const update = await Product.updateOne({ _id: id, isPlaceholder: true, price: null }, { $set: { price: kobo(naira) } })
+    pricesSet += update.modifiedCount
+  }
+  return { deliveryAreas: missing.length, bankTransferOn: bankSwitchedOn, pricesSet }
+}
+
 export async function seedDemoData(now = Date.now()) {
+  const shop = await seedShopSettings()
+  const areaIds = new Map((await DeliveryArea.find({ name: { $in: AREA_NAMES } }).select('name').lean()).map((area) => [area.name, String(area._id)]))
   const [existingOrders, existingContacts, admin] = await Promise.all([
     Order.find({ reference: { $in: ORDER_REFERENCES } }).select('reference').lean(),
     ContactRequest.find({ reference: { $in: CONTACT_REFERENCES } }).select('reference').lean(),
@@ -62,7 +87,9 @@ export async function seedDemoData(now = Date.now()) {
     const items = order.items.map((item) => ({ ...item, unitPrice: kobo(item.unitPrice), lineTotal: kobo(item.unitPrice) * item.quantity }))
     const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0)
     const deliveryFee = kobo(order.deliveryFee)
-    const paystackFee = demoPaystackFee(subtotal + deliveryFee)
+    const isTransfer = order.paymentMethod === 'bank_transfer'
+    const paystackFee = isTransfer ? 0 : demoPaystackFee(subtotal + deliveryFee)
+    const areaId = order.deliveryAreaName ? areaIds.get(order.deliveryAreaName) : undefined
     const lastStep = order.steps.at(-1)
     return {
       reference: order.reference,
@@ -70,6 +97,10 @@ export async function seedDemoData(now = Date.now()) {
       items,
       fulfilmentMethod: order.fulfilmentMethod,
       deliveryAddress: order.deliveryAddress,
+      deliveryArea: areaId && order.deliveryAreaName ? { areaId, name: order.deliveryAreaName } : null,
+      paymentMethod: order.paymentMethod ?? 'paystack',
+      bankTransfer: isTransfer ? { ...DEMO_BANK, isSample: true } : null,
+      transferReportedAt: order.transferReported === undefined ? null : new Date(placedAt + order.transferReported),
       currency: 'NGN',
       subtotal,
       deliveryFee,
@@ -110,18 +141,26 @@ export async function seedDemoData(now = Date.now()) {
       ...newContacts.filter((request) => request.note).map((request) => ({ targetType: 'contactRequest', targetId: request.reference, text: request.note?.text, author, createdAt: new Date(now - request.age + (request.note?.after ?? 0)) })),
     ])
   }
-  return { orders: newOrders.length, contactRequests: newContacts.length, withHistory: admin !== null }
+  return { orders: newOrders.length, contactRequests: newContacts.length, withHistory: admin !== null, ...shop }
 }
 
 // Removes every demo record, with its status history and notes, and nothing else: they are found by
-// their exact demo references.
+// their exact demo references, and demo delivery areas by name. Bank transfer goes back to off with
+// the sample details, unless staff have entered real ones (those are kept).
 export async function removeDemoData() {
   const targets = [...ORDER_REFERENCES, ...CONTACT_REFERENCES]
-  const [orders, contactRequests] = await Promise.all([
+  const areas = await DeliveryArea.find({ name: { $in: AREA_NAMES } }).select('_id').lean()
+  const areaIds = areas.map((area) => String(area._id))
+  const bank = await BankTransferSettings.findById(BANK_TRANSFER_SETTINGS_ID).lean()
+  const [orders, contactRequests, deliveryAreas] = await Promise.all([
     Order.deleteMany({ reference: { $in: ORDER_REFERENCES } }),
     ContactRequest.deleteMany({ reference: { $in: CONTACT_REFERENCES } }),
+    DeliveryArea.deleteMany({ _id: { $in: areas.map((area) => area._id) } }),
     AuditRecord.deleteMany({ targetType: { $in: ['order', 'contactRequest'] }, targetId: { $in: targets } }),
+    AuditRecord.deleteMany({ targetType: 'deliveryArea', targetId: { $in: areaIds } }),
     RequestNote.deleteMany({ targetType: { $in: ['order', 'contactRequest'] }, targetId: { $in: targets } }),
+    ...(bank && isSampleAccount(bank) ? [BankTransferSettings.deleteOne({ _id: BANK_TRANSFER_SETTINGS_ID })] : []),
+    ...Object.entries(demoPrices).map(([id, naira]) => Product.updateOne({ _id: id, isPlaceholder: true, price: kobo(naira) }, { $set: { price: null } })),
   ])
-  return { orders: orders.deletedCount, contactRequests: contactRequests.deletedCount }
+  return { orders: orders.deletedCount, contactRequests: contactRequests.deletedCount, deliveryAreas: deliveryAreas.deletedCount }
 }

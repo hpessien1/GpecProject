@@ -3,7 +3,11 @@ import type TestAgent from 'supertest/lib/agent.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AuditRecord from '../src/models/AuditRecord.js'
 import ContactRequest from '../src/models/ContactRequest.js'
+import BankTransferSettings from '../src/models/BankTransferSettings.js'
+import DeliveryArea from '../src/models/DeliveryArea.js'
 import Order from '../src/models/Order.js'
+import Product from '../src/models/Product.js'
+import { seedSampleProducts } from '../src/services/products.js'
 import RequestNote from '../src/models/RequestNote.js'
 import { assertDemoAllowed, removeDemoData, seedDemoData } from '../src/services/demoData.js'
 import { TEST_ADMIN, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
@@ -47,8 +51,8 @@ describe('order list', () => {
     const res = await agent.get(LIST)
     expect(res.status).toBe(200)
     expect(res.headers['cache-control']).toBe('no-store')
-    expect(res.body).toMatchObject({ total: 10, page: 1, totalPages: 1 })
-    expect(res.body.counts).toEqual({ awaiting_payment: 1, awaiting_transfer: 0, transfer_reported: 0, payment_failed: 1, new: 1, processing: 2, ready_for_pickup: 1, out_for_delivery: 1, completed: 2, cancelled: 1 })
+    expect(res.body).toMatchObject({ total: 12, page: 1, totalPages: 1 })
+    expect(res.body.counts).toEqual({ awaiting_payment: 1, awaiting_transfer: 1, transfer_reported: 1, payment_failed: 1, new: 1, processing: 2, ready_for_pickup: 1, out_for_delivery: 1, completed: 2, cancelled: 1 })
     expect(res.body.items[0]).toMatchObject({
       reference: NEW_DELIVERY, stage: 'new', name: 'Adaeze Okafor', company: 'Brightline Facilities Ltd', fulfilmentMethod: 'delivery',
       summary: '1 × Custom control panel, 2 × Terminal block set', currency: { code: 'NGN', minorUnitDigits: 2 },
@@ -79,10 +83,10 @@ describe('order detail', () => {
     const { order } = res.body
     expect(order).toMatchObject({
       reference: NEW_DELIVERY, stage: 'new', paymentStatus: 'paid', fulfilmentStatus: 'new', fulfilmentMethod: 'delivery',
-      deliveryAddress: '14 Admiralty Way, Lekki Phase 1, Lagos',
+      deliveryAddress: '14 Admiralty Way, Lekki Phase 1, Lagos', deliveryAreaName: 'Lagos', paymentMethod: 'paystack',
       customer: { fullName: 'Adaeze Okafor', email: 'adaeze.okafor@example.com' },
       items: [{ name: 'Custom control panel', unitPrice: 185000000, quantity: 1, lineTotal: 185000000 }, { name: 'Terminal block set', unitPrice: 4500000, quantity: 2, lineTotal: 9000000 }],
-      currency: { code: 'NGN', minorUnitDigits: 2 }, subtotal: 194000000, deliveryFee: 1500000,
+      currency: { code: 'NGN', minorUnitDigits: 2 }, subtotal: 194000000, deliveryFee: 3500000,
     })
     expect(order.paymentReference).toMatch(/^[0-9a-f]{24}$/)
     expect(order.paidAt).toEqual(expect.any(String))
@@ -174,7 +178,7 @@ describe('order notes', () => {
 
 describe('demo data', () => {
   it('adds orders in every stage and contact requests in every status, with history and notes by the admin', async () => {
-    expect(await Order.countDocuments()).toBe(10)
+    expect(await Order.countDocuments()).toBe(12)
     const statuses = await ContactRequest.distinct('status')
     expect(statuses.sort()).toEqual(['closed', 'in_progress', 'new'])
     expect(await ContactRequest.countDocuments()).toBe(8)
@@ -198,6 +202,40 @@ describe('demo data', () => {
     expect(unpaid.map((order) => order.paidAt)).toEqual(unpaid.map(() => null))
   })
 
+  it('adds delivery areas across Nigeria, links delivery orders to them, and switches on bank transfer with the sample details', async () => {
+    const areas = await DeliveryArea.find().sort({ sortOrder: 1 }).lean()
+    expect(areas).toHaveLength(10)
+    expect(areas[0]).toMatchObject({ name: 'Port Harcourt: Woji, Trans-Amadi, Elelenwo', fee: 250000, status: 'active' })
+    for (const order of await Order.find({ fulfilmentMethod: 'delivery' }).lean()) {
+      const area = areas.find((candidate) => String(candidate._id) === order.deliveryArea?.areaId)
+      expect(area?.fee).toBe(order.deliveryFee)
+    }
+    expect((await request(app).get('/api/checkout')).body).toMatchObject({ bankTransfer: { isSample: true, accountNumber: '0000000000' } })
+    const transfers = await Order.find({ paymentMethod: 'bank_transfer' }).lean()
+    expect(transfers.map((order) => [order.paystackFee, order.bankTransfer?.isSample])).toEqual([[0, true], [0, true]])
+  })
+
+  it('prices unpriced sample products, leaves staff prices alone, and clears only its own on removal', async () => {
+    await removeDemoData()
+    await seedSampleProducts()
+    await Product.updateOne({ _id: 'solar-001' }, { price: 99_900 })
+    expect((await seedDemoData()).pricesSet).toBe(12)
+    expect((await Product.findById('panel-001').lean())?.price).toBe(185_000_000)
+    expect((await Product.findById('solar-001').lean())?.price).toBe(99_900)
+    expect((await Product.findById('replacement-001').lean())?.price).toBeNull()
+    await Product.updateOne({ _id: 'cable-001' }, { price: 1 })
+    await removeDemoData()
+    const prices = Object.fromEntries((await Product.find().lean()).map((product) => [product._id, product.price]))
+    expect(prices).toMatchObject({ 'panel-001': null, 'solar-001': 99_900, 'cable-001': 1 })
+  })
+
+  it('leaves real bank details alone, both when adding and when removing', async () => {
+    await BankTransferSettings.updateOne({}, { bankName: 'Real Bank', accountName: 'GPEC Engineering Company Limited', accountNumber: '0123456789', enabled: false })
+    expect((await seedDemoData()).bankTransferOn).toBe(false)
+    await removeDemoData()
+    expect(await BankTransferSettings.findOne().lean()).toMatchObject({ accountNumber: '0123456789', enabled: false })
+  })
+
   it('uses only reserved example email domains and unreachable phone numbers', async () => {
     const orders = await Order.find().lean()
     const contacts = await ContactRequest.find().lean()
@@ -206,15 +244,19 @@ describe('demo data', () => {
   })
 
   it('adds nothing the second time', async () => {
-    expect(await seedDemoData()).toMatchObject({ orders: 0, contactRequests: 0 })
-    expect(await Order.countDocuments()).toBe(10)
+    expect(await seedDemoData()).toMatchObject({ orders: 0, contactRequests: 0, deliveryAreas: 0 })
+    expect(await Order.countDocuments()).toBe(12)
+    expect(await DeliveryArea.countDocuments()).toBe(10)
   })
 
   it('removes every demo record, history, and note, and nothing else', async () => {
     const real = await request(app).post('/api/contact-requests').send({ fullName: 'Real Customer', email: 'real@example.com', message: 'Hello' })
     await agent.post(`${LIST}/${NEW_DELIVERY}/notes`).set('Origin', ORIGIN).send({ text: 'Note' })
-    expect(await removeDemoData()).toEqual({ orders: 10, contactRequests: 8 })
+    const staffArea = await DeliveryArea.create({ name: 'Added by staff', fee: 100 })
+    expect(await removeDemoData()).toEqual({ orders: 12, contactRequests: 8, deliveryAreas: 10 })
     expect(await Order.countDocuments()).toBe(0)
+    expect(await DeliveryArea.find().lean()).toMatchObject([{ _id: staffArea._id }])
+    expect(await BankTransferSettings.countDocuments()).toBe(0)
     expect(await ContactRequest.find().lean()).toMatchObject([{ reference: real.body.reference }])
     expect(await AuditRecord.countDocuments({ targetType: { $in: ['order', 'contactRequest'] } })).toBe(0)
     expect(await RequestNote.countDocuments()).toBe(0)
@@ -224,7 +266,7 @@ describe('demo data', () => {
     await removeDemoData()
     const { default: AdminUser } = await import('../src/models/AdminUser.js')
     await AdminUser.deleteMany({})
-    expect(await seedDemoData()).toEqual({ orders: 10, contactRequests: 8, withHistory: false })
+    expect(await seedDemoData()).toEqual({ orders: 12, contactRequests: 8, withHistory: false, deliveryAreas: 10, bankTransferOn: true, pricesSet: 0 })
     expect(await AuditRecord.countDocuments({ targetType: 'order' })).toBe(0)
   })
 

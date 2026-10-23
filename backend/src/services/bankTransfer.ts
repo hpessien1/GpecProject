@@ -12,9 +12,25 @@ export const BANK_TRANSFER_CURRENCY = 'NGN'
 
 const FIELDS = ['enabled', 'bankName', 'accountName', 'accountNumber', 'instructions', 'payWithinDays'] as const
 const HISTORY_LIMIT = 50
-const DEFAULTS = { enabled: false, bankName: '', accountName: '', accountNumber: '', instructions: '', payWithinDays: 3 }
+// What the Bank details screen starts with, for staff to replace with GPEC's real account. Plainly not
+// real: no bank has that name, and 0000000000 is no one's account number, so a customer who somehow saw
+// it could not send money to a stranger. Checkout, the instructions, and the email label it "do not
+// send money" (isSampleAccount). Replacing it is on the launch checklist (CLAUDE.md Section 7).
+export const SAMPLE_BANK_DETAILS = {
+  bankName: 'Sample Bank (not real)',
+  accountName: 'SAMPLE – replace with GPEC’s account name',
+  accountNumber: '0000000000',
+}
 
-export type BankTransferDetails = Omit<typeof DEFAULTS, 'enabled'>
+const DEFAULTS = { enabled: false, ...SAMPLE_BANK_DETAILS, instructions: '', payWithinDays: 3 }
+
+// True while any of the bank, account name, or account number is still the sample's.
+export function isSampleAccount(details: { bankName: string, accountName: string, accountNumber: string }) {
+  return details.bankName === SAMPLE_BANK_DETAILS.bankName || details.accountName === SAMPLE_BANK_DETAILS.accountName || details.accountNumber === SAMPLE_BANK_DETAILS.accountNumber
+}
+
+// isSample: the sample details, which checkout and emails label "do not send money".
+export type BankTransferDetails = Omit<typeof DEFAULTS, 'enabled'> & { isSample: boolean }
 
 function toSettings(stored: Record<string, unknown> | null) {
   return Object.fromEntries(FIELDS.map((field) => [field, stored?.[field] ?? DEFAULTS[field]])) as typeof DEFAULTS
@@ -28,10 +44,12 @@ export async function getBankTransferSettings() {
   return toSettings(await BankTransferSettings.findById(BANK_TRANSFER_SETTINGS_ID).lean())
 }
 
-// What checkout offers: the details only while staff have switched bank transfer on.
+// What checkout offers: the details only while staff have switched bank transfer on. The sample
+// details can be offered too, while the site is being tested (owner, 2026-10-23), always labelled.
 export async function activeBankTransfer(): Promise<BankTransferDetails | null> {
   const { enabled, ...details } = await getBankTransferSettings()
-  return enabled && isComplete({ enabled, ...details }) ? details : null
+  if (!enabled || !isComplete({ enabled, ...details })) return null
+  return { ...details, isSample: isSampleAccount(details) }
 }
 
 // Saved with its audit record in one transaction. Turning it on needs the bank, account name, and
@@ -48,7 +66,9 @@ export async function updateBankTransferSettings(admin: AdminIdentity, changes: 
     diffs = FIELDS.filter((field) => before[field] !== after[field]).map((field) => ({ field, from: before[field], to: after[field] }))
     saved = after
     if (diffs.length === 0) return
-    await BankTransferSettings.findOneAndUpdate({ _id: BANK_TRANSFER_SETTINGS_ID }, { $set: Object.fromEntries(diffs.map(({ field, to }) => [field, to])) }, { upsert: true, runValidators: true, session, setDefaultsOnInsert: true })
+    // Every field is written, not only the changed ones: the first save creates the record, and the
+    // sample values it started from must be stored too, not the model's empty defaults.
+    await BankTransferSettings.findOneAndUpdate({ _id: BANK_TRANSFER_SETTINGS_ID }, { $set: Object.fromEntries(FIELDS.map((field) => [field, after[field]])) }, { upsert: true, runValidators: true, session })
     await AuditRecord.create([{ action: 'bankTransfer.update', targetType: 'bankTransfer', targetId: BANK_TRANSFER_SETTINGS_ID, actor: { adminId: admin.id, email: admin.email, name: admin.name }, changes: diffs }], { session })
   })
   if (diffs.length > 0) {

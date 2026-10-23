@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_BANK, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -379,6 +379,14 @@ test.describe('bank transfer', () => {
     await expect(page.locator('.success-message')).toHaveText('Bank details saved. All admins have been emailed about the change.')
     expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ accountNumber: '9876543210' })
     await expect(page.locator('.admin-history li').first()).toContainText('Account number: 0123456789 → 9876543210')
+  })
+
+  test('starts with sample details that say they must be replaced', async ({ page }) => {
+    await mockApi(page, { bankTransfer: { ...SITE_SAMPLE_BANK, instructions: '', payWithinDays: 3, enabled: false } })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/bank-transfer')
+    await expect(page.getByText('These are sample details, not a real account, for testing.')).toBeVisible()
+    await expect(page.getByLabel('Account number')).toHaveValue('0000000000')
   })
 
   test('says bank transfer needs naira', async ({ page }) => {

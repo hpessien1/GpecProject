@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
-import { bankTransferHistory, getBankTransferSettings, updateBankTransferSettings } from '../services/bankTransfer.js'
+import { bankTransferHistory, getBankTransferSettings, isSampleAccount, updateBankTransferSettings } from '../services/bankTransfer.js'
 import type { Notifier } from '../services/notifications.js'
 import { validateBankTransferUpdate } from '../validation/bankTransfer.js'
 
@@ -13,7 +13,7 @@ export default function adminBankTransferRouter(notifier: Notifier) {
   router.get('/', async (_req, res, next) => {
     try {
       const [settings, history] = await Promise.all([getBankTransferSettings(), bankTransferHistory()])
-      return res.json({ settings, history })
+      return res.json({ settings, isSample: isSampleAccount(settings), history })
     } catch (error) {
       return next(error)
     }
@@ -24,7 +24,7 @@ export default function adminBankTransferRouter(notifier: Notifier) {
       const { errors, value } = validateBankTransferUpdate(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       const settings = await updateBankTransferSettings(currentAdmin(res), value, notifier)
-      return res.json({ settings, history: await bankTransferHistory() })
+      return res.json({ settings, isSample: isSampleAccount(settings), history: await bankTransferHistory() })
     } catch (error) {
       return next(error)
     }

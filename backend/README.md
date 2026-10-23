@@ -104,7 +104,8 @@ body) records that the customer says they paid, once, and emails staff. Staff th
 `order.payment` audit record) or `transfer-not-received` (closed as failed, recorded); both refuse
 Paystack orders (`409 NOT_A_TRANSFER`) and settled ones (`409 TRANSFER_ALREADY_SETTLED`). `GET` /
 `PATCH /api/admin/bank-transfer` read and change `enabled`, `bankName`, `accountName`,
-`accountNumber` (10 digits), `instructions`, `payWithinDays` (1–30), with the change history; turning
+`accountNumber` (10 digits), `instructions`, `payWithinDays` (1–30), with the change history and
+`isSample` (still the starting sample details, labelled "do not send money" wherever shown); turning
 it on needs the bank, name, and number; every change emails all active admins. The admin order list
 adds the stages `awaiting_transfer` and `transfer_reported`.
 

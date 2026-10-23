@@ -297,8 +297,8 @@ for an image already on the site, and the API log says `Product photo uploads ar
 
 ### 1.8 Payments (Paystack and bank transfer)
 
-**Bank transfer** works without Paystack. In the admin panel, *Bank details*: enter GPEC's bank, the
-account name exactly as the bank has it, and the 10-digit account number; choose the days customers
+**Bank transfer** works without Paystack. In the admin panel, *Bank details*: replace the sample
+details (they are fake, and customers are told not to send money while they show) with GPEC's bank, the account name exactly as the bank has it, and the 10-digit account number; choose the days customers
 have to pay; tick *Offer bank transfer at checkout*; save. Every admin gets an email about the
 change: if one ever arrives that nobody expected, check the details at once and change the admin
 passwords. Bank transfer is offered only while `CURRENCY=NGN`. For each transfer order, staff look

@@ -5,6 +5,7 @@ import AuditRecord from '../src/models/AuditRecord.js'
 import BankTransferSettings from '../src/models/BankTransferSettings.js'
 import Order from '../src/models/Order.js'
 import Product from '../src/models/Product.js'
+import { SAMPLE_BANK_DETAILS } from '../src/services/bankTransfer.js'
 import { markOrderPaid } from '../src/services/checkout.js'
 import { createNotifier } from '../src/services/notifications.js'
 import { seedSampleProducts } from '../src/services/products.js'
@@ -53,17 +54,18 @@ describe('bank details (admin)', () => {
     expect((await request(app).patch(SETTINGS).send({ enabled: true })).status).toBe(401)
   })
 
-  it('starts empty and off', async () => {
+  it('starts off, with plainly fake sample details for staff to replace', async () => {
     const res = await agent.get(SETTINGS)
     expect(res.headers['cache-control']).toBe('no-store')
-    expect(res.body).toEqual({ settings: { enabled: false, bankName: '', accountName: '', accountNumber: '', instructions: '', payWithinDays: 3 }, history: [] })
+    expect(res.body).toEqual({ settings: { enabled: false, ...SAMPLE_BANK_DETAILS, instructions: '', payWithinDays: 3 }, isSample: true, history: [] })
   })
 
   it('saves the details, records who changed what, and emails every active admin', async () => {
     const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ ...BANK, enabled: true })
     expect(res.status).toBe(200)
     expect(res.body.settings).toEqual({ ...BANK, enabled: true })
-    expect(res.body.history[0]).toMatchObject({ actor: { name: TEST_ADMIN.name }, changes: expect.arrayContaining([{ field: 'accountNumber', from: '', to: '0123456789' }]) })
+    expect(res.body.isSample).toBe(false)
+    expect(res.body.history[0]).toMatchObject({ actor: { name: TEST_ADMIN.name }, changes: expect.arrayContaining([{ field: 'accountNumber', from: '0000000000', to: '0123456789' }]) })
     await settle()
     expect(mailer.sent).toHaveLength(1)
     expect(mailer.sent[0].to.sort()).toEqual([TEST_ADMIN.email, 'second@example.test'].sort())
@@ -75,7 +77,7 @@ describe('bank details (admin)', () => {
   })
 
   it('refuses to switch it on before the bank, account name, and number are filled in', async () => {
-    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ enabled: true, bankName: 'Sample Bank' })
+    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ enabled: true, accountNumber: '' })
     expect(res.status).toBe(400)
     expect(res.body.errors).toHaveProperty('enabled')
     expect(await BankTransferSettings.countDocuments()).toBe(0)
@@ -107,7 +109,7 @@ describe('checking out by bank transfer', () => {
     expect((await request(app).get('/api/checkout')).body).toMatchObject({ paymentsAvailable: false, paymentMethods: [], bankTransfer: null })
     await turnOnBankTransfer()
     const res = await request(app).get('/api/checkout')
-    expect(res.body).toMatchObject({ paymentsAvailable: true, paymentMethods: ['bank_transfer'], testMode: false, bankTransfer: BANK })
+    expect(res.body).toMatchObject({ paymentsAvailable: true, paymentMethods: ['bank_transfer'], testMode: false, bankTransfer: { ...BANK, isSample: false } })
     await BankTransferSettings.updateOne({}, { enabled: false })
     expect((await request(app).post('/api/checkout/quote').send({ ...basket, paymentMethod: 'bank_transfer' })).body.code).toBe('BANK_TRANSFER_UNAVAILABLE')
   })
@@ -268,4 +270,30 @@ describe('Nigerian accounts only, for now', () => {
     expect((await request(ghs).get('/api/checkout')).body).toMatchObject({ paymentMethods: [], bankTransfer: null })
     expect((await request(ghs).post('/api/checkout/quote').send({ ...basket, paymentMethod: 'bank_transfer' })).body.code).toBe('BANK_TRANSFER_UNAVAILABLE')
   })
+})
+
+describe('the sample bank details', () => {
+  async function switchOnSample(target = agent) {
+    return target.patch(SETTINGS).set('Origin', ORIGIN).send({ enabled: true })
+  }
+
+  it('can be tried in development, labelled "do not send money" everywhere', async () => {
+    expect((await switchOnSample()).status).toBe(200)
+    const checkout = await request(app).get('/api/checkout')
+    expect(checkout.body.bankTransfer).toMatchObject({ ...SAMPLE_BANK_DETAILS, isSample: true })
+    await settle()
+    mailer.sent.length = 0
+    const { body } = await placeTransferOrder()
+    expect((await request(app).get(`/api/checkout/orders/${body.paymentReference}`)).body.bankTransfer.isSample).toBe(true)
+    await settle()
+    const toCustomer = mailer.sent.find((message) => message.to.includes(customer.email))
+    expect(toCustomer?.text).toContain('SAMPLE DETAILS FOR TESTING: DO NOT SEND MONEY')
+  })
+
+  it('is offered on the live site too while it is being tested, still labelled', async () => {
+    await BankTransferSettings.create({ ...SAMPLE_BANK_DETAILS, enabled: true })
+    const live = testApp({ isProduction: true }, null, undefined, null, null)
+    expect((await request(live).get('/api/checkout')).body).toMatchObject({ paymentMethods: ['bank_transfer'], bankTransfer: { isSample: true } })
+  })
+
 })
