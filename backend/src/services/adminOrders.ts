@@ -3,13 +3,14 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors.js'
 import AuditRecord from '../models/AuditRecord.js'
 import Order, { FULFILMENT_STATUSES } from '../models/Order.js'
 import type { FulfilmentStatus } from '../models/Order.js'
+import { ADMIN_PAGE_SIZE, pageInfo, skipTo } from '../utils/paging.js'
+import type { Cursor } from '../utils/paging.js'
 import { searchFilter } from '../utils/search.js'
 import type { AdminIdentity } from './adminAuth.js'
+import { historyPage } from './auditHistory.js'
 import { currencyInfo } from './currency.js'
 import { createNote, listNotes } from './staffNotes.js'
 
-export const ORDER_PAGE_SIZE = 25
-const HISTORY_LIMIT = 50
 const SEARCH_FIELDS = ['reference', 'customer.fullName', 'customer.company', 'customer.email']
 
 // Where an order stands, in one word for the admin list: unpaid orders by their payment status
@@ -87,16 +88,23 @@ function toDetail(order: StoredOrder) {
   }
 }
 
-async function history(reference: string) {
-  const records = await AuditRecord.find({ targetType: 'order', targetId: reference }).sort({ createdAt: -1, _id: -1 }).limit(HISTORY_LIMIT).lean()
-  return records.map((record) => ({ action: record.action, actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' }, changes: record.changes, createdAt: record.createdAt }))
-}
-
+// The order with the newest page of its history and of its notes; older pages come from the two
+// functions after it.
 export async function getOrder(reference: string) {
   const order: StoredOrder | null = await Order.findOne({ reference }).lean()
   if (!order) throw new NotFoundError('Order not found.')
-  const [statusHistory, notes] = await Promise.all([history(reference), listNotes('order', reference)])
-  return { order: toDetail(order), history: statusHistory, notes }
+  const [history, notes] = await Promise.all([historyPage('order', reference, null), listNotes('order', reference, null)])
+  return { order: toDetail(order), ...history, ...notes }
+}
+
+export async function orderHistory(reference: string, before: Cursor | null) {
+  if (!await Order.exists({ reference })) throw new NotFoundError('Order not found.')
+  return historyPage('order', reference, before)
+}
+
+export async function orderNotes(reference: string, before: Cursor | null) {
+  if (!await Order.exists({ reference })) throw new NotFoundError('Order not found.')
+  return listNotes('order', reference, before)
 }
 
 // Newest first, optionally one stage only and matching a search, with a count per stage (of the
@@ -106,7 +114,7 @@ export async function listOrders(page: number, stage: OrderStage | null, search:
   const filter = stage ? { ...matching, ...stageFilter(stage) } : matching
   const [total, orders, grouped] = await Promise.all([
     Order.countDocuments(filter),
-    Order.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * ORDER_PAGE_SIZE).limit(ORDER_PAGE_SIZE).lean<StoredOrder[]>(),
+    Order.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skipTo(page)).limit(ADMIN_PAGE_SIZE).lean<StoredOrder[]>(),
     Order.aggregate<{ _id: StageSource, count: number }>([{ $match: matching }, { $group: { _id: { paymentStatus: '$paymentStatus', fulfilmentStatus: '$fulfilmentStatus', paymentMethod: '$paymentMethod', transferReported: { $gt: ['$transferReportedAt', null] } }, count: { $sum: 1 } } }]),
   ])
   const counts = Object.fromEntries(ORDER_STAGES.map((name) => [name, 0])) as Record<OrderStage, number>
@@ -125,9 +133,7 @@ export async function listOrders(page: number, stage: OrderStage | null, search:
       total: order.total,
       currency: currencyInfo(order.currency),
     })),
-    page,
-    totalPages: Math.max(1, Math.ceil(total / ORDER_PAGE_SIZE)),
-    total,
+    ...pageInfo(page, total),
     counts,
   }
 }

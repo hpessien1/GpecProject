@@ -39,11 +39,13 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `POST /api/admin/session/password`;
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
   `GET /api/admin/products/:id/history`; `GET /api/admin/contact-requests`, `GET`,
-  `PATCH /api/admin/contact-requests/:reference`, `POST /api/admin/contact-requests/:reference/notes`;
+  `PATCH /api/admin/contact-requests/:reference`, `GET`, `POST /api/admin/contact-requests/:reference/notes`,
+  `GET /api/admin/contact-requests/:reference/history`;
   `GET /api/admin/orders`, `GET`, `PATCH /api/admin/orders/:reference`,
-  `POST /api/admin/orders/:reference/notes`;
+  `GET`, `POST /api/admin/orders/:reference/notes`, `GET /api/admin/orders/:reference/history`;
   `GET`, `POST /api/admin/delivery-areas`; `GET`, `PATCH /api/admin/delivery-areas/:id`;
-  `GET /api/admin/delivery-areas/:id/history`; `GET`, `PATCH /api/admin/bank-transfer`;
+  `GET /api/admin/delivery-areas/:id/history`; `GET`, `PATCH /api/admin/bank-transfer`,
+  `GET /api/admin/bank-transfer/history`;
   `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`;
   `POST /api/admin/product-images`
 - Public product photos: `GET /api/product-images/:hash.webp`
@@ -152,8 +154,16 @@ All admin responses are sent with `Cache-Control: no-store`.
 - Every command (creating admins, seeding, checks) is listed in [`docs/COMMANDS.md`](../docs/COMMANDS.md).
 - Every `/api/admin/products` route needs that cookie (`401 ADMIN_AUTH_REQUIRED` otherwise), and
   changes from an origin not in `CLIENT_ORIGIN` get `403`.
-- `GET /api/admin/products?page=N` lists all products, archived ones included, 50 per page, with
-  `price` in the smallest currency unit.
+- **Pages.** Every admin list (products, orders, contact requests, delivery areas) takes `?page=N`
+  (a whole number from 1; anything else is `400`) and answers ten items with `page`, `pageSize`,
+  `totalPages`, and `total`; a page past the end is empty. Change histories and staff notes come ten
+  at a time, newest first: the record's reply carries the newest page with `historyCursor` (and
+  `notesCursor`), `null` when there is nothing older; otherwise pass it as `?before=` to the
+  `…/history` or `…/notes` route for the next page, which answers `{ history, historyCursor }` or
+  `{ notes, notesCursor }`. A cursor names the last entry shown, so an entry added meanwhile never
+  appears twice; one that is not a cursor gets `400`. Size: `ADMIN_PAGE_SIZE` in `src/utils/paging.ts`.
+- `GET /api/admin/products?page=N` lists all products, archived ones included, with `price` in the
+  smallest currency unit.
 - `POST` creates a product (`id`, `name`, `reference`, `description`, `image`, `alt` required; `specs`,
   `price`, `isPlaceholder`, `outOfStock` (true/false), `stockQuantity` (`null` = not counted, or a
   whole number from 0), `status`, `sortOrder` optional). `PATCH /:id` changes any of those
@@ -169,32 +179,32 @@ All admin responses are sent with `Cache-Control: no-store`.
   `imageUploads: false`.
 - `GET /api/product-images/<sha256>.webp` (public) serves an uploaded photo from the bucket, cached
   for a year (`immutable`); unknown names get `404`.
-- `GET /:id/history` returns the last 50 changes: who, when, and each field's old and new value.
+- `GET /:id/history?before=` returns a page of changes: who, when, and each field's old and new value.
 - `GET /api/admin/contact-requests?page=N&status=new|in_progress|closed&q=text` (all optional) lists
-  contact requests newest first, 25 per page, with `counts` per status. `q` (up to 100 characters) keeps
+  contact requests newest first, with `counts` per status. `q` (up to 100 characters) keeps
   requests whose reference, customer name, company, or email contains it, ignoring case; the counts
   then cover only the matches. `GET /:reference` returns everything the customer sent plus the
-  status history and staff `notes` (newest first, last 100). `PATCH /:reference` with `{ status }`
+  newest page of its status history and of staff `notes`. `PATCH /:reference` with `{ status }`
   (and nothing else) changes the follow-up status and records who, from, to, and when.
   `POST /:reference/notes` with `{ text }` (up to 2000 characters, and nothing else) adds an
   internal note under the logged-in admin's name and returns `201` with the same body as `GET`.
   Unknown or malformed references get `404`.
   New requests are always `new`; customer details and notes cannot be edited or deleted here.
-- `GET /api/admin/orders?page=N&stage=…&q=text` (all optional) lists orders newest first, 25 per
-  page, each with a `stage`: `awaiting_payment` or `payment_failed` for unpaid orders, otherwise the
+- `GET /api/admin/orders?page=N&stage=…&q=text` (all optional) lists orders newest first, each
+  with a `stage`: `awaiting_payment` or `payment_failed` for unpaid orders, otherwise the
   fulfilment status (`new`, `processing`, `ready_for_pickup`, `out_for_delivery`, `completed`,
   `cancelled`), with `counts` per stage, the total, the currency, and pickup or delivery. `q`
   searches as for contact requests. `GET /:reference` returns the order (items with prices at order
   time, amounts in the smallest unit, `currency` info, `paymentReference` for Paystack), its status
-  history, and staff `notes`. `PATCH /:reference` with `{ fulfilmentStatus }` (and nothing else)
+  history, and staff `notes` (newest pages). `PATCH /:reference` with `{ fulfilmentStatus }` (and nothing else)
   moves a **paid** order along and records it: unpaid orders get `409 ORDER_NOT_PAID`, a pickup
   order cannot be `out_for_delivery` nor a delivery order `ready_for_pickup` (`400`). Payment status,
   items, amounts, and customer details cannot be changed here. `POST /:reference/notes` as for
   contact requests. Orders are created by checkout; demo orders by `npm run seed:demo` (on the live
   database only with `--production`, removed before launch). Delivery orders include
   `deliveryAreaName`; every order has `customerNotes`.
-- `/api/admin/delivery-areas`: `GET` lists every area (archived ones too); `POST` with `{ name, fee,
+- `/api/admin/delivery-areas`: `GET ?page=N` lists the areas, active ones first, archived ones too; `POST` with `{ name, fee,
   description? }` adds one (`fee` in the smallest unit; `409 CURRENCY_NOT_CONFIGURED` without a
   currency; `409 DELIVERY_AREA_CONFLICT` for a duplicate name); `PATCH /:id` with any of `name`,
-  `description`, `fee`, `status` (`active` | `archived`), `sortOrder`; `GET /:id/history`. There is
+  `description`, `fee`, `status` (`active` | `archived`), `sortOrder`; `GET /:id/history?before=`. There is
   no delete. Every change is recorded with who, old and new value, and when.

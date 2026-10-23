@@ -3,6 +3,7 @@ import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { adminRequests } from '../services/adminRequests.js'
 import { REFERENCE_PATTERNS, validateNote, validateRequestListQuery, validateStatusChange } from '../validation/adminRequest.js'
+import { validateOlderPageQuery } from '../validation/olderPage.js'
 
 // Contact requests (/api/admin/contact-requests) for GPEC staff. Mounted behind requireAdmin in
 // app.ts: customers' personal details never reach an anonymous visitor. Admins can read and search
@@ -33,6 +34,20 @@ export default function adminRequestsRouter(kind: keyof typeof adminRequests) {
       return next(error)
     }
   })
+
+  // Older pages of a request's history and notes (the newest come with the request).
+  for (const path of ['history', 'notes'] as const) {
+    router.get(`/:reference/${path}`, async (req, res, next) => {
+      try {
+        const reference = referenceParam(req.params.reference)
+        const { errors, value } = validateOlderPageQuery(req.query)
+        if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+        return res.json(await service[path](reference, value.before))
+      } catch (error) {
+        return next(error)
+      }
+    })
+  }
 
   router.patch('/:reference', async (req, res, next) => {
     try {

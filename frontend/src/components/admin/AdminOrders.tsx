@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
+import Pagination from '../Pagination'
 import { fulfilmentMethodLabels, orderStageLabels, ordersContent, requestSearchContent } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { listOrders } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
+import { showingRange } from '../../utils/paging'
+import { useRememberedState } from '../../utils/rememberedState'
 import { formatPrice } from '../../utils/money'
 import type { AdminOrdersPage, OrderStage } from '../../types'
 
@@ -16,10 +19,10 @@ const STAGE_FILTERS = [null, ...Object.keys(orderStageLabels)] as (OrderStage | 
 
 // Orders from the shop, newest first, searchable and filterable by stage.
 export default function AdminOrders({ onSessionEnded }: AdminOrdersProps) {
-  const [page, setPage] = useState(1)
-  const [stage, setStage] = useState<OrderStage | null>(null)
-  const [searchText, setSearchText] = useState('')
-  const [search, setSearch] = useState('')
+  // Kept while staff open an item and come back.
+  const [position, setPosition] = useRememberedState<{ page: number, stage: OrderStage | null, search: string }>('orders', { page: 1, stage: null, search: '' })
+  const { page, stage, search } = position
+  const [searchText, setSearchText] = useState(search)
   const [result, setResult] = useState<AdminOrdersPage | null>(null)
   const [error, setError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
@@ -27,29 +30,39 @@ export default function AdminOrders({ onSessionEnded }: AdminOrdersProps) {
   useEffect(() => {
     let isCurrent = true
     listOrders(page, stage, search)
-      .then((loaded) => { if (isCurrent) setResult(loaded) })
+      .then((loaded) => {
+        if (!isCurrent) return
+        // The list got shorter since this page was chosen (items moved on, or a remembered page): show
+        // its last page rather than an empty one.
+        if (page > loaded.totalPages) setPosition({ page: loaded.totalPages, stage, search })
+        else setResult(loaded)
+      })
       .catch((loadError: unknown) => {
         if (!isCurrent) return
         if (loadError instanceof ApiError && loadError.status === 401) onSessionEnded()
         else setError(loadError instanceof Error ? loadError.message : 'Unable to load orders.')
       })
     return () => { isCurrent = false }
-  }, [page, stage, search, loadAttempt, onSessionEnded])
+  }, [page, stage, search, loadAttempt, onSessionEnded, setPosition])
 
   function chooseStage(nextStage: OrderStage | null) {
-    setStage(nextStage)
-    setPage(1)
+    setPosition({ page: 1, stage: nextStage, search })
   }
 
   function applySearch(nextSearch: string) {
     setSearchText(nextSearch)
-    setSearch(nextSearch.trim())
-    setPage(1)
+    setPosition({ page: 1, stage, search: nextSearch.trim() })
   }
 
   function handleSearchSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     applySearch(searchText)
+  }
+
+  // Back to the top of the list, as a new page would load.
+  function choosePage(nextPage: number) {
+    setPosition({ page: nextPage, stage, search })
+    document.getElementById('admin-orders-title')?.focus()
   }
 
   function retry() {
@@ -83,6 +96,7 @@ export default function AdminOrders({ onSessionEnded }: AdminOrdersProps) {
       : !result ? <p className="admin-loading" role="status">Loading…</p>
       : result.items.length === 0 ? <div className="shop-status" role="status"><p>{search ? ordersContent.noMatches(search) : ordersContent.empty}</p></div>
       : <>
+        <p className="admin-count">{showingRange(page, result.pageSize, result.items.length, result.total, { one: 'order', many: 'orders' })}</p>
         <ul className="admin-request-list admin-order-list">{result.items.map((order) => <li key={order.reference}>
           <div className="admin-request-main">
             <strong>{order.name}{order.company && <span> · {order.company}</span>}</strong>
@@ -93,11 +107,7 @@ export default function AdminOrders({ onSessionEnded }: AdminOrdersProps) {
           <span className={`admin-status admin-status-${order.stage}`}>{orderStageLabels[order.stage]}</span>
           <a className="admin-edit-link" href={`#admin/orders/${encodeURIComponent(order.reference)}`} aria-label={`Open order ${order.reference} from ${order.name}`}>Open <Arrow /></a>
         </li>)}</ul>
-        {result.totalPages > 1 && <nav className="shop-pagination" aria-label="Order list pages">
-          <button type="button" onClick={() => setPage(page - 1)} disabled={page === 1}>Previous</button>
-          <span>Page {page} of {result.totalPages}</span>
-          <button type="button" onClick={() => setPage(page + 1)} disabled={page === result.totalPages}>Next</button>
-        </nav>}
+        {result.totalPages > 1 && <Pagination label="Order list pages" page={page} totalPages={result.totalPages} onSelect={choosePage} />}
       </>}
   </section>
 }

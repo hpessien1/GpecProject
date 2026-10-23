@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-23 (checkout, bank transfer, demo shop data, faster CI)
+- **Last updated:** 2026-10-23 (admin pagination; before it checkout, bank transfer, demo shop data, faster CI)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -16,7 +16,7 @@ does. Update this file as steps are completed or the plan changes.
 | 3. Deploy early on Coolify | Live (2026-10-22), not announced — Atlas users and access list still needed |
 | 4. Products in MongoDB | Done (2026-10-21) |
 | 5. Checkout and Paystack (test mode) | Built (2026-10-23) — switched on once the Paystack settings are in Coolify; live keys need GPEC |
-| 6. Admin panel | Done for now (2026-10-21; orders and delivery areas 2026-10-22/23) |
+| 6. Admin panel | Done for now (2026-10-21; orders and delivery areas 2026-10-22/23; pagination 2026-10-23) |
 
 Already done: TypeScript conversion (frontend and backend), dependency pinning, root `.gitignore`,
 `gpec_dev` / `gpec` database split with a production startup guard, backup remote on `kworlanyo`.
@@ -156,6 +156,12 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 - [x] Orders tab (2026-10-22): the Order model, list with stages, search, and counts, detail page
       (items, totals, pickup or delivery, payment), fulfilment status with history, and notes.
       Checkout (step 5) will create real orders; demo orders exist in `gpec_dev` (`npm run seed:demo`).
+- [x] Pagination everywhere in the admin (2026-10-23, owner's request): ten per page on products,
+      orders, contact requests, and delivery areas, with the shop's numbered page buttons (shared
+      component, shortened with "…" when there are many pages), "Showing 11–12 of 12 orders", and the
+      list remembering its page, filter, and search while an item is open. Change histories and staff
+      notes show ten and a "Show older" button, so older entries are no longer cut off (they stopped
+      at the newest 50 changes or 100 notes).
 - [x] Larger text: labels, table headings, badges, and codes in the admin and on the public pages
       raised to about 12px at the owner's request (2026-10-22); two layout faults found and fixed
       (home page panels section between 821 and 1170px; shop header at 320px).

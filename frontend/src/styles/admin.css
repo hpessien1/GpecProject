@@ -420,6 +420,30 @@
   font-size: 0.85rem;
   line-height: 1.6;
 }
+/* "Show older" under a history or notes list (components/admin/AdminOlderEntries.tsx), in the look
+   of the page buttons (.shop-pagination). */
+.admin-show-older {
+  min-height: 36px;
+  margin-top: 1rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(6, 23, 71, 0.2);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  font: 0.72rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.admin-show-older:hover {
+  border-color: var(--deep);
+  background: var(--deep);
+  color: #fff;
+}
+.admin-older-end {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
 @media (max-width: 980px) {
   .admin-editor-layout {
     grid-template-columns: 1fr;

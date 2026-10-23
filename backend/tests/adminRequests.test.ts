@@ -50,7 +50,7 @@ describe('contact request list and detail', () => {
     expect(res.body.items[0]).toMatchObject({ status: 'new', name: 'Newer Customer', company: 'Acme Ltd', email: 'ada@example.com', summary: `Solar energy: ${MESSAGE}` })
   })
 
-  it('filters by status and pages 25 at a time', async () => {
+  it('filters by status and pages 10 at a time', async () => {
     const now = Date.now()
     await ContactRequest.insertMany(Array.from({ length: 27 }, (_, index) => ({
       reference: `GPEC-C-2026-${String(index).padStart(8, '0')}`,
@@ -59,9 +59,9 @@ describe('contact request list and detail', () => {
       status: index < 3 ? 'in_progress' : 'new',
       createdAt: new Date(now - index * 1000),
     })))
-    const page2 = await agent.get(`${LIST}?page=2`)
-    expect(page2.body).toMatchObject({ page: 2, totalPages: 2, total: 27 })
-    expect(page2.body.items).toHaveLength(2)
+    const page3 = await agent.get(`${LIST}?page=3`)
+    expect(page3.body).toMatchObject({ page: 3, pageSize: 10, totalPages: 3, total: 27 })
+    expect(page3.body.items).toHaveLength(7)
     const inProgress = await agent.get(`${LIST}?status=in_progress`)
     expect(inProgress.body.total).toBe(3)
     expect(inProgress.body.counts).toEqual({ new: 24, in_progress: 3, closed: 0 })

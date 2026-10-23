@@ -193,8 +193,16 @@ export interface AdminProduct extends EditableProductFields {
 export interface AdminProductsPage {
   products: AdminProduct[]
   page: number
+  pageSize: number
   totalPages: number
   total: number
+}
+
+// One page of a change history or of notes, newest first, and the cursor for the next, older page
+// (null when there is none). The admin API sends the newest page with the record.
+export interface OlderPage<Entry> {
+  entries: Entry[]
+  cursor: string | null
 }
 
 export interface ProductHistoryEntry {
@@ -226,6 +234,7 @@ export interface AdminRequestSummary {
 export interface AdminRequestsPage {
   items: AdminRequestSummary[]
   page: number
+  pageSize: number
   totalPages: number
   total: number
   counts: Record<RequestStatus, number>
@@ -257,7 +266,9 @@ export interface RequestNote {
 export interface AdminRequestResponse {
   item: AdminRequestDetail
   history: RequestHistoryEntry[]
+  historyCursor: string | null
   notes: RequestNote[]
+  notesCursor: string | null
 }
 
 // Orders (backend models/Order.ts). The stage is where an order stands: unpaid orders by payment
@@ -284,6 +295,7 @@ export interface AdminOrderSummary {
 export interface AdminOrdersPage {
   items: AdminOrderSummary[]
   page: number
+  pageSize: number
   totalPages: number
   total: number
   counts: Record<OrderStage, number>
@@ -334,7 +346,9 @@ export type OrderHistoryEntry = {
 export interface AdminOrderResponse {
   order: AdminOrderDetail
   history: OrderHistoryEntry[]
+  historyCursor: string | null
   notes: RequestNote[]
+  notesCursor: string | null
 }
 
 // Delivery areas and their fees, managed by staff (backend models/DeliveryArea.ts).
@@ -349,6 +363,14 @@ export interface EditableDeliveryAreaFields {
 export interface AdminDeliveryArea extends EditableDeliveryAreaFields {
   id: string
   updatedAt: string
+}
+
+export interface AdminDeliveryAreasPage {
+  areas: AdminDeliveryArea[]
+  page: number
+  pageSize: number
+  totalPages: number
+  total: number
 }
 
 export interface DeliveryAreaHistoryEntry {
@@ -374,4 +396,5 @@ export interface BankTransferResponse {
   // Still the sample details staff started with: the live site will not offer them.
   isSample: boolean
   history: BankTransferHistoryEntry[]
+  historyCursor: string | null
 }

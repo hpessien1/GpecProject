@@ -4,6 +4,9 @@ import { HttpError, NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { createDeliveryArea, deliveryAreaHistory, getDeliveryAreaForAdmin, listDeliveryAreasForAdmin, updateDeliveryArea } from '../services/deliveryAreas.js'
 import { isDeliveryAreaId, validateDeliveryAreaCreate, validateDeliveryAreaUpdate } from '../validation/deliveryArea.js'
+import { pageNumber } from '../validation/fields.js'
+import type { ValidationErrors } from '../validation/fields.js'
+import { validateOlderPageQuery } from '../validation/olderPage.js'
 
 // Delivery areas and their fees (/api/admin/delivery-areas), behind requireAdmin in app.ts. No delete:
 // areas are archived, and past orders keep their own copy of the area and fee.
@@ -20,9 +23,12 @@ export default function adminDeliveryAreasRouter(config: AppConfig) {
     return id
   }
 
-  router.get('/', async (_req, res, next) => {
+  router.get('/', async (req, res, next) => {
     try {
-      return res.json({ areas: await listDeliveryAreasForAdmin() })
+      const errors: ValidationErrors = {}
+      const page = pageNumber(req.query.page, errors)
+      if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+      return res.json(await listDeliveryAreasForAdmin(page))
     } catch (error) {
       return next(error)
     }
@@ -61,7 +67,10 @@ export default function adminDeliveryAreasRouter(config: AppConfig) {
 
   router.get('/:id/history', async (req, res, next) => {
     try {
-      return res.json({ history: await deliveryAreaHistory(idParam(req.params.id)) })
+      const id = idParam(req.params.id)
+      const { errors, value } = validateOlderPageQuery(req.query)
+      if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+      return res.json(await deliveryAreaHistory(id, value.before))
     } catch (error) {
       return next(error)
     }

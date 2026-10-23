@@ -266,6 +266,30 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await open('#admin/contact-requests/GPEC-C-2026-0000000C', '.admin-request-detail')
     await audit.page(page, `${label} admin contact request without subject`)
   }],
+  ['admin pages and older entries', async ({ page, api, audit, label, hovering, open }) => {
+    // Enough orders for many pages (first, gaps, last), and a long history and notes on one order.
+    const [template] = api.orders
+    api.orders = [template, ...Array.from({ length: 119 }, (_, index) => ({ ...template, reference: `GPEC-O-2026-${String(index + 1).padStart(8, '0')}` }))]
+    const actor = { name: ADMIN.name, email: ADMIN.email }
+    api.orderHistory[template.reference] = Array.from({ length: 11 }, (_, index) => ({ action: 'order.status' as const, actor, changes: [{ field: 'fulfilmentStatus' as const, from: 'new' as const, to: 'processing' as const }], createdAt: new Date(Date.UTC(2026, 0, 1, 0, 11 - index)).toISOString() }))
+    api.requestNotes[template.reference] = Array.from({ length: 11 }, (_, index) => ({ author: actor, text: `Sample note ${11 - index}`, createdAt: new Date(Date.UTC(2026, 0, 1, 0, 11 - index)).toISOString() }))
+    await logInAsAdmin(page)
+    await open('#admin/orders', '.admin-order-list')
+    const pages = page.getByRole('navigation', { name: 'Order list pages' })
+    // Page 6 of 12: 1 … 5 6 7 … 12, both gaps shown.
+    await pages.getByRole('button', { name: 'Page 12' }).click()
+    for (let step = 0; step < 6; step += 1) await pages.getByRole('button', { name: 'Previous' }).click()
+    await pages.locator('[aria-current="page"]', { hasText: '6' }).waitFor()
+    await audit.page(page, `${label} admin orders, page 6 of 12`)
+    if (hovering) await audit.hover(page, `${label} admin orders, page 6 of 12`)
+    await open(`#admin/orders/${template.reference}`, '.admin-show-older')
+    await audit.page(page, `${label} admin order with older history and notes`)
+    if (hovering) await audit.hover(page, `${label} admin order with older history and notes`)
+    await page.getByRole('button', { name: 'Show older changes' }).click()
+    await page.getByRole('button', { name: 'Show older notes' }).click()
+    await page.locator('.admin-older-end').nth(1).waitFor()
+    await audit.page(page, `${label} admin order, every change and note shown`)
+  }],
 ]
 
 for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]] as const) {

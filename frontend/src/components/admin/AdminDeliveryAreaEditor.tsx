@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import AdminDeliveryAreaForm from './AdminDeliveryAreaForm'
+import AdminOlderEntries from './AdminOlderEntries'
 import type { DeliveryAreaFormValues } from './AdminDeliveryAreaForm'
 import { deliveryAreaFieldLabels, deliveryAreaStatusLabels, deliveryAreasContent } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { getDeliveryArea, getDeliveryAreaHistory, updateDeliveryArea } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import { formatPrice } from '../../utils/money'
-import type { AdminDeliveryArea, CurrencyInfo, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields } from '../../types'
+import type { AdminDeliveryArea, CurrencyInfo, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, OlderPage } from '../../types'
 
 interface AdminDeliveryAreaEditorProps {
   areaId: string
@@ -24,7 +25,7 @@ function describeValue(field: keyof EditableDeliveryAreaFields, value: unknown, 
 // One delivery area: edit it (only changed fields are sent) and see who changed what, when.
 export default function AdminDeliveryAreaEditor({ areaId, currency, onSessionEnded }: AdminDeliveryAreaEditorProps) {
   const [area, setArea] = useState<AdminDeliveryArea | null>(null)
-  const [history, setHistory] = useState<DeliveryAreaHistoryEntry[] | null>(null)
+  const [history, setHistory] = useState<OlderPage<DeliveryAreaHistoryEntry> | null>(null)
   const [loadError, setLoadError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({})
@@ -87,13 +88,15 @@ export default function AdminDeliveryAreaEditor({ areaId, currency, onSessionEnd
         <section className="admin-history" aria-labelledby="admin-area-history-title">
           <h2 id="admin-area-history-title">Change history</h2>
           <p>{deliveryAreasContent.pastOrders}</p>
-          {history.length === 0 && <p>No changes recorded yet. Demo areas added by the demo command have no history until someone edits them.</p>}
-          <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
-            <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email}) · {entry.action === 'deliveryArea.create' ? 'Added' : 'Changed'}</p>
-            <ul>{entry.changes.filter((change) => entry.action === 'deliveryArea.update' || change.to !== null).map((change) => <li key={change.field}>
-              <strong>{deliveryAreaFieldLabels[change.field]}</strong>{entry.action === 'deliveryArea.update' && <>: {describeValue(change.field, change.from, currency)} →</>} {describeValue(change.field, change.to, currency)}
-            </li>)}</ul>
-          </li>)}</ol>
+          <AdminOlderEntries kind="history" newest={history.entries} cursor={history.cursor} loadOlder={(before) => getDeliveryAreaHistory(areaId, before)} onSessionEnded={onSessionEnded}>
+            {(entries) => entries.length === 0 ? <p>No changes recorded yet. Demo areas added by the demo command have no history until someone edits them.</p>
+              : <ol>{entries.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
+                <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email}) · {entry.action === 'deliveryArea.create' ? 'Added' : 'Changed'}</p>
+                <ul>{entry.changes.filter((change) => entry.action === 'deliveryArea.update' || change.to !== null).map((change) => <li key={change.field}>
+                  <strong>{deliveryAreaFieldLabels[change.field]}</strong>{entry.action === 'deliveryArea.update' && <>: {describeValue(change.field, change.from, currency)} →</>} {describeValue(change.field, change.to, currency)}
+                </li>)}</ul>
+              </li>)}</ol>}
+          </AdminOlderEntries>
         </section>
       </div>}
   </section>

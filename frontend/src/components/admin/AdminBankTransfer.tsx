@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
+import AdminOlderEntries from './AdminOlderEntries'
 import { bankTransferContent, bankTransferFieldLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
-import { getBankTransfer, updateBankTransfer } from '../../services/adminApi'
+import { getBankTransfer, getOlderBankTransferHistory, updateBankTransfer } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import type { BankTransferResponse, BankTransferSettings, CurrencyInfo } from '../../types'
 
@@ -120,11 +121,13 @@ export default function AdminBankTransfer({ currency, onSessionEnded }: AdminBan
         </form>
         <section className="admin-history" aria-labelledby="admin-bank-history-title">
           <h2 id="admin-bank-history-title">Change history</h2>
-          {data.history.length === 0 ? <p>No changes yet.</p>
-            : <ol>{data.history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
-              <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
-              <ul>{entry.changes.map((change) => <li key={change.field}><strong>{bankTransferFieldLabels[change.field]}</strong>: {describeValue(change.field, change.from)} → {describeValue(change.field, change.to)}</li>)}</ul>
-            </li>)}</ol>}
+          <AdminOlderEntries kind="history" newest={data.history} cursor={data.historyCursor} loadOlder={getOlderBankTransferHistory} onSessionEnded={onSessionEnded}>
+            {(history) => history.length === 0 ? <p>No changes yet.</p>
+              : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
+                <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
+                <ul>{entry.changes.map((change) => <li key={change.field}><strong>{bankTransferFieldLabels[change.field]}</strong>: {describeValue(change.field, change.from)} → {describeValue(change.field, change.to)}</li>)}</ul>
+              </li>)}</ol>}
+          </AdminOlderEntries>
         </section>
       </div>}
   </section>

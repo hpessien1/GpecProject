@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { productFieldLabels, productStatusLabels } from '../../data/adminContent'
+import AdminOlderEntries from './AdminOlderEntries'
 import { ApiError } from '../../services/apiClient'
 import { getProductHistory } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import { formatPrice } from '../../utils/money'
-import type { CurrencyInfo, ProductHistoryEntry } from '../../types'
+import type { CurrencyInfo, OlderPage, ProductHistoryEntry } from '../../types'
 
 interface AdminProductHistoryProps {
   productId: string
@@ -21,9 +22,9 @@ function describeValue(field: ProductHistoryEntry['changes'][number]['field'], v
   return String(value)
 }
 
-// Who changed what and when, newest first (the last 50 changes).
+// Who changed what and when, newest first, a page at a time.
 export default function AdminProductHistory({ productId, currency, onSessionEnded }: AdminProductHistoryProps) {
-  const [history, setHistory] = useState<ProductHistoryEntry[] | null>(null)
+  const [history, setHistory] = useState<OlderPage<ProductHistoryEntry> | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -42,12 +43,14 @@ export default function AdminProductHistory({ productId, currency, onSessionEnde
     <h2 id="admin-history-title">Change history</h2>
     {error ? <p className="form-error" role="alert">{error}</p>
       : !history ? <p className="admin-loading" role="status">Loading history…</p>
-      : history.length === 0 ? <p>No changes recorded yet. Sample products added by the seed script have no history until someone edits them.</p>
-      : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
-        <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.action === 'product.sale' ? <>Sold online · order {entry.orderReference}</> : <>{entry.actor.name} ({entry.actor.email}) · {entry.action === 'product.create' ? 'Created' : 'Changed'}</>}</p>
-        <ul>{entry.changes.filter((change) => entry.action !== 'product.create' || change.to !== null).map((change) => <li key={change.field}>
-          <strong>{productFieldLabels[change.field]}</strong>{entry.action !== 'product.create' && <>: {describeValue(change.field, change.from, currency)} →</>} {describeValue(change.field, change.to, currency)}
-        </li>)}</ul>
-      </li>)}</ol>}
+      : <AdminOlderEntries kind="history" newest={history.entries} cursor={history.cursor} loadOlder={(before) => getProductHistory(productId, before)} onSessionEnded={onSessionEnded}>
+        {(entries) => entries.length === 0 ? <p>No changes recorded yet. Sample products added by the seed script have no history until someone edits them.</p>
+          : <ol>{entries.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
+            <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.action === 'product.sale' ? <>Sold online · order {entry.orderReference}</> : <>{entry.actor.name} ({entry.actor.email}) · {entry.action === 'product.create' ? 'Created' : 'Changed'}</>}</p>
+            <ul>{entry.changes.filter((change) => entry.action !== 'product.create' || change.to !== null).map((change) => <li key={change.field}>
+              <strong>{productFieldLabels[change.field]}</strong>{entry.action !== 'product.create' && <>: {describeValue(change.field, change.from, currency)} →</>} {describeValue(change.field, change.to, currency)}
+            </li>)}</ul>
+          </li>)}</ol>}
+      </AdminOlderEntries>}
   </section>
 }

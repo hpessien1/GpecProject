@@ -56,7 +56,9 @@ describe('GET /api/admin/products', () => {
     await Product.updateOne({ _id: 'solar-001' }, { status: 'archived', price: 500000 })
     const res = await agent.get('/api/admin/products')
     expect(res.status).toBe(200)
-    expect(res.body).toMatchObject({ page: 1, totalPages: 1, total: 14 })
+    expect(res.body).toMatchObject({ page: 1, pageSize: 10, totalPages: 2, total: 14 })
+    expect(res.body.products).toHaveLength(10)
+    expect((await agent.get('/api/admin/products?page=2')).body.products).toHaveLength(4)
     expect(res.body.products.find((product: { id: string }) => product.id === 'solar-001')).toMatchObject({ status: 'archived', price: 500000, isPlaceholder: true })
   })
 

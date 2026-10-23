@@ -155,6 +155,32 @@ function initialState(): ApiState {
 
 type Reply = [number, unknown]
 
+// One page size for every admin list, history, and set of notes, as on the real server.
+export const ADMIN_PAGE_SIZE = 10
+
+function listPage<Item>(items: Item[], url: URL) {
+  const page = Number(url.searchParams.get('page') ?? 1)
+  return { items: items.slice((page - 1) * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE), page, pageSize: ADMIN_PAGE_SIZE, totalPages: Math.max(1, Math.ceil(items.length / ADMIN_PAGE_SIZE)), total: items.length }
+}
+
+// One page of a history or of notes, newest first. The real cursor names the last entry shown; here
+// it is simply how many entries come before the next page. Without a URL, the newest page.
+function olderPage<Entry>(entries: Entry[], url: URL | null) {
+  const start = Number(url?.searchParams.get('before') ?? 0)
+  const next = start + ADMIN_PAGE_SIZE
+  return { entries: entries.slice(start, next), cursor: next < entries.length ? String(next) : null }
+}
+
+function historyReply<Entry>(entries: Entry[], url: URL | null = null) {
+  const { entries: history, cursor } = olderPage(entries, url)
+  return { history, historyCursor: cursor }
+}
+
+function notesReply(entries: RequestNote[], url: URL | null = null) {
+  const { entries: notes, cursor } = olderPage(entries, url)
+  return { notes, notesCursor: cursor }
+}
+
 // A JSON body, or null for none or for a photo (binary) body.
 function jsonBody(request: Request): Record<string, unknown> | null {
   try {
@@ -175,7 +201,8 @@ function listRequests(allItems: AdminRequestDetail[], url: URL): Reply {
     reference: item.reference, status: item.status, createdAt: item.createdAt, name: item.customer.fullName, company: item.customer.company, email: item.customer.email,
     summary: item.subject ? `${item.subject}: ${item.message}` : item.message,
   })
-  return [200, { items: shown.map(summary), page: 1, totalPages: 1, total: shown.length, counts }]
+  const { items: pageItems, ...paging } = listPage(shown, url)
+  return [200, { items: pageItems.map(summary), ...paging, counts }]
 }
 
 function listOrders(allOrders: AdminOrderDetail[], url: URL): Reply {
@@ -189,7 +216,8 @@ function listOrders(allOrders: AdminOrderDetail[], url: URL): Reply {
     reference: order.reference, stage: order.stage, createdAt: order.createdAt, name: order.customer.fullName, company: order.customer.company, email: order.customer.email,
     summary: order.items.map((item) => `${item.quantity} × ${item.name}`).join(', '), fulfilmentMethod: order.fulfilmentMethod, paymentMethod: order.paymentMethod, total: order.total, currency: order.currency,
   })
-  return [200, { items: shown.map(summary), page: 1, totalPages: 1, total: shown.length, counts }]
+  const { items, ...paging } = listPage(shown, url)
+  return [200, { items: items.map(summary), ...paging, counts }]
 }
 
 // The checkout routes (backend routes/checkout.ts). Prices come from the sample products; the fee is
@@ -288,12 +316,15 @@ function reply(state: ApiState, request: Request): Reply {
     if (state.uploadFails) return [400, { message: 'Choose a JPEG, PNG, or WebP photo. This file could not be read as one.', code: 'VALIDATION_ERROR', errors: { image: 'Choose a JPEG, PNG, or WebP photo.' } }]
     return [201, { image: UPLOADED_IMAGE }]
   }
-  if (path === '/api/admin/products') return [200, { products: state.adminProducts, page: 1, totalPages: 1, total: state.adminProducts.length }]
+  if (path === '/api/admin/products') {
+    const { items, ...paging } = listPage(state.adminProducts, url)
+    return [200, { products: items, ...paging }]
+  }
   const productMatch = /^\/api\/admin\/products\/([^/]+)(\/history)?$/.exec(path)
   if (productMatch) {
     const product = state.adminProducts.find((p) => p.id === productMatch[1])
     if (!product) return [404, { message: 'Product not found.', code: 'NOT_FOUND' }]
-    if (productMatch[2]) return [200, { history: state.productHistory[product.id] ?? [] }]
+    if (productMatch[2]) return [200, historyReply(state.productHistory[product.id] ?? [], url)]
     if (method === 'PATCH') {
       const changes = Object.entries(body).map(([field, to]) => ({ field, from: product[field as keyof AdminProduct] ?? null, to }))
       Object.assign(product, body, { updatedAt: new Date().toISOString() })
@@ -310,13 +341,14 @@ function reply(state: ApiState, request: Request): Reply {
       state.deliveryAreaHistory[area.id] = [{ action: 'deliveryArea.create', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'name', from: null, to: area.name }, { field: 'fee', from: null, to: area.fee }], createdAt: area.updatedAt }]
       return [201, { area }]
     }
-    return [200, { areas: state.deliveryAreas }]
+    const { items, ...paging } = listPage(state.deliveryAreas, url)
+    return [200, { areas: items, ...paging }]
   }
   const areaMatch = /^\/api\/admin\/delivery-areas\/([^/]+)(\/history)?$/.exec(path)
   if (areaMatch) {
     const area = state.deliveryAreas.find((candidate) => candidate.id === areaMatch[1])
     if (!area) return [404, { message: 'Delivery area not found.', code: 'NOT_FOUND' }]
-    if (areaMatch[2]) return [200, { history: state.deliveryAreaHistory[area.id] ?? [] }]
+    if (areaMatch[2]) return [200, historyReply(state.deliveryAreaHistory[area.id] ?? [], url)]
     if (method === 'PATCH') {
       const changes = Object.entries(body).map(([field, to]) => ({ field, from: area[field as keyof AdminDeliveryArea] ?? null, to }))
       Object.assign(area, body, { updatedAt: new Date().toISOString() })
@@ -324,25 +356,28 @@ function reply(state: ApiState, request: Request): Reply {
     }
     return [200, { area }]
   }
+  if (path === '/api/admin/bank-transfer/history') return [200, historyReply(state.bankTransferHistory, url)]
   if (path === '/api/admin/bank-transfer') {
     if (method === 'PATCH') {
       const changes = Object.entries(body).map(([field, to]) => ({ field, from: state.bankTransfer[field as keyof BankTransferSettings], to }))
       Object.assign(state.bankTransfer, body)
       state.bankTransferHistory = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: changes as BankTransferHistoryEntry['changes'], createdAt: new Date().toISOString() }, ...state.bankTransferHistory]
     }
-    return [200, { settings: state.bankTransfer, isSample: state.bankTransfer.accountNumber === '0000000000', history: state.bankTransferHistory }]
+    return [200, { settings: state.bankTransfer, isSample: state.bankTransfer.accountNumber === '0000000000', ...historyReply(state.bankTransferHistory) }]
   }
   if (path === '/api/admin/orders') return listOrders(state.orders, url)
-  const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/transfer-received|\/transfer-not-received)?$/.exec(path)
+  const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/history|\/transfer-received|\/transfer-not-received)?$/.exec(path)
   if (orderMatch) {
     const order = state.orders.find((candidate) => candidate.reference === orderMatch[1])
     if (!order) return [404, { message: 'Order not found.', code: 'NOT_FOUND' }]
+    if (orderMatch[2] === '/history') return [200, historyReply(state.orderHistory[order.reference] ?? [], url)]
+    if (orderMatch[2] === '/notes' && method === 'GET') return [200, notesReply(state.requestNotes[order.reference] ?? [], url)]
     if (orderMatch[2] === '/transfer-received' || orderMatch[2] === '/transfer-not-received') {
       if (order.paymentMethod !== 'bank_transfer' || order.paymentStatus !== 'pending_payment') return [409, { message: 'This order is no longer awaiting a transfer.', code: 'TRANSFER_ALREADY_SETTLED' }]
       const to = orderMatch[2] === '/transfer-received' ? 'paid' : 'failed'
       Object.assign(order, { paymentStatus: to, stage: to === 'paid' ? 'new' : 'payment_failed', paidAt: to === 'paid' ? new Date().toISOString() : null })
       state.orderHistory[order.reference] = [{ action: 'order.payment', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'paymentStatus', from: 'pending_payment', to }], createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
-      return [200, { order, history: state.orderHistory[order.reference], notes: state.requestNotes[order.reference] ?? [] }]
+      return [200, { order, ...historyReply(state.orderHistory[order.reference]), ...notesReply(state.requestNotes[order.reference] ?? []) }]
     }
     if (orderMatch[2]) {
       if (state.notesFail) return [500, { message: 'Something went wrong on our side. Please try again.' }]
@@ -355,14 +390,16 @@ function reply(state: ApiState, request: Request): Reply {
         Object.assign(order, { fulfilmentStatus: to, stage: to })
       }
     }
-    return [orderMatch[2] ? 201 : 200, { order, history: state.orderHistory[order.reference] ?? [], notes: state.requestNotes[order.reference] ?? [] }]
+    return [orderMatch[2] ? 201 : 200, { order, ...historyReply(state.orderHistory[order.reference] ?? []), ...notesReply(state.requestNotes[order.reference] ?? []) }]
   }
-  const requestMatch = /^\/api\/admin\/(contact-requests)(?:\/([^/]+))?(\/notes)?$/.exec(path)
+  const requestMatch = /^\/api\/admin\/(contact-requests)(?:\/([^/]+))?(\/notes|\/history)?$/.exec(path)
   if (requestMatch) {
     const items = state.contactRequests
     if (!requestMatch[2]) return listRequests(items, url)
     const item = items.find((candidate) => candidate.reference === requestMatch[2])
     if (!item) return [404, { message: 'Request not found.', code: 'NOT_FOUND' }]
+    if (requestMatch[3] === '/history') return [200, historyReply(state.requestHistory[item.reference] ?? [], url)]
+    if (requestMatch[3] === '/notes' && method === 'GET') return [200, notesReply(state.requestNotes[item.reference] ?? [], url)]
     if (requestMatch[3]) {
       if (state.notesFail) return [500, { message: 'Something went wrong on our side. Please try again.' }]
       state.requestNotes[item.reference] = [{ author: { name: ADMIN.name, email: ADMIN.email }, text: String(body.text).trim(), createdAt: new Date().toISOString() }, ...(state.requestNotes[item.reference] ?? [])]
@@ -371,7 +408,7 @@ function reply(state: ApiState, request: Request): Reply {
       item.status = body.status as RequestStatus
       state.requestHistory[item.reference] = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'status', from, to: item.status }], createdAt: new Date().toISOString() }, ...(state.requestHistory[item.reference] ?? [])]
     }
-    return [requestMatch[3] ? 201 : 200, { item, history: state.requestHistory[item.reference] ?? [], notes: state.requestNotes[item.reference] ?? [] }]
+    return [requestMatch[3] ? 201 : 200, { item, ...historyReply(state.requestHistory[item.reference] ?? []), ...notesReply(state.requestNotes[item.reference] ?? []) }]
   }
   return [404, { message: 'Route not found.' }]
 }

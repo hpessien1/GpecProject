@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import AdminNotes from './AdminNotes'
+import AdminOlderEntries from './AdminOlderEntries'
 import { requestKindContent, requestStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
-import { addRequestNote, getRequest, setRequestStatus } from '../../services/adminApi'
+import { addRequestNote, getOlderRequestHistory, getOlderRequestNotes, getRequest, setRequestStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import type { AdminRequestKind, AdminRequestResponse, RequestStatus } from '../../types'
 
@@ -86,7 +87,7 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
           </dl>
           {item.subject && <><h2>Subject</h2><p>{item.subject}</p></>}
           <h2>Message</h2><p className="admin-request-message">{item.message}</p>
-          <AdminNotes notes={data.notes} onAdd={async (text) => setData(await addRequestNote(kind, reference, text))} onSessionEnded={onSessionEnded} />
+          <AdminNotes notes={data.notes} cursor={data.notesCursor} loadOlder={(before) => getOlderRequestNotes(kind, reference, before)} onAdd={async (text) => setData(await addRequestNote(kind, reference, text))} onSessionEnded={onSessionEnded} />
         </div>
         <aside className="admin-request-side">
           <form className="admin-form admin-status-form" onSubmit={handleStatusSubmit}>
@@ -100,11 +101,13 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
           </form>
           <section className="admin-history" aria-labelledby="admin-request-history-title">
             <h2 id="admin-request-history-title">Status history</h2>
-            {data.history.length === 0 ? <p>No changes yet. New requests start as “New”.</p>
-              : <ol>{data.history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
-                <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
-                <ul>{entry.changes.map((change) => <li key={change.field}>{requestStatusLabels[change.from]} → {requestStatusLabels[change.to]}</li>)}</ul>
-              </li>)}</ol>}
+            <AdminOlderEntries kind="history" newest={data.history} cursor={data.historyCursor} loadOlder={(before) => getOlderRequestHistory(kind, reference, before)} onSessionEnded={onSessionEnded}>
+              {(history) => history.length === 0 ? <p>No changes yet. New requests start as “New”.</p>
+                : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
+                  <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
+                  <ul>{entry.changes.map((change) => <li key={change.field}>{requestStatusLabels[change.from]} → {requestStatusLabels[change.to]}</li>)}</ul>
+                </li>)}</ol>}
+            </AdminOlderEntries>
           </section>
         </aside>
       </div>}

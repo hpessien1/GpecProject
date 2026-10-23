@@ -3,10 +3,11 @@ import { ConflictError, NotFoundError, isDuplicateKeyError } from '../errors.js'
 import AuditRecord from '../models/AuditRecord.js'
 import Product from '../models/Product.js'
 import type { ProductChanges } from '../validation/adminProduct.js'
+import { ADMIN_PAGE_SIZE, pageInfo, skipTo } from '../utils/paging.js'
+import type { Cursor } from '../utils/paging.js'
 import type { AdminIdentity } from './adminAuth.js'
+import { historyPage } from './auditHistory.js'
 
-export const ADMIN_PAGE_SIZE = 50
-const HISTORY_LIMIT = 50
 const AUDITED_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
 // Products saved before a field existed have no value for it; read them as the schema's default.
 const MISSING_FIELD_DEFAULTS: Record<string, unknown> = { outOfStock: false, deliveryAvailable: true }
@@ -37,8 +38,8 @@ function rethrowConflict(error: unknown): never {
 
 export async function listProductsForAdmin(page: number) {
   const total = await Product.countDocuments()
-  const products = await Product.find().sort({ sortOrder: 1, _id: 1 }).skip((page - 1) * ADMIN_PAGE_SIZE).limit(ADMIN_PAGE_SIZE).lean()
-  return { products: products.map(toAdminProduct), page, totalPages: Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE)), total }
+  const products = await Product.find().sort({ sortOrder: 1, _id: 1 }).skip(skipTo(page)).limit(ADMIN_PAGE_SIZE).lean()
+  return { products: products.map(toAdminProduct), ...pageInfo(page, total) }
 }
 
 export async function getProductForAdmin(id: string) {
@@ -98,15 +99,7 @@ export async function updateProduct(admin: AdminIdentity, id: string, changes: P
   return updated
 }
 
-export async function productHistory(id: string) {
+export async function productHistory(id: string, before: Cursor | null) {
   if (!await Product.exists({ _id: id })) throw new NotFoundError('Product not found.')
-  const records = await AuditRecord.find({ targetType: 'product', targetId: id }).sort({ createdAt: -1, _id: -1 }).limit(HISTORY_LIMIT).lean()
-  return records.map((record) => ({
-    action: record.action,
-    actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' },
-    // For product.sale: the paid order that reduced the stock count.
-    orderReference: record.orderReference ?? null,
-    changes: record.changes,
-    createdAt: record.createdAt,
-  }))
+  return historyPage('product', id, before)
 }

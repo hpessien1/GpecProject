@@ -4,14 +4,15 @@ import AdminUser from '../models/AdminUser.js'
 import AuditRecord from '../models/AuditRecord.js'
 import BankTransferSettings, { BANK_TRANSFER_SETTINGS_ID } from '../models/BankTransferSettings.js'
 import type { BankTransferChanges } from '../validation/bankTransfer.js'
+import type { Cursor } from '../utils/paging.js'
 import type { AdminIdentity } from './adminAuth.js'
+import { historyPage } from './auditHistory.js'
 import type { Notifier } from './notifications.js'
 
 // GPEC's account is Nigerian (bank, account name, 10-digit NUBAN number), so transfers are in naira.
 export const BANK_TRANSFER_CURRENCY = 'NGN'
 
 const FIELDS = ['enabled', 'bankName', 'accountName', 'accountNumber', 'instructions', 'payWithinDays'] as const
-const HISTORY_LIMIT = 50
 // What the Bank details screen starts with, for staff to replace with GPEC's real account. Plainly not
 // real: no bank has that name, and 0000000000 is no one's account number, so a customer who somehow saw
 // it could not send money to a stranger. Checkout, the instructions, and the email label it "do not
@@ -78,7 +79,6 @@ export async function updateBankTransferSettings(admin: AdminIdentity, changes: 
   return saved
 }
 
-export async function bankTransferHistory() {
-  const records = await AuditRecord.find({ targetType: 'bankTransfer', targetId: BANK_TRANSFER_SETTINGS_ID }).sort({ createdAt: -1, _id: -1 }).limit(HISTORY_LIMIT).lean()
-  return records.map((record) => ({ actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' }, changes: record.changes, createdAt: record.createdAt }))
+export function bankTransferHistory(before: Cursor | null) {
+  return historyPage('bankTransfer', BANK_TRANSFER_SETTINGS_ID, before)
 }

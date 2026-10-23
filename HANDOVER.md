@@ -1,7 +1,6 @@
 # Next-session handover
 
-Last updated: 2026-10-23 (end of session: checkout, bank transfer, demo shop data, faster CI). Start a
-new session with:
+Last updated: 2026-10-23 (end of session: admin pagination). Start a new session with:
 
 ```text
 Continue work on the GPEC website at /home/worlanyo/Desktop/GpecProject.
@@ -11,9 +10,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 ## Where things stand
 
 - **Git and CI:** everything up to `7dbbae0` is pushed and CI is green (run 40004439376, 3 min 39 s).
-  This handover's commit comes after it and is **not pushed**; the user pushes, then check with
-  `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this repository's runs;
-  it cannot push).
+  Two commits come after it and are **not pushed**: `9cf7fc1` (the previous handover) and the admin
+  pagination commit. The user pushes, then check with `gh run list -R hpessien1/GpecProject` (the
+  `gh` login `v25-hub` can read this repository's runs; it cannot push). Every CI step passed
+  locally on the pagination commit.
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23). GPEC's team uses it to see how everything behaves and knows not to use it for real
   business. So: every feature comes with demo data there too (`seed:demo`), sample values are
@@ -24,8 +24,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
 - **What is deployed:** the website and API were last deployed at `48beb9d` (company profile,
-  prices). **Checkout, delivery areas, bank transfer, and the new demo data are not deployed yet**
-  (open item 1). Production has `CURRENCY=NGN`, email (SES, eu-north-1, still in the sandbox), and
+  prices). **Checkout, delivery areas, bank transfer, the new demo data, and admin pagination are not
+  deployed yet** (open item 1). Production has `CURRENCY=NGN`, email (SES, eu-north-1, still in the sandbox), and
   photo uploads (S3).
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (built, test mode), and 6 are
   done; step 3 (deploy) is live with the Atlas lock-down still to do.
@@ -66,8 +66,41 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 - **Availability is staff's job:** archive a product, or mark it out of stock (switch, optional
   count; customers never see the count). Paid orders reduce counted stock.
 - **Admin tabs:** Products · Orders · Delivery · Bank details · Contact requests.
+- **Pagination** (owner, 2026-10-23: "look at what is on the shop page and implement same or better"):
+  **ten per page** everywhere in the admin, chosen so the demo data shows the paging; the shop's
+  numbered page buttons; "Showing 11–12 of 12 orders" on every list.
 
-## This session (2026-10-23), in order
+## Latest session (2026-10-23, after the handover above was first written): admin pagination
+
+The three main admin lists already had server-side pages (50 or 25 per page, Previous/Next only), but:
+change histories stopped silently at the newest 50 entries and staff notes at 100 (every paid order
+adds a "Sold online" entry to each counted product, so price changes would drop out of sight); the
+delivery-area list had no pages; and opening an item and going back reset the list to page 1 with
+the filter and search cleared.
+
+Built (one commit):
+- **Backend:** `ADMIN_PAGE_SIZE = 10` and the paging helpers in `backend/src/utils/paging.ts`; list
+  replies add `pageSize`; delivery areas are paged (`?page=`); one `pageNumber` check
+  (`validation/fields.ts`) for every list. Histories (`services/auditHistory.ts`, shared by products,
+  orders, contact requests, delivery areas, bank details) and notes (`services/staffNotes.ts`) are paged
+  by **cursor** (`?before=`, validated in `validation/olderPage.ts`): the record's reply carries the
+  newest page and `historyCursor`/`notesCursor`; new routes `GET …/orders/:ref/history|notes`,
+  `GET …/contact-requests/:ref/history|notes`, `GET …/bank-transfer/history`. A cursor rather than a
+  page number, so a sale or note added while staff read never shows an entry twice.
+- **Frontend:** `components/Pagination.tsx`, the shop's control made shared (shop and the four admin
+  lists): every page number when there are up to 7, otherwise `1 … 5 6 7 … 12`, wrapping on phones.
+  `components/admin/AdminOlderEntries.tsx` adds "Show older changes/notes" under every history and
+  notes list (focus kept; "That is every change, back to the first." when done; errors shown with a
+  retry). `utils/rememberedState.ts` keeps each list's page, filter, and search in memory while an
+  item is open (cleared on login); a remembered page past the end shows the last page.
+  `utils/paging.ts` writes the "Showing …" line (the shop uses it too).
+- **Tests:** backend `tests/olderPages.test.ts` (paging to the oldest entry, same-millisecond entries,
+  an entry added between pages, bad cursors, 404s, admin only) plus list-size updates; browser
+  `e2e/adminPaging.spec.ts` (20 tests); a new contrast part "admin pages and older entries". Planted
+  faults (cursor tie-break removed, "Show older" replacing instead of adding, list memory not saved,
+  pale "Show older" text) each turned a test red.
+
+## Earlier that day (2026-10-23), in order
 
 1. Checked: `48beb9d` pushed, CI green, both resources redeployed, live API on NGN.
 2. **Checkout with Paystack** (test mode), delivery areas, the "Delivery available" switch, and
@@ -96,8 +129,9 @@ on transfers, a cut-off admin label, and a number sent as an account number clea
 - **Backend** (`backend/`): Express 5 + Mongoose 8. Routes in `backend/README.md`. Checkout in
   `services/checkout.ts` (one `settleOrder` for Paystack and confirmed transfers), Paystack calls
   only in `services/paystack.ts`, fee rule `services/paystackFee.ts`, signed idempotent webhook.
-- **Tests:** 365 backend tests (Vitest, in-memory MongoDB); 222 Playwright tests (208 behaviour at
-  desktop and phone, 14 contrast parts) against the production build with sample API data
+- **Tests:** 395 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 228 behaviour tests at desktop and phone (plus 2 skipped, as before) and 16
+  contrast tests (8 parts at 2 widths)
   (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
   builds, `npm audit`, gitleaks. Never deploys. Upgrading `@playwright/test` means updating the
@@ -151,6 +185,8 @@ on transfers, a cut-off admin label, and a number sent as an account number clea
    approval, and a decision on admin 2FA (an admin login can now confirm payments and change the bank
    account).
 6. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
+7. After deploying, check the pagination on the live admin: with the demo data, Products (14) and
+   Orders (12) show two pages; Delivery (10 areas) shows one.
 
 ## History
 

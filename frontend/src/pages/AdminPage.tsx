@@ -18,6 +18,7 @@ import AdminResetPassword from '../components/admin/AdminResetPassword'
 import AdminSectionNav from '../components/admin/AdminSectionNav'
 import { ApiError } from '../services/apiClient'
 import { getAdminSession, logOut } from '../services/adminApi'
+import { forgetRememberedState } from '../utils/rememberedState'
 import type { AdminRequestKind, AdminSessionInfo } from '../types'
 
 interface AdminPageProps {
@@ -105,7 +106,9 @@ export default function AdminPage({ route }: AdminPageProps) {
     setNotice('Your session has ended. Please log in again.')
   }, [])
 
+  // Each login starts the lists at their first page, whoever logged in before.
   function handleLoggedIn(newSession: AdminSessionInfo) {
+    forgetRememberedState()
     setNotice('')
     setSession(newSession)
   }

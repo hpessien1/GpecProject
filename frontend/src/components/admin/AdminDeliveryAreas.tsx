@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import Arrow from '../Arrow'
+import Pagination from '../Pagination'
 import AdminDeliveryAreaForm from './AdminDeliveryAreaForm'
 import type { DeliveryAreaFormValues } from './AdminDeliveryAreaForm'
 import { deliveryAreasContent } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { createDeliveryArea, listDeliveryAreas } from '../../services/adminApi'
 import { formatPrice } from '../../utils/money'
-import type { AdminDeliveryArea, CurrencyInfo } from '../../types'
+import { showingRange } from '../../utils/paging'
+import { useRememberedState } from '../../utils/rememberedState'
+import type { AdminDeliveryAreasPage, CurrencyInfo } from '../../types'
 
 interface AdminDeliveryAreasProps {
   currency: CurrencyInfo | null
@@ -15,7 +18,9 @@ interface AdminDeliveryAreasProps {
 
 // Where GPEC delivers and for how much. Every change is recorded on the server.
 export default function AdminDeliveryAreas({ currency, onSessionEnded }: AdminDeliveryAreasProps) {
-  const [areas, setAreas] = useState<AdminDeliveryArea[] | null>(null)
+  // Kept while staff open an area and come back.
+  const [page, setPage] = useRememberedState('delivery-areas', 1)
+  const [listing, setListing] = useState<AdminDeliveryAreasPage | null>(null)
   const [error, setError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
@@ -27,17 +32,28 @@ export default function AdminDeliveryAreas({ currency, onSessionEnded }: AdminDe
 
   useEffect(() => {
     let isCurrent = true
-    listDeliveryAreas()
-      .then((loaded) => { if (isCurrent) setAreas(loaded) })
+    listDeliveryAreas(page)
+      .then((loaded) => {
+        if (!isCurrent) return
+        // A remembered page that no longer exists: show the last one rather than an empty list.
+        if (page > loaded.totalPages) setPage(loaded.totalPages)
+        else setListing(loaded)
+      })
       .catch((loadError: unknown) => {
         if (!isCurrent) return
         if (loadError instanceof ApiError && loadError.status === 401) onSessionEnded()
         else setError(loadError instanceof Error ? loadError.message : 'Unable to load the delivery areas.')
       })
     return () => { isCurrent = false }
-  }, [loadAttempt, onSessionEnded])
+  }, [page, loadAttempt, onSessionEnded, setPage])
 
   useEffect(() => { resultRef.current?.focus() }, [result])
+
+  // Back to the top of the list, as a new page would load.
+  function choosePage(nextPage: number) {
+    setPage(nextPage)
+    document.getElementById('admin-delivery-title')?.focus()
+  }
 
   function retry() {
     setError('')
@@ -50,7 +66,8 @@ export default function AdminDeliveryAreas({ currency, onSessionEnded }: AdminDe
     setIsSaving(true)
     try {
       const created = await createDeliveryArea(values)
-      setAreas((current) => [...(current ?? []), created])
+      // Reload the page: the new area takes its place in the sorted list, perhaps on another page.
+      setLoadAttempt((attempt) => attempt + 1)
       setFormVersion((version) => version + 1)
       setResult({ kind: 'success', message: `${created.name} added.` })
     } catch (saveError) {
@@ -69,16 +86,20 @@ export default function AdminDeliveryAreas({ currency, onSessionEnded }: AdminDe
     <p className="admin-intro">{deliveryAreasContent.intro}</p>
     {!currency && <p className="admin-notice">{deliveryAreasContent.noCurrency}</p>}
     {error ? <div className="shop-status" role="alert"><p>{error}</p><button type="button" className="button button-primary" onClick={retry}>Try again</button></div>
-      : !areas ? <p className="admin-loading" role="status">Loading delivery areas…</p>
+      : !listing ? <p className="admin-loading" role="status">Loading delivery areas…</p>
       : <div className="admin-editor-layout">
         <div>
-          {areas.length === 0 ? <div className="shop-status" role="status"><p>{deliveryAreasContent.empty}</p></div>
-            : <ul className="admin-product-list admin-area-list">{areas.map((area) => <li key={area.id} className={area.status === 'archived' ? 'is-archived' : ''}>
+          {listing.areas.length === 0 ? <div className="shop-status" role="status"><p>{deliveryAreasContent.empty}</p></div>
+            : <>
+              <p className="admin-count">{showingRange(page, listing.pageSize, listing.areas.length, listing.total, { one: 'delivery area', many: 'delivery areas' })}, including archived ones.</p>
+              <ul className="admin-product-list admin-area-list">{listing.areas.map((area) => <li key={area.id} className={area.status === 'archived' ? 'is-archived' : ''}>
               <div className="admin-product-main"><strong>{area.name}</strong>{area.description && <span>{area.description}</span>}</div>
               <span className="admin-product-price">{currency ? formatPrice(area.fee, currency) : 'No fee'}</span>
               <span className="admin-product-tags">{area.status === 'archived' && <span className="admin-tag">Archived</span>}</span>
               <a className="admin-edit-link" href={`#admin/delivery/${encodeURIComponent(area.id)}`} aria-label={`Edit ${area.name}`}>Edit <Arrow /></a>
-            </li>)}</ul>}
+            </li>)}</ul>
+              {listing.totalPages > 1 && <Pagination label="Delivery area pages" page={page} totalPages={listing.totalPages} onSelect={choosePage} />}
+            </>}
           <p className="admin-count">{deliveryAreasContent.pastOrders}</p>
         </div>
         {currency && <section className="admin-history" aria-labelledby="admin-delivery-add-title">

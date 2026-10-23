@@ -1,11 +1,12 @@
 import { Router } from 'express'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
-import { addOrderNote, getOrder, listOrders, setFulfilmentStatus } from '../services/adminOrders.js'
+import { addOrderNote, getOrder, listOrders, orderHistory, orderNotes, setFulfilmentStatus } from '../services/adminOrders.js'
 import { closeUnpaidTransfer, confirmTransferReceived } from '../services/checkout.js'
 import type { Notifier } from '../services/notifications.js'
 import { ORDER_REFERENCE_PATTERN, validateFulfilmentChange, validateOrderListQuery } from '../validation/adminOrder.js'
 import { validateNote } from '../validation/adminRequest.js'
+import { validateOlderPageQuery } from '../validation/olderPage.js'
 
 // Orders (/api/admin/orders) for GPEC staff. Mounted behind requireAdmin in app.ts: customers'
 // details never reach an anonymous visitor. Admins can read and search orders, move a paid order's
@@ -37,6 +38,20 @@ export default function adminOrdersRouter(notifier: Notifier) {
       return next(error)
     }
   })
+
+  // Older pages of an order's history and notes (the newest come with the order).
+  for (const [path, olderPage] of [['history', orderHistory], ['notes', orderNotes]] as const) {
+    router.get(`/:reference/${path}`, async (req, res, next) => {
+      try {
+        const reference = referenceParam(req.params.reference)
+        const { errors, value } = validateOlderPageQuery(req.query)
+        if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+        return res.json(await olderPage(reference, value.before))
+      } catch (error) {
+        return next(error)
+      }
+    })
+  }
 
   router.patch('/:reference', async (req, res, next) => {
     try {

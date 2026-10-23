@@ -5,12 +5,13 @@ import AuditRecord from '../models/AuditRecord.js'
 import ContactRequest from '../models/ContactRequest.js'
 import { REQUEST_STATUSES } from '../models/requestStatus.js'
 import type { RequestStatus } from '../models/requestStatus.js'
+import { ADMIN_PAGE_SIZE, pageInfo, skipTo } from '../utils/paging.js'
+import type { Cursor } from '../utils/paging.js'
 import { searchFilter } from '../utils/search.js'
 import type { AdminIdentity } from './adminAuth.js'
+import { historyPage } from './auditHistory.js'
 import { createNote, listNotes } from './staffNotes.js'
 
-export const REQUEST_PAGE_SIZE = 25
-const HISTORY_LIMIT = 50
 
 interface StoredRequest {
   reference: string
@@ -48,24 +49,35 @@ const contactRequestKind: RequestKind<mongoose.InferSchemaType<typeof ContactReq
 }
 
 function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
-  async function history(reference: string) {
-    const records = await AuditRecord.find({ targetType: kind.targetType, targetId: reference }).sort({ createdAt: -1, _id: -1 }).limit(HISTORY_LIMIT).lean()
-    return records.map((record) => ({ actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' }, changes: record.changes, createdAt: record.createdAt }))
-  }
-
   function toDetail(doc: Doc) {
     return { reference: doc.reference, status: doc.status, createdAt: doc.createdAt, updatedAt: doc.updatedAt, ...kind.details(doc) }
   }
 
+  // The request with the newest page of its history and of its notes; older pages come from
+  // history() and notes() below.
   async function get(reference: string) {
     const doc = await kind.model.findOne({ reference })
     if (!doc) throw new NotFoundError('Request not found.')
-    const [statusHistory, staffNotes] = await Promise.all([history(reference), listNotes(kind.targetType, reference)])
-    return { item: toDetail(doc), history: statusHistory, notes: staffNotes }
+    const [history, notes] = await Promise.all([historyPage(kind.targetType, reference, null), listNotes(kind.targetType, reference, null)])
+    return { item: toDetail(doc), ...history, ...notes }
+  }
+
+  async function requireRequest(reference: string) {
+    if (!await kind.model.exists({ reference })) throw new NotFoundError('Request not found.')
   }
 
   return {
     get,
+
+    async history(reference: string, before: Cursor | null) {
+      await requireRequest(reference)
+      return historyPage(kind.targetType, reference, before)
+    },
+
+    async notes(reference: string, before: Cursor | null) {
+      await requireRequest(reference)
+      return listNotes(kind.targetType, reference, before)
+    },
 
     // Newest first, optionally one status only and matching a search, with a count per status (of the
     // matching requests) for the filter buttons.
@@ -74,15 +86,13 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
       const filter = status ? { ...matching, status } : matching
       const [total, docs, grouped] = await Promise.all([
         kind.model.countDocuments(filter),
-        kind.model.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * REQUEST_PAGE_SIZE).limit(REQUEST_PAGE_SIZE),
+        kind.model.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skipTo(page)).limit(ADMIN_PAGE_SIZE),
         kind.model.aggregate<{ _id: string, count: number }>([{ $match: matching }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
       ])
       const counts = Object.fromEntries(REQUEST_STATUSES.map((name) => [name, grouped.find((group) => group._id === name)?.count ?? 0]))
       return {
         items: docs.map((doc) => ({ reference: doc.reference, status: doc.status, createdAt: doc.createdAt, ...kind.summarize(doc) })),
-        page,
-        totalPages: Math.max(1, Math.ceil(total / REQUEST_PAGE_SIZE)),
-        total,
+        ...pageInfo(page, total),
         counts,
       }
     },
@@ -108,7 +118,7 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
     },
 
     async addNote(admin: AdminIdentity, reference: string, text: string) {
-      if (!await kind.model.exists({ reference })) throw new NotFoundError('Request not found.')
+      await requireRequest(reference)
       await createNote(admin, kind.targetType, reference, text)
       return get(reference)
     },

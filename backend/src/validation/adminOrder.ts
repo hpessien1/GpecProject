@@ -2,7 +2,7 @@ import { FULFILMENT_STATUSES } from '../models/Order.js'
 import type { FulfilmentStatus } from '../models/Order.js'
 import { ORDER_STAGES } from '../services/adminOrders.js'
 import type { OrderStage } from '../services/adminOrders.js'
-import { asFields, text } from './fields.js'
+import { asFields, pageNumber, text } from './fields.js'
 import type { ValidationErrors } from './fields.js'
 
 // Customer-facing order references (utils/reference.ts), e.g. GPEC-O-2026-1A2B3C4D.
@@ -12,8 +12,7 @@ export const ORDER_REFERENCE_PATTERN = /^GPEC-O-\d{4}-[0-9A-F]{8}$/
 export function validateOrderListQuery(query: unknown) {
   const errors: ValidationErrors = {}
   const source = asFields(query)
-  const page = source.page === undefined ? 1 : Number(source.page)
-  if (!Number.isInteger(page) || page < 1 || page > 10_000) errors.page = 'page must be a whole number from 1.'
+  const page = pageNumber(source.page, errors)
   const stage = source.stage === undefined ? null : ORDER_STAGES.find((name) => name === source.stage) ?? null
   if (source.stage !== undefined && !stage) errors.stage = `stage must be one of: ${ORDER_STAGES.join(', ')}.`
   const search = text(source.q, 100, 'q', errors)

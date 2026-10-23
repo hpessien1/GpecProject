@@ -57,7 +57,7 @@ describe('bank details (admin)', () => {
   it('starts off, with plainly fake sample details for staff to replace', async () => {
     const res = await agent.get(SETTINGS)
     expect(res.headers['cache-control']).toBe('no-store')
-    expect(res.body).toEqual({ settings: { enabled: false, ...SAMPLE_BANK_DETAILS, instructions: '', payWithinDays: 3 }, isSample: true, history: [] })
+    expect(res.body).toEqual({ settings: { enabled: false, ...SAMPLE_BANK_DETAILS, instructions: '', payWithinDays: 3 }, isSample: true, history: [], historyCursor: null })
   })
 
   it('saves the details, records who changed what, and emails every active admin', async () => {

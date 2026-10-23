@@ -2,6 +2,7 @@ import request from 'supertest'
 import type TestAgent from 'supertest/lib/agent.js'
 import { beforeEach, describe, expect, it } from 'vitest'
 import AuditRecord from '../src/models/AuditRecord.js'
+import DeliveryArea from '../src/models/DeliveryArea.js'
 import { TEST_ADMIN, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
 
 useTestDatabase()
@@ -93,5 +94,17 @@ describe('delivery areas (admin)', () => {
     expect((await update(body.area.id, { fee: 2 }, 'https://evil.example')).status).toBe(403)
     expect((await update('0123456789abcdef01234567', { fee: 2 })).status).toBe(404)
     expect((await update('not-an-id', { fee: 2 })).status).toBe(404)
+  })
+})
+
+describe('delivery area list pages', () => {
+  it('lists ten at a time, active areas first, and refuses a bad page', async () => {
+    await DeliveryArea.insertMany(Array.from({ length: 12 }, (_, index) => ({ name: `Area ${String(index).padStart(2, '0')}`, fee: 100, sortOrder: index, status: index === 0 ? 'archived' : 'active' })))
+    const first = await agent.get(LIST)
+    expect(first.body).toMatchObject({ page: 1, pageSize: 10, totalPages: 2, total: 12 })
+    expect(first.body.areas[0].name).toBe('Area 01')
+    const second = await agent.get(`${LIST}?page=2`)
+    expect(second.body.areas.map((area: { name: string }) => area.name)).toEqual(['Area 11', 'Area 00'])
+    for (const page of ['0', 'abc', '1.5']) expect((await agent.get(`${LIST}?page=${page}`)).status).toBe(400)
   })
 })

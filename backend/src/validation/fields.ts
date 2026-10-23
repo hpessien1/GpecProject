@@ -16,6 +16,13 @@ export function text(value: unknown, maxLength: number, field: string, errors: V
   return normalized
 }
 
+// ?page= on the admin lists: a whole number from 1, or 1 when absent.
+export function pageNumber(value: unknown, errors: ValidationErrors) {
+  const page = value === undefined ? 1 : Number(value)
+  if (!Number.isInteger(page) || page < 1 || page > 10_000) errors.page = 'page must be a whole number from 1.'
+  return page
+}
+
 // Spam trap: the public forms include a "website" field that people never see (hidden off-screen and
 // skipped by keyboard and screen readers). Automated scripts tend to fill every field, so a value here
 // means the submission is very likely spam.

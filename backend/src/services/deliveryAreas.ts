@@ -3,10 +3,12 @@ import { ConflictError, NotFoundError, isDuplicateKeyError } from '../errors.js'
 import AuditRecord from '../models/AuditRecord.js'
 import DeliveryArea from '../models/DeliveryArea.js'
 import type { DeliveryAreaChanges } from '../validation/deliveryArea.js'
+import { ADMIN_PAGE_SIZE, pageInfo, skipTo } from '../utils/paging.js'
+import type { Cursor } from '../utils/paging.js'
 import type { AdminIdentity } from './adminAuth.js'
+import { historyPage } from './auditHistory.js'
 
 const AUDITED_FIELDS = ['name', 'description', 'fee', 'status', 'sortOrder'] as const
-const HISTORY_LIMIT = 50
 // More than GPEC will ever list; stops one request from reading an unbounded collection.
 const MAX_AREAS = 500
 
@@ -38,9 +40,13 @@ export async function listActiveDeliveryAreas(): Promise<PublicDeliveryArea[]> {
   return areas.map((area) => ({ id: String(area._id), name: area.name, description: area.description, fee: area.fee }))
 }
 
-export async function listDeliveryAreasForAdmin() {
-  const areas = await DeliveryArea.find().sort({ status: 1, sortOrder: 1, name: 1 }).limit(MAX_AREAS).lean()
-  return areas.map((area) => toAdminArea(area))
+// Active areas first, then archived ones; a page at a time.
+export async function listDeliveryAreasForAdmin(page: number) {
+  const [total, areas] = await Promise.all([
+    DeliveryArea.countDocuments(),
+    DeliveryArea.find().sort({ status: 1, sortOrder: 1, name: 1, _id: 1 }).skip(skipTo(page)).limit(ADMIN_PAGE_SIZE).lean(),
+  ])
+  return { areas: areas.map((area) => toAdminArea(area)), ...pageInfo(page, total) }
 }
 
 export async function getDeliveryAreaForAdmin(id: string) {
@@ -98,13 +104,7 @@ export async function updateDeliveryArea(admin: AdminIdentity, id: string, chang
   return updated
 }
 
-export async function deliveryAreaHistory(id: string) {
+export async function deliveryAreaHistory(id: string, before: Cursor | null) {
   if (!await DeliveryArea.exists({ _id: id })) throw new NotFoundError('Delivery area not found.')
-  const records = await AuditRecord.find({ targetType: 'deliveryArea', targetId: id }).sort({ createdAt: -1, _id: -1 }).limit(HISTORY_LIMIT).lean()
-  return records.map((record) => ({
-    action: record.action,
-    actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' },
-    changes: record.changes,
-    createdAt: record.createdAt,
-  }))
+  return historyPage('deliveryArea', id, before)
 }

@@ -435,7 +435,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord
 │       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, productImages
 │       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts
-│       ├── utils/            # reference.ts: customer-facing reference numbers
+│       ├── utils/            # reference.ts: customer-facing reference numbers; paging.ts: admin page size, cursors
 │       └── data/             # sampleProducts.ts (seed products); demoData.ts (demo orders and contact requests)
 └── frontend/                 # React + Vite SPA (TypeScript)
     ├── Dockerfile            # Builds the site, serves it with nginx (build context: frontend/)
@@ -453,7 +453,7 @@ name), and logs which database it found. The guard only works if production sets
         ├── components/       # Header, Footer, ServiceShowcase, SpamTrapField, PlaceholderText, …; shop/, admin/
         ├── data/             # Site copy (landingContent.ts, privacyContent.ts, adminContent.ts)
         ├── services/         # apiClient.ts (all HTTP), *Api.ts per resource, cartStorage.ts
-        ├── utils/            # money.ts: price input and display (no floating-point maths)
+        ├── utils/            # money.ts: price input and display (no floating-point maths); paging, list memory
         ├── fonts/            # Self-hosted font files and their licences (no Google Fonts calls)
         └── styles/           # CSS by area: base, site (header/footer), home, shop, privacy, admin
 ```
@@ -698,7 +698,10 @@ bugs) plus React hook and accessibility rules. Every switched-off rule and every
 - Look up names, references, and prices server-side from the canonical product data.
 - Use the central error handler and the `{ message, errors? }` shape.
 - Return only the fields the client needs (the contact route returns `reference` and `createdAt`).
-- Paginate list endpoints and cap page size server-side (admin lists).
+- Paginate list endpoints and cap page size server-side (admin lists): ten per page
+  (`ADMIN_PAGE_SIZE`, `utils/paging.ts`), and histories and notes by cursor (`?before=`), so no record
+  is ever out of reach. The screens use the shared `components/Pagination.tsx` (also the shop's) and
+  `components/admin/AdminOlderEntries.tsx` ("Show older").
 - Name files by resource (`routes/orders.ts`, `validation/order.ts`, `models/Order.ts`).
 
 ### DO NOT

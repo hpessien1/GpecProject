@@ -280,6 +280,7 @@
 /* Page buttons (also used by the admin lists) */
 .shop-pagination {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
   margin-top: 1.5rem;
@@ -305,6 +306,12 @@
 .shop-pagination button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
+}
+/* "…" between page numbers when there are many (components/Pagination.tsx). */
+.shop-pagination-gap {
+  padding: 0 0.15rem;
+  color: var(--ink);
+  font: 0.72rem var(--mono);
 }
 /* Cart (components/shop/Cart.tsx) */
 .shop-cart {

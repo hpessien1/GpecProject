@@ -1,6 +1,6 @@
 import { REQUEST_STATUSES } from '../models/requestStatus.js'
 import type { RequestStatus } from '../models/requestStatus.js'
-import { asFields, text } from './fields.js'
+import { asFields, pageNumber, text } from './fields.js'
 import type { ValidationErrors } from './fields.js'
 
 // Customer-facing references (utils/reference.ts), e.g. GPEC-C-2026-1A2B3C4D.
@@ -18,8 +18,7 @@ function readStatus(value: unknown): RequestStatus | undefined {
 export function validateRequestListQuery(query: unknown) {
   const errors: ValidationErrors = {}
   const source = asFields(query)
-  const page = source.page === undefined ? 1 : Number(source.page)
-  if (!Number.isInteger(page) || page < 1 || page > 10_000) errors.page = 'page must be a whole number from 1.'
+  const page = pageNumber(source.page, errors)
   const status = source.status === undefined ? null : readStatus(source.status) ?? null
   if (source.status !== undefined && !status) errors.status = `status must be one of: ${REQUEST_STATUSES.join(', ')}.`
   const search = text(source.q, 100, 'q', errors)

@@ -51,13 +51,19 @@ describe('order list', () => {
     const res = await agent.get(LIST)
     expect(res.status).toBe(200)
     expect(res.headers['cache-control']).toBe('no-store')
-    expect(res.body).toMatchObject({ total: 12, page: 1, totalPages: 1 })
+    // Ten to a page: the counts cover all twelve, the items only the first page.
+    expect(res.body).toMatchObject({ total: 12, page: 1, pageSize: 10, totalPages: 2 })
+    expect(res.body.items).toHaveLength(10)
     expect(res.body.counts).toEqual({ awaiting_payment: 1, awaiting_transfer: 1, transfer_reported: 1, payment_failed: 1, new: 1, processing: 2, ready_for_pickup: 1, out_for_delivery: 1, completed: 2, cancelled: 1 })
     expect(res.body.items[0]).toMatchObject({
       reference: NEW_DELIVERY, stage: 'new', name: 'Adaeze Okafor', company: 'Brightline Facilities Ltd', fulfilmentMethod: 'delivery',
       summary: '1 × Custom control panel, 2 × Terminal block set', currency: { code: 'NGN', minorUnitDigits: 2 },
     })
-    const times = res.body.items.map((item: { createdAt: string }) => Date.parse(item.createdAt))
+    const page2 = await agent.get(`${LIST}?page=2`)
+    expect(page2.body).toMatchObject({ page: 2, totalPages: 2 })
+    const items = [...res.body.items, ...page2.body.items]
+    expect(new Set(items.map((item: { reference: string }) => item.reference)).size).toBe(12)
+    const times = items.map((item: { createdAt: string }) => Date.parse(item.createdAt))
     expect(times).toEqual([...times].sort((a, b) => b - a))
   })
 

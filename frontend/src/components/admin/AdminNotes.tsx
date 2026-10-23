@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
+import AdminOlderEntries from './AdminOlderEntries'
 import { requestNotesContent } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { formatDateTime } from '../../utils/dates'
-import type { RequestNote } from '../../types'
+import type { OlderPage, RequestNote } from '../../types'
 
 interface AdminNotesProps {
+  // The newest page of notes, and the cursor for older ones (null when there are none).
   notes: RequestNote[]
+  cursor: string | null
+  loadOlder: (before: string) => Promise<OlderPage<RequestNote>>
   // Saves the note; the parent updates `notes` from the server's answer. Throws on failure.
   onAdd: (text: string) => Promise<void>
   onSessionEnded: () => void
@@ -15,7 +19,7 @@ interface AdminNotesProps {
 
 // Staff's internal notes on a contact request or an order: newest first, never edited or deleted.
 // The text stays in the box if saving fails, and is cleared once the note is saved.
-export default function AdminNotes({ notes, onAdd, onSessionEnded }: AdminNotesProps) {
+export default function AdminNotes({ notes, cursor, loadOlder, onAdd, onSessionEnded }: AdminNotesProps) {
   const [text, setText] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [result, setResult] = useState<{ kind: 'success' | 'error', message: string } | null>(null)
@@ -55,10 +59,12 @@ export default function AdminNotes({ notes, onAdd, onSessionEnded }: AdminNotesP
       {result && <p className={result.kind === 'success' ? 'success-message' : 'form-error'} role={result.kind === 'success' ? 'status' : 'alert'} tabIndex={-1} ref={resultRef}>{result.message}</p>}
       <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Add note <Arrow /></>}</button>
     </form>
-    {notes.length === 0 ? <p className="admin-notes-empty">{requestNotesContent.empty}</p>
-      : <ol className="admin-note-list">{notes.map((note, index) => <li key={`${note.createdAt}-${index}`}>
-        <p className="admin-history-meta"><time dateTime={note.createdAt}>{formatDateTime(note.createdAt)}</time> · {note.author.name} ({note.author.email})</p>
-        <p className="admin-request-message">{note.text}</p>
-      </li>)}</ol>}
+    <AdminOlderEntries kind="notes" newest={notes} cursor={cursor} loadOlder={loadOlder} onSessionEnded={onSessionEnded}>
+      {(entries) => entries.length === 0 ? <p className="admin-notes-empty">{requestNotesContent.empty}</p>
+        : <ol className="admin-note-list">{entries.map((note, index) => <li key={`${note.createdAt}-${index}`}>
+          <p className="admin-history-meta"><time dateTime={note.createdAt}>{formatDateTime(note.createdAt)}</time> · {note.author.name} ({note.author.email})</p>
+          <p className="admin-request-message">{note.text}</p>
+        </li>)}</ol>}
+    </AdminOlderEntries>
   </section>
 }

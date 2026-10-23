@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import AdminNotes from './AdminNotes'
+import AdminOlderEntries from './AdminOlderEntries'
 import { fulfilmentMethodLabels, orderStageLabels, ordersContent, paymentMethodLabels, paymentStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
-import { addOrderNote, closeUnpaidTransfer, confirmTransferReceived, getOrder, setOrderStatus } from '../../services/adminApi'
+import { addOrderNote, closeUnpaidTransfer, confirmTransferReceived, getOlderOrderHistory, getOlderOrderNotes, getOrder, setOrderStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import { formatPrice } from '../../utils/money'
 import type { AdminOrderResponse, FulfilmentMethod, FulfilmentStatus } from '../../types'
@@ -155,7 +156,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
               <dt>Narration</dt><dd className="admin-mono">{order.reference}</dd>
             </dl>
           </>}
-          <AdminNotes notes={data.notes} onAdd={async (text) => setData(await addOrderNote(reference, text))} onSessionEnded={onSessionEnded} />
+          <AdminNotes notes={data.notes} cursor={data.notesCursor} loadOlder={(before) => getOlderOrderNotes(reference, before)} onAdd={async (text) => setData(await addOrderNote(reference, text))} onSessionEnded={onSessionEnded} />
         </div>
         <aside className="admin-request-side">
           {order.paymentStatus === 'paid'
@@ -182,13 +183,15 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
             : <p className="admin-notice">{order.paymentMethod === 'bank_transfer' ? ordersContent.transferClosed : ordersContent.notPaid}</p>}
           <section className="admin-history" aria-labelledby="admin-order-history-title">
             <h2 id="admin-order-history-title">History</h2>
-            {data.history.length === 0 ? <p>No changes yet. Paid orders start as “New”.</p>
-              : <ol>{data.history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
-                <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
-                <ul>{entry.action === 'order.payment'
-                  ? entry.changes.map((change) => <li key={change.field}>Payment: {paymentStatusLabels[change.from]} → {change.to === 'failed' ? 'Closed as not received' : paymentStatusLabels[change.to]}</li>)
-                  : entry.changes.map((change) => <li key={change.field}>{orderStageLabels[change.from]} → {orderStageLabels[change.to]}</li>)}</ul>
-              </li>)}</ol>}
+            <AdminOlderEntries kind="history" newest={data.history} cursor={data.historyCursor} loadOlder={(before) => getOlderOrderHistory(reference, before)} onSessionEnded={onSessionEnded}>
+              {(history) => history.length === 0 ? <p>No changes yet. Paid orders start as “New”.</p>
+                : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
+                  <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
+                  <ul>{entry.action === 'order.payment'
+                    ? entry.changes.map((change) => <li key={change.field}>Payment: {paymentStatusLabels[change.from]} → {change.to === 'failed' ? 'Closed as not received' : paymentStatusLabels[change.to]}</li>)
+                    : entry.changes.map((change) => <li key={change.field}>{orderStageLabels[change.from]} → {orderStageLabels[change.to]}</li>)}</ul>
+                </li>)}</ol>}
+            </AdminOlderEntries>
           </section>
         </aside>
       </div>}

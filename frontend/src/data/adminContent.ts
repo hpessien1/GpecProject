@@ -138,3 +138,9 @@ export const requestNotesContent = {
   label: 'Add a note',
   empty: 'No notes yet.',
 }
+
+// Under a change history or a list of notes (components/admin/AdminOlderEntries.tsx).
+export const olderEntriesContent = {
+  history: { button: 'Show older changes', end: 'That is every change, back to the first.', error: 'Unable to load older changes.' },
+  notes: { button: 'Show older notes', end: 'That is every note, back to the first.', error: 'Unable to load older notes.' },
+}

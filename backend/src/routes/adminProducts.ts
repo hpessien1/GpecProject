@@ -4,6 +4,9 @@ import { currentAdmin } from '../middleware/requireAdmin.js'
 import { createProduct, getProductForAdmin, listProductsForAdmin, productHistory, updateProduct } from '../services/adminProducts.js'
 import { PRODUCT_ID_PATTERN, validateProductCreate, validateProductUpdate } from '../validation/adminProduct.js'
 import type { ProductChanges } from '../validation/adminProduct.js'
+import { pageNumber } from '../validation/fields.js'
+import type { ValidationErrors } from '../validation/fields.js'
+import { validateOlderPageQuery } from '../validation/olderPage.js'
 import type { AppConfig } from '../app.js'
 
 // Mounted behind requireAdmin in app.ts. There is no delete: products are archived (status), because
@@ -25,8 +28,9 @@ export default function adminProductsRouter(config: AppConfig) {
 
   router.get('/', async (req, res, next) => {
     try {
-      const page = req.query.page === undefined ? 1 : Number(req.query.page)
-      if (!Number.isInteger(page) || page < 1 || page > 10_000) throw new ValidationError({ page: 'page must be a whole number from 1.' })
+      const errors: ValidationErrors = {}
+      const page = pageNumber(req.query.page, errors)
+      if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       return res.json(await listProductsForAdmin(page))
     } catch (error) {
       return next(error)
@@ -66,7 +70,10 @@ export default function adminProductsRouter(config: AppConfig) {
 
   router.get('/:id/history', async (req, res, next) => {
     try {
-      return res.json({ history: await productHistory(productIdParam(req.params.id)) })
+      const id = productIdParam(req.params.id)
+      const { errors, value } = validateOlderPageQuery(req.query)
+      if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+      return res.json(await productHistory(id, value.before))
     } catch (error) {
       return next(error)
     }
