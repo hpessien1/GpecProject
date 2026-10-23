@@ -190,6 +190,16 @@ describe('PATCH /api/admin/products/:id', () => {
     })
   })
 
+  it('marks a product pickup only, shows that in the shop, and records it', async () => {
+    const res = await patch('panel-001', { deliveryAvailable: false })
+    expect(res.body.product.deliveryAvailable).toBe(false)
+    const shop = await request(app).get('/api/products')
+    expect(shop.body.products.find((product: { id: string }) => product.id === 'panel-001').deliveryAvailable).toBe(false)
+    const [record] = await AuditRecord.find({ targetId: 'panel-001' }).lean()
+    expect(record.changes).toEqual([{ field: 'deliveryAvailable', from: true, to: false }])
+    expect((await patch('panel-001', { deliveryAvailable: 'no' })).status).toBe(400)
+  })
+
   it('hides an archived product from the public shop', async () => {
     await patch('solar-001', { status: 'archived' })
     const res = await request(app).get('/api/products')

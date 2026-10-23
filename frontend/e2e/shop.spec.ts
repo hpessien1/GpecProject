@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mockApi, sampleProducts } from './support/sampleApi'
+import { mockApi, sampleProducts, SAMPLE_BANK } from './support/sampleApi'
 
 test.describe('shop catalogue', () => {
   test('lists products from the API, labelled as samples, six per page', async ({ page }) => {
@@ -139,15 +139,15 @@ test.describe('out of stock', () => {
 })
 
 test.describe('checkout', () => {
-  test('shows the order and says online payment is not available yet, with a way to contact GPEC', async ({ page }) => {
-    const api = await mockApi(page)
+  test('until Paystack is set up: shows the order and says online payment is not available yet, with a way to contact GPEC', async ({ page }) => {
+    const api = await mockApi(page, { paymentsOn: false, bankTransfer: { ...SAMPLE_BANK, enabled: false } })
     await page.goto('/#shop')
     await page.locator('.shop-product-card').first().getByRole('button', { name: 'Add to cart' }).click()
     await page.getByRole('button', { name: 'Go to checkout' }).click()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Review\s*your order\./)
     await expect(page.getByRole('heading', { name: 'Online payment is not available yet' })).toBeVisible()
     await expect(page.locator('.shop-order-summary')).toContainText('Custom control panel')
-    // No enquiry form: nothing to fill in or send until Paystack checkout exists.
+    // No enquiry form: nothing to fill in or send until Paystack is set up.
     await expect(page.locator('main').getByRole('textbox')).toHaveCount(0)
     await expect(page.locator('main form')).toHaveCount(0)
     expect(api.requests.some((r) => r.method !== 'GET')).toBe(false)
@@ -175,7 +175,7 @@ test.describe('prices', () => {
   })
 
   test('show as a price per item in the cart and at checkout, with no total worked out in the browser', async ({ page }) => {
-    await mockApi(page)
+    await mockApi(page, { paymentsOn: false, bankTransfer: { ...SAMPLE_BANK, enabled: false } })
     await page.goto('/#shop')
     await page.getByRole('button', { name: 'Add to cart: Custom control panel' }).click()
     await page.getByRole('button', { name: 'Add to cart: Custom control panel' }).click()

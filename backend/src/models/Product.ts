@@ -29,6 +29,9 @@ const productSchema = new mongoose.Schema({
   // Optional count of units GPEC holds. null: not counted, so only outOfStock matters. When counted,
   // 0 means out of stock. Customers never see the number (services/products.ts).
   stockQuantity: { type: Number, default: null, min: 0, max: MAX_STOCK_QUANTITY, validate: { validator: (value: number | null) => value === null || Number.isInteger(value), message: 'stockQuantity must be a whole number.' } },
+  // Off for products GPEC does not deliver (e.g. a large panel): an order containing one can only be
+  // picked up. The server enforces it at checkout.
+  deliveryAvailable: { type: Boolean, default: true },
   // Archived products disappear from the shop but stay in the database for past orders.
   status: { type: String, enum: PRODUCT_STATUSES, default: 'active' },
   sortOrder: { type: Number, default: 0 },

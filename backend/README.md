@@ -30,6 +30,9 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `503 {"status":"unavailable"}` (also used by the Docker health check)
 - `GET /api/products`
 - `POST /api/contact-requests`
+- Checkout: `GET /api/checkout`, `POST /api/checkout/quote`, `POST /api/checkout/orders`,
+  `GET /api/checkout/orders/:paymentReference`, `POST /api/checkout/orders/:paymentReference/transfer-sent`;
+  Paystack webhook: `POST /api/paystack/webhook`
 - Admin "forgot password" (no login): `POST /api/admin/session/password-reset`,
   `POST /api/admin/session/password-reset/confirm`
 - Admin (login required; see below): `POST`, `GET`, `DELETE /api/admin/session`;
@@ -39,19 +42,76 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `PATCH /api/admin/contact-requests/:reference`, `POST /api/admin/contact-requests/:reference/notes`;
   `GET /api/admin/orders`, `GET`, `PATCH /api/admin/orders/:reference`,
   `POST /api/admin/orders/:reference/notes`;
+  `GET`, `POST /api/admin/delivery-areas`; `GET`, `PATCH /api/admin/delivery-areas/:id`;
+  `GET /api/admin/delivery-areas/:id/history`; `GET`, `PATCH /api/admin/bank-transfer`;
+  `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`;
   `POST /api/admin/product-images`
 - Public product photos: `GET /api/product-images/:hash.webp`
 
 `GET /api/products` returns `{ products: [...], currency }`: every active product in display order,
 with `id`, `name`, `reference`, `description`, `specs`, `image`, `alt`, `isPlaceholder` (true for
 sample data not supplied by GPEC), `inStock` (false when staff marked it out of stock or its counted
-stock is 0; the count itself is never returned), and `price` (in the currency's smallest unit, e.g.
+stock is 0; the count itself is never returned), `deliveryAvailable` (false for pickup-only
+products), and `price` (in the currency's smallest unit, e.g.
 kobo; `null` until staff set it). `currency` is `{ code, minorUnitDigits }` from the `CURRENCY`
 setting. While `CURRENCY` is unset, `currency` is `null` and products carry no `price`, so a bare
 number is never shown.
 
-There are no order enquiries: customers buy in the shop (Paystack checkout, roadmap step 5) or ask
-through the contact form.
+There are no order enquiries: customers buy in the shop (Paystack checkout) or ask through the
+contact form.
+
+### Checkout and Paystack
+
+Payments are on only when all five `PAYSTACK_*` settings, `CURRENCY`, and `FRONTEND_URL` are set
+(`config.ts`); otherwise `GET /api/checkout` says `paymentsAvailable: false` and the other checkout
+routes answer `503 PAYMENT_CONFIG_ERROR`. The browser sends only product IDs, quantities, the
+fulfilment choice, and the customer's details; every amount is worked out here
+(`services/checkout.ts`), and any other field (price, total, fee, currency, status, return address)
+is refused with `400`.
+
+- `GET /api/checkout` → `{ paymentsAvailable, testMode, currency, deliveryAreas: [{ id, name,
+  description, fee }] }` (active areas only).
+- `POST /api/checkout/quote` with `{ items: [{ productId, quantity }], fulfilmentMethod: 'pickup' |
+  'delivery', deliveryAreaId }` → `{ items, deliveryAreaName, currency, subtotal, deliveryFee,
+  paystackFee, total }`, the same figures the order will use. Refusals are `409` with a `code`:
+  `PRODUCT_UNAVAILABLE` (unknown or archived), `OUT_OF_STOCK`, `NOT_ENOUGH_STOCK` (more than the
+  counted stock; the count is never shown), `PRICE_NOT_SET`, `PICKUP_ONLY` (delivery with a
+  pickup-only product), `DELIVERY_AREA_UNAVAILABLE`; `errors` names the products.
+- `POST /api/checkout/orders` with the basket plus `fullName`, `email`, `phone` (required),
+  `company`, `notes`, and `deliveryAddress` (required for delivery, refused for pickup) creates the
+  order as `pending_payment`, starts a Paystack transaction (reference = the order's random `_id`,
+  `callback_url` = `FRONTEND_URL/shop/payment-complete`), and returns `201 { reference,
+  authorizationUrl }`. If Paystack does not start it, the order is deleted and the answer is `502
+  PAYMENT_START_FAILED`. Spam-trapped requests look normal and save nothing. Rate limit: as the
+  contact form (10 per 15 minutes per IP in production).
+- `GET /api/checkout/orders/:paymentReference` asks Paystack about the payment (unless already
+  paid), runs `markOrderPaid`, and returns the order's reference, payment status, items, and amounts,
+  with no personal details. `502 PAYMENT_CHECK_FAILED` when Paystack cannot be reached.
+- `POST /api/paystack/webhook` (raw body, `x-paystack-signature` HMAC SHA-512 checked in constant
+  time, then parsed): `charge.success` runs the same `markOrderPaid`, `charge.failed` marks an unpaid
+  order failed. Each event is stored in `webhookevents` (unique `eventId`), so a repeat is skipped.
+  Unsigned or malformed requests get a quiet `400`.
+
+**Bank transfer.** Every basket body also takes `paymentMethod`: `paystack` (the default) or
+`bank_transfer`. Bank transfer is open while staff have switched it on with complete details and
+`CURRENCY` is `NGN` (the account is Nigerian); otherwise `503 BANK_TRANSFER_UNAVAILABLE`. It has no
+Paystack fee. `GET /api/checkout` adds `paymentMethods` and `bankTransfer` (the details). `POST
+/orders` with `bank_transfer` saves the order unpaid with a copy of the details and returns `201 {
+reference, paymentMethod, paymentReference }`; the result route returns `bankTransfer` (details,
+`payBy`, `reportedAt`) and never asks Paystack. `POST /orders/:paymentReference/transfer-sent` (no
+body) records that the customer says they paid, once, and emails staff. Staff then call `POST
+/api/admin/orders/:reference/transfer-received` (paid: same settlement as Paystack, plus an
+`order.payment` audit record) or `transfer-not-received` (closed as failed, recorded); both refuse
+Paystack orders (`409 NOT_A_TRANSFER`) and settled ones (`409 TRANSFER_ALREADY_SETTLED`). `GET` /
+`PATCH /api/admin/bank-transfer` read and change `enabled`, `bankName`, `accountName`,
+`accountNumber` (10 digits), `instructions`, `payWithinDays` (1–30), with the change history; turning
+it on needs the bank, name, and number; every change emails all active admins. The admin order list
+adds the stages `awaiting_transfer` and `transfer_reported`.
+
+`markOrderPaid` checks that Paystack reports `success` with exactly the order's amount and currency,
+then moves the order from unpaid (or failed) to `paid` with a conditional update. Only the caller
+that wins reduces counted stock (never below 0; recorded as `product.sale` in the product's history)
+and emails staff and the customer.
 
 After saving, the contact form route emails GPEC staff and send the customer a confirmation, when
 Amazon SES is configured (`docs/RUNBOOK.md` Section 1.6); otherwise email is off and nothing is sent.
@@ -129,5 +189,11 @@ All admin responses are sent with `Cache-Control: no-store`.
   moves a **paid** order along and records it: unpaid orders get `409 ORDER_NOT_PAID`, a pickup
   order cannot be `out_for_delivery` nor a delivery order `ready_for_pickup` (`400`). Payment status,
   items, amounts, and customer details cannot be changed here. `POST /:reference/notes` as for
-  contact requests. Orders are created by checkout (roadmap step 5); until then only by the demo
-  command (`npm run seed:demo`; on the live database only with `--production`, before launch).
+  contact requests. Orders are created by checkout; demo orders by `npm run seed:demo` (on the live
+  database only with `--production`, removed before launch). Delivery orders include
+  `deliveryAreaName`; every order has `customerNotes`.
+- `/api/admin/delivery-areas`: `GET` lists every area (archived ones too); `POST` with `{ name, fee,
+  description? }` adds one (`fee` in the smallest unit; `409 CURRENCY_NOT_CONFIGURED` without a
+  currency; `409 DELIVERY_AREA_CONFLICT` for a duplicate name); `PATCH /:id` with any of `name`,
+  `description`, `fee`, `status` (`active` | `archived`), `sortOrder`; `GET /:id/history`. There is
+  no delete. Every change is recorded with who, old and new value, and when.

@@ -15,6 +15,8 @@ export interface PublicProduct {
   isPlaceholder: boolean
   // Out of stock (switched off by staff, or a counted stock of 0): shown, labelled, not buyable.
   inStock: boolean
+  // False: GPEC does not deliver it, so an order containing it is pickup only.
+  deliveryAvailable: boolean
   price?: number | null
 }
 
@@ -34,6 +36,7 @@ export async function listActiveProducts(currency: string | null): Promise<Publi
     alt: product.alt,
     isPlaceholder: product.isPlaceholder,
     inStock: isInStock(product),
+    deliveryAvailable: product.deliveryAvailable !== false,
     ...(currency ? { price: product.price ?? null } : {}),
   }))
 }

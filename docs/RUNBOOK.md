@@ -98,8 +98,9 @@ Coolify with the `gpec-prod` string and redeploy the API.
    | `MONGODB_URI` | The `gpec-prod` user's connection string. **The database name before `?` must be `/gpec`, never `/gpec_dev`.** |
    | `CLIENT_ORIGIN` | `https://gpecengineering.com,https://www.gpecengineering.com` |
    | `CURRENCY` | **Leave it out** until GPEC confirms the currency. Then `NGN` (or whatever GPEC confirms). While unset, admins cannot set prices. |
-   | `FRONTEND_URL` | `https://gpecengineering.com`: used for links in emails (and later Paystack). |
+   | `FRONTEND_URL` | `https://gpecengineering.com`: used for links in emails and as Paystack's return address. |
    | Email and photo settings | Leave out until Amazon SES and S3 are ready (Sections 1.6, 1.7). |
+   | Paystack settings | Leave out until Paystack is set up (Section 1.8). |
 
    **Untick "Available at Buildtime" on every API variable** (*Normal View*). Coolify passes
    build-time variables into the image build: `NODE_ENV=production` there makes `npm ci` skip the
@@ -294,6 +295,54 @@ for an image already on the site, and the API log says `Product photo uploads ar
    visitors fall inside AWS's monthly free data-transfer allowance. Check the S3 pricing page for
    the chosen region.
 
+### 1.8 Payments (Paystack and bank transfer)
+
+**Bank transfer** works without Paystack. In the admin panel, *Bank details*: enter GPEC's bank, the
+account name exactly as the bank has it, and the 10-digit account number; choose the days customers
+have to pay; tick *Offer bank transfer at checkout*; save. Every admin gets an email about the
+change: if one ever arrives that nobody expected, check the details at once and change the admin
+passwords. Bank transfer is offered only while `CURRENCY=NGN`. For each transfer order, staff look
+in GPEC's bank account for the amount with the order reference as the narration, then press
+*Confirm transfer received* on the order (or *Payment not received* if it never comes).
+
+**Paystack:**
+
+Until these are set, checkout shows the order and says online payment is not available yet.
+
+1. **Fee rate.** In GPEC's Paystack dashboard, read the transaction fee on GPEC's plan (Paystack
+   publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000) and
+   confirm with Paystack that GPEC may pass the fee on to customers. The site adds it to each order
+   as "Payment processing fee".
+2. **Test keys.** Dashboard → *Settings* → *API Keys & Webhooks*, **Test** mode: copy the **test
+   secret key** (`sk_test_…`). Never the public key, never a live key without GPEC's approval.
+3. **Webhook.** On the same page, set the test **Webhook URL** to
+   `https://api.gpecengineering.com/api/paystack/webhook`. Leave the callback URL empty: the site
+   sends its own with each payment.
+4. **Coolify, `gpec-api`** (runtime only, "Available at Buildtime" unticked), amounts in kobo:
+
+   | Variable | Value |
+   |---|---|
+   | `PAYSTACK_SECRET_KEY` | the `sk_test_…` key |
+   | `PAYSTACK_FEE_PERCENT` | e.g. `1.5` |
+   | `PAYSTACK_FEE_FLAT` | e.g. `10000` (₦100) |
+   | `PAYSTACK_FEE_FLAT_WAIVED_BELOW` | e.g. `250000` (₦2,500); `0` if the flat fee is never waived |
+   | `PAYSTACK_FEE_CAP` | e.g. `200000` (₦2,000) |
+
+   `CURRENCY=NGN` and `FRONTEND_URL` must also be set. All five or none: a partial set stops the API
+   at startup with a list of what is missing. Redeploy the API; its log says
+   `Paystack is in test mode: no real money moves.`
+5. **Delivery areas.** In the admin panel, *Delivery*: add the areas GPEC delivers to, each with its
+   fee. With none, customers can only choose pickup. Untick *Delivery available* on any product GPEC
+   will not deliver.
+6. **Test.** Price a sample product, add it to the cart, check out (the page shows "Test mode"), and
+   pay with one of Paystack's test cards (listed in Paystack's documentation, "Test Payments"). You
+   should come back to "Your order is paid", the order should show in *Orders* as New, and the
+   emails should arrive. Try a failing test card too: the site says the payment did not go through
+   and keeps the cart.
+7. **Going live** needs GPEC's approval and a verified Paystack business: switch the dashboard to
+   *Live*, set the live webhook URL to the same address, replace `PAYSTACK_SECRET_KEY` with the
+   `sk_live_…` key, and redeploy. The "Test mode" notice disappears.
+
 ## 2. Deploying
 
 1. Check that GitHub Actions CI is green for the `main` commit you are shipping.
@@ -341,12 +390,20 @@ database separately (or restored from an Atlas backup).
 | Admin product form says "Photo uploads are not set up yet", or offers no photo upload | `S3_*` settings not set in Coolify | Expected until S3 is set up (Section 1.7). |
 | Photo upload fails with "Something went wrong" and the API log shows `AccessDenied` or `NoSuchBucket` | Wrong key, bucket name, or region; or the IAM policy names a different bucket | Check Section 1.7, steps 2–4. |
 | Shop shows a broken image for an uploaded photo | The photo was never stored (bucket or key changed since), or the API cannot reach S3 | Open `https://api.gpecengineering.com/api/<the product's image value>`: 404 means it is not in the bucket (upload it again); 500 means an S3 problem (check the API log; `AccessDenied` naming `s3:ListBucket` means the key's policy lacks the list permission from Section 1.7, step 3). |
-| A secret leaked (connection string, SES key, future Paystack key) | — | Rotate it at the source first (Atlas: change the `gpec-prod` password; SES or S3: create a new access key for `gpec-ses-sender` or `gpec-product-images` and delete the old one; Paystack: regenerate the key), update it in Coolify, redeploy, then tell the developer so the git history can be checked. |
+| A secret leaked (connection string, SES key, Paystack key) | — | Rotate it at the source first (Atlas: change the `gpec-prod` password; SES or S3: create a new access key for `gpec-ses-sender` or `gpec-product-images` and delete the old one; Paystack: regenerate the key), update it in Coolify, redeploy, then tell the developer so the git history can be checked. |
 
-### Payments (from roadmap step 5)
+### Payments
 
-Paystack is not connected yet. This section will cover a failing webhook, an order stuck in
-`pending_payment`, and how to check a payment in the Paystack dashboard once checkout is built.
+| Symptom | Likely cause | What to do |
+|---|---|---|
+| Checkout says "Online payment is not available yet" | Paystack settings not set (or `CURRENCY` missing) | Expected until Section 1.8 is done. |
+| A customer paid but the order says "Awaiting payment" | Webhook not reaching the API, and the customer closed the page before coming back | In Paystack's dashboard, find the transaction by its reference (the order's *Paystack reference* in the admin panel) and check it succeeded. Check the webhook URL (Section 1.8, step 3) and Paystack's webhook log. Opening `https://gpecengineering.com/#shop/payment/<Paystack reference>` makes the site check the payment again. |
+| `Payment for GPEC-O-… does not match the order (amount or currency differ)` in the API log | A payment for a different amount or currency than the order: possible tampering | The order was **not** marked paid. Check the transaction in Paystack's dashboard and refund it there if needed. Tell the developer. |
+| `Payment for GPEC-O-… could not be started` | Paystack refused or could not be reached; often a wrong or revoked key | The customer saw "Nothing was charged" and no order was kept. Check the key in Coolify and [status.paystack.com](https://status.paystack.com). |
+| A customer says they paid by transfer, but the order is still "Awaiting transfer" or "Transfer reported" | Staff have not confirmed it yet, or the narration did not match | Look in GPEC's bank account for the amount and the customer's name; confirm it on the order once found. Only staff can mark a transfer paid. |
+| An email says the bank details changed, and nobody expected it | Someone with an admin login changed where customers' money goes | Check *Bank details* and its change history at once, correct them, change every admin password, and tell the developer. |
+| Many "Awaiting payment" orders | Customers who left Paystack's page without paying | Normal. Each attempt is its own order; nothing was charged. Staff can follow up or ignore them. |
+| Webhook requests answered `400` in Paystack's log | Wrong secret key (signatures do not match) | Make sure `PAYSTACK_SECRET_KEY` is the key of the same mode (test or live) as the webhook. |
 
 ---
 

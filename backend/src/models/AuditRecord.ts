@@ -8,16 +8,22 @@ const changeSchema = new mongoose.Schema({
   to: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { _id: false })
 
+const actorSchema = new mongoose.Schema({
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', required: true },
+  email: { type: String, required: true },
+  name: { type: String, required: true },
+}, { _id: false })
+
 const auditRecordSchema = new mongoose.Schema({
-  action: { type: String, required: true, enum: ['product.create', 'product.update', 'contactRequest.status', 'order.status'] },
-  targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order'] },
+  // product.sale: a paid order reduced a product's stock count (made by the website, not an admin).
+  // order.payment: staff confirmed a bank transfer arrived, or closed an unpaid one.
+  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'contactRequest.status', 'order.status', 'order.payment', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update'] },
+  targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer'] },
   targetId: { type: String, required: true },
-  // Copied at the time, so the record still names the person if the account changes later.
-  actor: {
-    adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', required: true },
-    email: { type: String, required: true },
-    name: { type: String, required: true },
-  },
+  // The admin who made the change, copied at the time, so the record still names the person if the
+  // account changes later. Absent only for product.sale, which names the order instead.
+  actor: { type: actorSchema, default: null, required: function (this: { action?: string }) { return this.action !== 'product.sale' } },
+  orderReference: { type: String, default: null },
   changes: { type: [changeSchema], default: [] },
 }, { timestamps: { createdAt: true, updatedAt: false }, strict: 'throw' })
 

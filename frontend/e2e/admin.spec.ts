@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -202,6 +202,21 @@ test.describe('products and prices', () => {
     expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ stockQuantity: null })
   })
 
+  test('marks a product pickup only, and shows online sales in its history', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.getByRole('link', { name: 'Edit Custom control panel' }).click()
+    await expect(page.locator('.admin-history li').first()).toContainText(`Sold online · order ${ORDER_REF}`)
+    await expect(page.locator('.admin-history li').first()).toContainText('Stock count: 5 → 4')
+    const delivery = page.getByRole('checkbox', { name: /Delivery available/ })
+    await expect(delivery).toBeChecked()
+    await delivery.uncheck()
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Changes saved.')
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ deliveryAvailable: false })
+    await expect(page.locator('.admin-history li').first()).toContainText('Delivery available: Yes → No')
+  })
+
   test('price entry is switched off until the currency is configured', async ({ page }) => {
     await mockApi(page, { currency: null })
     await logInAsAdmin(page)
@@ -217,7 +232,7 @@ test.describe('orders', () => {
     await logInAsAdmin(page)
     await page.getByRole('link', { name: 'Orders' }).click()
     const rows = page.locator('.admin-order-list li')
-    await expect(rows).toHaveCount(4)
+    await expect(rows).toHaveCount(5)
     await expect(rows.first()).toContainText('Sample Customer')
     await expect(rows.first()).toContainText('1 × Custom control panel, 2 × Terminal block set')
     await expect(rows.first()).toContainText('Delivery')
@@ -241,6 +256,9 @@ test.describe('orders', () => {
     await expect(page.getByRole('link', { name: 'customer@example.com' })).toHaveAttribute('href', `mailto:customer@example.com?subject=${encodeURIComponent(`Your GPEC order ${ORDER_REF}`)}`)
     await expect(page.getByRole('heading', { name: 'Delivery' })).toBeVisible()
     await expect(page.getByText('14 Sample Street')).toBeVisible()
+    await expect(page.getByText('Area: Lagos')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Customer notes' })).toBeVisible()
+    await expect(page.getByText('Please call before delivery.')).toBeVisible()
     const firstItem = page.locator('.admin-order-items tbody tr').first()
     await expect(firstItem).toContainText('Custom control panel')
     await expect(firstItem).toContainText('₦1,850,000.00')
@@ -287,7 +305,122 @@ test.describe('orders', () => {
     await mockApi(page, { orders: [] })
     await logInAsAdmin(page)
     await page.goto('/#admin/orders')
-    await expect(page.getByText('No orders yet. Orders appear here once online payment through Paystack is set up')).toBeVisible()
+    await expect(page.getByText('No orders yet. Orders placed in the shop appear here')).toBeVisible()
+  })
+})
+
+test.describe('delivery areas', () => {
+  test('lists the areas with their fees and adds one, sending the fee in kobo', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Delivery' }).click()
+    await expect(page.getByRole('heading', { name: 'Delivery areas', level: 1 })).toBeVisible()
+    const list = page.locator('.admin-area-list li')
+    await expect(list).toHaveCount(3)
+    await expect(list.first()).toContainText('Port Harcourt')
+    await expect(list.first()).toContainText('₦3,000.00')
+    await expect(list.nth(2)).toContainText('Archived')
+    await page.getByLabel('Area name').fill('Abuja')
+    await page.getByLabel('What it covers').fill('Federal Capital Territory')
+    await page.getByLabel('Delivery fee').fill('20,000')
+    await page.getByRole('button', { name: 'Add area' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Abuja added.')
+    expect(api.requests.find((r) => r.method === 'POST' && r.path === '/api/admin/delivery-areas')?.body).toEqual({ name: 'Abuja', description: 'Federal Capital Territory', fee: 2000000 })
+    await expect(list).toHaveCount(4)
+    await expect(page.getByLabel('Area name')).toHaveValue('')
+  })
+
+  test('refuses a badly typed fee before sending anything', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/delivery')
+    await page.getByLabel('Area name').fill('Abuja')
+    await page.getByLabel('Delivery fee').fill('twenty')
+    await page.getByRole('button', { name: 'Add area' }).click()
+    await expect(page.locator('.admin-field-error')).toContainText('Enter an amount such as 3000')
+    expect(api.requests.some((r) => r.method === 'POST' && r.path === '/api/admin/delivery-areas')).toBe(false)
+  })
+
+  test('edits a fee, sending only the change, and shows it in the history', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/delivery')
+    await page.getByRole('link', { name: 'Edit Port Harcourt' }).click()
+    await expect(page.getByRole('heading', { name: 'Port Harcourt', level: 1 })).toBeVisible()
+    await page.getByLabel('Delivery fee').fill('3500')
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Changes saved.')
+    expect(api.requests.find((r) => r.method === 'PATCH')).toEqual({ method: 'PATCH', path: `/api/admin/delivery-areas/${AREA_ID}`, body: { fee: 350000 } })
+    await expect(page.locator('.admin-history li').first()).toContainText('Delivery fee: ₦3,000.00 → ₦3,500.00')
+  })
+
+  test('says so when there are no areas yet, or no currency', async ({ page }) => {
+    await mockApi(page, { deliveryAreas: [], currency: null })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/delivery')
+    await expect(page.getByText('No delivery areas yet, so customers can only choose pickup.')).toBeVisible()
+    await expect(page.getByText('Delivery fees cannot be set yet')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add area' })).toHaveCount(0)
+  })
+})
+
+test.describe('bank transfer', () => {
+  test('shows GPEC’s bank details and saves only the change, with the spaces typed in a number removed', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Bank details' }).click()
+    await expect(page.getByRole('heading', { name: 'Bank details', level: 1 })).toBeVisible()
+    await expect(page.getByText('Every change is recorded and emailed to all admins.')).toBeVisible()
+    await expect(page.getByLabel('Bank name')).toHaveValue(SAMPLE_BANK.bankName)
+    await expect(page.getByLabel('Account number')).toHaveValue(SAMPLE_BANK.accountNumber)
+    await expect(page.getByText('The 10-digit account number (NUBAN).')).toBeVisible()
+    await page.getByLabel('Account number').fill('9876 543 210')
+    await page.getByRole('button', { name: 'Save bank details' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Bank details saved. All admins have been emailed about the change.')
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ accountNumber: '9876543210' })
+    await expect(page.locator('.admin-history li').first()).toContainText('Account number: 0123456789 → 9876543210')
+  })
+
+  test('says bank transfer needs naira', async ({ page }) => {
+    await mockApi(page, { currency: { code: 'GHS', minorUnitDigits: 2 } })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/bank-transfer')
+    await expect(page.getByText('Bank transfer is offered only while the shop currency is naira (NGN).')).toBeVisible()
+  })
+
+  test('a reported transfer stands out in the list; confirming it needs the checkbox, then pays the order', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders')
+    const row = page.locator('.admin-order-list li', { hasText: 'Fifth Customer' })
+    await expect(row.locator('.admin-status')).toHaveText('Transfer reported')
+    await page.goto(`/#admin/orders/${TRANSFER_ORDER_REF}`)
+    await expect(page.getByText('Bank transfer', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Bank details given' })).toBeVisible()
+    await expect(page.locator('.admin-mono', { hasText: SAMPLE_BANK.accountNumber })).toBeVisible()
+    await expect(page.getByText('Paystack reference')).toHaveCount(0)
+    await expect(page.locator('.admin-order-totals')).not.toContainText('Payment processing fee')
+    await page.getByRole('button', { name: 'Confirm transfer received' }).click()
+    expect(api.requests.some((r) => r.path.endsWith('/transfer-received'))).toBe(false)
+    await page.getByRole('checkbox', { name: /I have checked GPEC’s bank account: ₦45,000.00 arrived/ }).check()
+    await page.getByRole('button', { name: 'Confirm transfer received' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Transfer confirmed: the order is paid, and the customer has been emailed.')
+    expect(api.requests.find((r) => r.path.endsWith('/transfer-received'))?.body).toBeNull()
+    await expect(page.locator('.admin-history li').first()).toContainText('Payment: Awaiting payment → Paid')
+    await expect(page.getByLabel('Order status')).toBeVisible()
+  })
+
+  test('closes an unpaid transfer as not received, only after a second confirmation', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto(`/#admin/orders/${TRANSFER_ORDER_REF}`)
+    page.once('dialog', (dialog) => void dialog.dismiss())
+    await page.getByRole('button', { name: 'Payment not received: close the order' }).click()
+    expect(api.requests.some((r) => r.path.endsWith('/transfer-not-received'))).toBe(false)
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByRole('button', { name: 'Payment not received: close the order' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Order closed as not received.')
+    await expect(page.getByText('Closed as not received', { exact: true }).first()).toBeVisible()
   })
 })
 
@@ -296,7 +429,7 @@ test.describe('contact requests', () => {
     await mockApi(page)
     await logInAsAdmin(page)
     const sections = page.getByRole('navigation', { name: 'Admin sections' })
-    await expect(sections.getByRole('link')).toHaveText(['Products', 'Orders', 'Contact requests'])
+    await expect(sections.getByRole('link')).toHaveText(['Products', 'Orders', 'Delivery', 'Bank details', 'Contact requests'])
     await page.goto('/#admin/enquiries')
     await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible()
   })

@@ -12,24 +12,30 @@ export const ORDER_PAGE_SIZE = 25
 const HISTORY_LIMIT = 50
 const SEARCH_FIELDS = ['reference', 'customer.fullName', 'customer.company', 'customer.email']
 
-// Where an order stands, in one word for the admin list: unpaid orders by their payment status,
-// paid ones by their fulfilment status.
-export const ORDER_STAGES = ['awaiting_payment', 'payment_failed', ...FULFILMENT_STATUSES] as const
+// Where an order stands, in one word for the admin list: unpaid orders by their payment status
+// (bank transfers apart, as staff must check those themselves, first the ones the customer reported
+// as sent), paid ones by their fulfilment status.
+export const ORDER_STAGES = ['awaiting_payment', 'awaiting_transfer', 'transfer_reported', 'payment_failed', ...FULFILMENT_STATUSES] as const
 export type OrderStage = typeof ORDER_STAGES[number]
 
 interface StageSource {
   paymentStatus?: string | null
   fulfilmentStatus?: string | null
+  paymentMethod?: string | null
+  transferReported?: boolean
 }
 
 function stageOf(order: StageSource): OrderStage {
+  if (order.paymentStatus === 'pending_payment' && order.paymentMethod === 'bank_transfer') return order.transferReported ? 'transfer_reported' : 'awaiting_transfer'
   if (order.paymentStatus === 'pending_payment') return 'awaiting_payment'
   if (order.paymentStatus === 'failed') return 'payment_failed'
   return (order.fulfilmentStatus ?? 'new') as FulfilmentStatus
 }
 
 function stageFilter(stage: OrderStage) {
-  if (stage === 'awaiting_payment') return { paymentStatus: 'pending_payment' }
+  if (stage === 'awaiting_payment') return { paymentStatus: 'pending_payment', paymentMethod: { $ne: 'bank_transfer' } }
+  if (stage === 'awaiting_transfer') return { paymentStatus: 'pending_payment', paymentMethod: 'bank_transfer', transferReportedAt: null }
+  if (stage === 'transfer_reported') return { paymentStatus: 'pending_payment', paymentMethod: 'bank_transfer', transferReportedAt: { $ne: null } }
   if (stage === 'payment_failed') return { paymentStatus: 'failed' }
   return { paymentStatus: 'paid', fulfilmentStatus: stage }
 }
@@ -43,6 +49,10 @@ function allowsStatus(method: string, status: FulfilmentStatus) {
 
 type StoredOrder = mongoose.InferSchemaType<typeof Order.schema> & { _id: mongoose.Types.ObjectId, createdAt: Date, updatedAt: Date }
 
+function storedStage(order: StoredOrder): StageSource {
+  return { paymentStatus: order.paymentStatus, fulfilmentStatus: order.fulfilmentStatus, paymentMethod: order.paymentMethod, transferReported: order.transferReportedAt != null }
+}
+
 function itemsSummary(order: StoredOrder) {
   const text = order.items.map((item) => `${item.quantity} × ${item.name}`).join(', ')
   return text.length > 120 ? `${text.slice(0, 119)}…` : text
@@ -53,7 +63,11 @@ function toDetail(order: StoredOrder) {
     reference: order.reference,
     // Also the Paystack transaction reference, for looking the payment up in Paystack's dashboard.
     paymentReference: String(order._id),
-    stage: stageOf(order),
+    stage: stageOf(storedStage(order)),
+    paymentMethod: order.paymentMethod ?? 'paystack',
+    // The bank details the customer was given, and when they said they had paid.
+    bankTransfer: order.bankTransfer ?? null,
+    transferReportedAt: order.transferReportedAt ?? null,
     paymentStatus: order.paymentStatus,
     fulfilmentStatus: order.fulfilmentStatus,
     paidAt: order.paidAt,
@@ -62,6 +76,8 @@ function toDetail(order: StoredOrder) {
     customer: { fullName: order.customer?.fullName ?? '', company: order.customer?.company ?? '', email: order.customer?.email ?? '', phone: order.customer?.phone ?? '' },
     fulfilmentMethod: order.fulfilmentMethod,
     deliveryAddress: order.deliveryAddress,
+    deliveryAreaName: order.deliveryArea?.name ?? null,
+    customerNotes: order.customerNotes ?? '',
     items: order.items.map(({ productId, name, reference, unitPrice, quantity, lineTotal }) => ({ productId, name, reference, unitPrice, quantity, lineTotal })),
     currency: currencyInfo(order.currency),
     subtotal: order.subtotal,
@@ -73,7 +89,7 @@ function toDetail(order: StoredOrder) {
 
 async function history(reference: string) {
   const records = await AuditRecord.find({ targetType: 'order', targetId: reference }).sort({ createdAt: -1, _id: -1 }).limit(HISTORY_LIMIT).lean()
-  return records.map((record) => ({ actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' }, changes: record.changes, createdAt: record.createdAt }))
+  return records.map((record) => ({ action: record.action, actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' }, changes: record.changes, createdAt: record.createdAt }))
 }
 
 export async function getOrder(reference: string) {
@@ -91,14 +107,15 @@ export async function listOrders(page: number, stage: OrderStage | null, search:
   const [total, orders, grouped] = await Promise.all([
     Order.countDocuments(filter),
     Order.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * ORDER_PAGE_SIZE).limit(ORDER_PAGE_SIZE).lean<StoredOrder[]>(),
-    Order.aggregate<{ _id: StageSource, count: number }>([{ $match: matching }, { $group: { _id: { paymentStatus: '$paymentStatus', fulfilmentStatus: '$fulfilmentStatus' }, count: { $sum: 1 } } }]),
+    Order.aggregate<{ _id: StageSource, count: number }>([{ $match: matching }, { $group: { _id: { paymentStatus: '$paymentStatus', fulfilmentStatus: '$fulfilmentStatus', paymentMethod: '$paymentMethod', transferReported: { $gt: ['$transferReportedAt', null] } }, count: { $sum: 1 } } }]),
   ])
   const counts = Object.fromEntries(ORDER_STAGES.map((name) => [name, 0])) as Record<OrderStage, number>
   for (const group of grouped) counts[stageOf(group._id)] += group.count
   return {
     items: orders.map((order) => ({
       reference: order.reference,
-      stage: stageOf(order),
+      stage: stageOf(storedStage(order)),
+      paymentMethod: order.paymentMethod ?? 'paystack',
       createdAt: order.createdAt,
       name: order.customer?.fullName ?? '',
       company: order.customer?.company ?? '',

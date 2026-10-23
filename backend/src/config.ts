@@ -28,6 +28,29 @@ export interface ImageStorageSettings {
   secretAccessKey: string
 }
 
+// Paystack's fee on one transaction, from GPEC's own Paystack plan (never assumed in code). Amounts are
+// in the currency's smallest unit (kobo). services/paystackFee.ts turns it into the customer's fee line.
+export interface PaystackFeeRule {
+  // 1.5% is 150 basis points.
+  percentBasisPoints: number
+  flat: number
+  // Paystack waives the flat part on transactions below this amount (0: never waived).
+  flatWaivedBelow: number
+  // The most Paystack charges on one transaction.
+  cap: number
+}
+
+// Online payment through Paystack's hosted page. On only when the secret key and every fee setting
+// are set, together with CURRENCY and FRONTEND_URL (see loadConfig).
+export interface PaymentSettings {
+  secretKey: string
+  // Test keys start with sk_test_; the checkout then shows a "Test mode" notice.
+  testMode: boolean
+  fee: PaystackFeeRule
+  // The public site (FRONTEND_URL): Paystack sends customers back here after paying.
+  siteUrl: string
+}
+
 export interface Config {
   nodeEnv: 'development' | 'test' | 'production'
   isProduction: boolean
@@ -39,6 +62,11 @@ export interface Config {
   formRateLimit: RateLimitSettings
   // Failed admin logins per IP. Successful logins do not count.
   adminLoginRateLimit: RateLimitSettings
+  // Orders started per IP. Price quotes and payment checks (read-only) get a larger budget.
+  orderRateLimit: RateLimitSettings
+  checkoutReadRateLimit: RateLimitSettings
+  // Paystack webhook deliveries per IP: generous, because Paystack retries, but bounded.
+  webhookRateLimit: RateLimitSettings
   // ISO 4217 code (e.g. NGN) for prices, or null until GPEC confirms it. Price editing and payments
   // stay off while it is null; there is deliberately no default.
   currency: string | null
@@ -46,6 +74,8 @@ export interface Config {
   email: EmailSettings | null
   // null: photo uploads are off (admins pick images already on the site; everything else works).
   imageStorage: ImageStorageSettings | null
+  // null: online payment is off (checkout says so; everything else works).
+  payments: PaymentSettings | null
 }
 
 const EMAIL_PATTERN = /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/
@@ -53,7 +83,17 @@ const EMAIL_PATTERN = /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/
 const FROM_PATTERN = /^(?:[^<>]+<)?([^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+)>?$/
 const EMAIL_SETTINGS = ['SES_REGION', 'SES_ACCESS_KEY_ID', 'SES_SECRET_ACCESS_KEY', 'EMAIL_FROM', 'STAFF_NOTIFICATION_EMAILS'] as const
 const IMAGE_STORAGE_SETTINGS = ['S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const
+const PAYMENT_SETTINGS = ['PAYSTACK_SECRET_KEY', 'PAYSTACK_FEE_PERCENT', 'PAYSTACK_FEE_FLAT', 'PAYSTACK_FEE_FLAT_WAIVED_BELOW', 'PAYSTACK_FEE_CAP'] as const
 const AWS_REGION_PATTERN = /^[a-z]{2}(-[a-z]+)+-\d$/
+
+// A whole number of the smallest currency unit, e.g. 10000 (kobo) for ₦100.
+const minorUnits = z.string().trim().regex(/^\d{1,12}$/, 'must be a whole number of the smallest currency unit (e.g. 10000 for ₦100)').transform(Number)
+
+// "1.5" → 150 basis points, read as text so no floating-point rounding is involved. At most 10%.
+function percentToBasisPoints(value: string) {
+  const [whole, fraction = ''] = value.split('.')
+  return Number(whole) * 100 + Number(fraction.padEnd(2, '0'))
+}
 
 const knownCurrencies = new Set(Intl.supportedValuesOf('currency'))
 
@@ -74,6 +114,11 @@ const envSchema = z.object({
   S3_BUCKET: z.string().trim().regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, 'must be an S3 bucket name (lowercase letters, digits, dots, and hyphens)').optional(),
   S3_ACCESS_KEY_ID: z.string().trim().optional(),
   S3_SECRET_ACCESS_KEY: z.string().trim().optional(),
+  PAYSTACK_SECRET_KEY: z.string().trim().regex(/^sk_(test|live)_[A-Za-z0-9]+$/, 'must be a Paystack secret key (sk_test_… or sk_live_…)').optional(),
+  PAYSTACK_FEE_PERCENT: z.string().trim().regex(/^\d{1,2}(\.\d{1,2})?$/, 'must be a percentage such as 1.5').transform(percentToBasisPoints).refine((points) => points <= 1000, 'must be at most 10').optional(),
+  PAYSTACK_FEE_FLAT: minorUnits.optional(),
+  PAYSTACK_FEE_FLAT_WAIVED_BELOW: minorUnits.optional(),
+  PAYSTACK_FEE_CAP: minorUnits.refine((cap) => cap > 0, 'must be more than 0').optional(),
 }).superRefine((env, ctx) => {
   // All or nothing, so a half-finished setup fails at startup instead of silently sending nothing.
   const setEmailSettings = EMAIL_SETTINGS.filter((name) => env[name] !== undefined)
@@ -88,7 +133,16 @@ const envSchema = z.object({
       ctx.addIssue({ code: 'custom', path: [name], message: 'is required when any S3 setting is set (photo uploads need all of them)' })
     }
   }
-  // Emails link back to the site (FRONTEND_URL is also used on its own, e.g. by Paystack later).
+  const setPaymentSettings = PAYMENT_SETTINGS.filter((name) => env[name] !== undefined)
+  if (setPaymentSettings.length > 0) {
+    for (const name of PAYMENT_SETTINGS.filter((setting) => env[setting] === undefined)) {
+      ctx.addIssue({ code: 'custom', path: [name], message: 'is required when any Paystack setting is set (payments need all of them)' })
+    }
+    // A payment needs a currency, which is never defaulted, and a page to return the customer to.
+    if (!env.CURRENCY) ctx.addIssue({ code: 'custom', path: ['CURRENCY'], message: 'is required when Paystack is configured' })
+    if (!env.FRONTEND_URL) ctx.addIssue({ code: 'custom', path: ['FRONTEND_URL'], message: 'is required when Paystack is configured (customers return there after paying)' })
+  }
+  // Emails link back to the site (FRONTEND_URL is also Paystack's return address).
   if (setEmailSettings.length === EMAIL_SETTINGS.length && !env.FRONTEND_URL) {
     ctx.addIssue({ code: 'custom', path: ['FRONTEND_URL'], message: 'is required when email is configured (emails link to the site)' })
   }
@@ -141,6 +195,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     clientOrigins: parsed.CLIENT_ORIGIN.split(',').map((entry) => entry.trim()),
     formRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 10 : 100 },
     adminLoginRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 5 : 50 },
+    orderRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 10 : 100 },
+    checkoutReadRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 120 : 1000 },
+    webhookRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 300 : 1000 },
     currency: parsed.CURRENCY ?? null,
     email: parsed.SES_REGION && parsed.SES_ACCESS_KEY_ID && parsed.SES_SECRET_ACCESS_KEY && parsed.EMAIL_FROM && parsed.STAFF_NOTIFICATION_EMAILS && parsed.FRONTEND_URL
       ? {
@@ -154,6 +211,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       : null,
     imageStorage: parsed.S3_REGION && parsed.S3_BUCKET && parsed.S3_ACCESS_KEY_ID && parsed.S3_SECRET_ACCESS_KEY
       ? { region: parsed.S3_REGION, bucket: parsed.S3_BUCKET, accessKeyId: parsed.S3_ACCESS_KEY_ID, secretAccessKey: parsed.S3_SECRET_ACCESS_KEY }
+      : null,
+    payments: parsed.PAYSTACK_SECRET_KEY && parsed.PAYSTACK_FEE_PERCENT !== undefined && parsed.PAYSTACK_FEE_FLAT !== undefined
+      && parsed.PAYSTACK_FEE_FLAT_WAIVED_BELOW !== undefined && parsed.PAYSTACK_FEE_CAP !== undefined && parsed.FRONTEND_URL
+      ? {
+          secretKey: parsed.PAYSTACK_SECRET_KEY,
+          testMode: parsed.PAYSTACK_SECRET_KEY.startsWith('sk_test_'),
+          fee: { percentBasisPoints: parsed.PAYSTACK_FEE_PERCENT, flat: parsed.PAYSTACK_FEE_FLAT, flatWaivedBelow: parsed.PAYSTACK_FEE_FLAT_WAIVED_BELOW, cap: parsed.PAYSTACK_FEE_CAP },
+          siteUrl: parsed.FRONTEND_URL.replace(/\/$/, ''),
+        }
       : null,
   }
 }

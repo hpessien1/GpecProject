@@ -10,6 +10,8 @@ export interface Product {
   isPlaceholder: boolean
   // False when out of stock: shown and labelled, but cannot be added to the cart.
   inStock: boolean
+  // False: GPEC does not deliver it, so an order containing it can only be picked up.
+  deliveryAvailable: boolean
   // In the currency's smallest unit (kobo for NGN); null until staff set it. Absent while the server
   // has no currency configured.
   price?: number | null
@@ -31,7 +33,97 @@ export interface CartLine extends CartEntry {
   product: Product
 }
 
-export type StoreMode = 'catalogue' | 'order'
+export type StoreMode = 'catalogue' | 'order' | 'payment'
+
+// Checkout (backend routes/checkout.ts). Every amount comes from the server, in the currency's
+// smallest unit; the browser only shows them.
+export interface DeliveryArea {
+  id: string
+  name: string
+  description: string
+  fee: number
+}
+
+// paystack: paid on Paystack's page. bank_transfer: the customer transfers to GPEC's Nigerian
+// account and GPEC staff confirm the money arrived.
+export type PaymentMethod = 'paystack' | 'bank_transfer'
+
+// GPEC's Nigerian bank account, as staff entered it (backend models/BankTransferSettings.ts).
+export interface BankTransferDetails {
+  bankName: string
+  accountName: string
+  // 10-digit NUBAN.
+  accountNumber: string
+  instructions: string
+  payWithinDays: number
+}
+
+export interface CheckoutInfo {
+  // False while no way to pay is open: checkout then says payment is not available yet.
+  paymentsAvailable: boolean
+  paymentMethods: PaymentMethod[]
+  // Paystack test keys: no real money moves, and the checkout says so.
+  testMode: boolean
+  currency: CurrencyInfo | null
+  // Shown at checkout while bank transfer is on.
+  bankTransfer: BankTransferDetails | null
+  deliveryAreas: DeliveryArea[]
+}
+
+export interface BasketPayload {
+  items: { productId: string, quantity: number }[]
+  fulfilmentMethod: FulfilmentMethod
+  deliveryAreaId: string | null
+  paymentMethod: PaymentMethod
+}
+
+export interface OrderPayload extends BasketPayload {
+  fullName: string
+  company: string
+  email: string
+  phone: string
+  deliveryAddress: string
+  notes: string
+  // Spam trap (components/SpamTrapField.tsx): empty when a person fills in the form.
+  website: string
+}
+
+export interface OrderLine {
+  productId: string
+  name: string
+  reference: string
+  unitPrice: number
+  quantity: number
+  lineTotal: number
+}
+
+export interface OrderQuote {
+  items: OrderLine[]
+  deliveryAreaName: string | null
+  currency: CurrencyInfo
+  subtotal: number
+  deliveryFee: number
+  paystackFee: number
+  total: number
+}
+
+// Paystack: its payment page, where the browser goes next. Bank transfer: the order's payment
+// reference, whose result page shows how to pay.
+export type StartedOrder =
+  | { reference: string, paymentMethod: 'paystack', authorizationUrl: string }
+  | { reference: string, paymentMethod: 'bank_transfer', paymentReference: string }
+
+// What the payment result page shows. No personal details: the link is all it takes to open it.
+export interface PaymentResult extends OrderQuote {
+  reference: string
+  paymentMethod: PaymentMethod
+  paymentStatus: PaymentStatus
+  paidAt: string | null
+  fulfilmentMethod: FulfilmentMethod
+  // For bank transfers: the details the customer was given, the date to pay by, and when they said
+  // they had paid.
+  bankTransfer: (BankTransferDetails & { payBy: string, reportedAt: string | null }) | null
+}
 
 
 export interface ContactRequestPayload {
@@ -81,6 +173,8 @@ export interface EditableProductFields {
   // Staff's out-of-stock switch, and an optional stock count (null: not counted; 0: out of stock).
   outOfStock: boolean
   stockQuantity: number | null
+  // Off for products GPEC does not deliver: orders containing them are pickup only.
+  deliveryAvailable: boolean
   status: ProductStatus
   sortOrder: number
 }
@@ -98,8 +192,10 @@ export interface AdminProductsPage {
 }
 
 export interface ProductHistoryEntry {
-  action: 'product.create' | 'product.update'
+  // product.sale: a paid order reduced the stock count (the website did it, not an admin).
+  action: 'product.create' | 'product.update' | 'product.sale'
   actor: { name: string, email: string }
+  orderReference: string | null
   changes: { field: keyof EditableProductFields, from: unknown, to: unknown }[]
   createdAt: string
 }
@@ -161,7 +257,7 @@ export interface AdminRequestResponse {
 // Orders (backend models/Order.ts). The stage is where an order stands: unpaid orders by payment
 // status, paid ones by the fulfilment status staff move along.
 export type FulfilmentStatus = 'new' | 'processing' | 'ready_for_pickup' | 'out_for_delivery' | 'completed' | 'cancelled'
-export type OrderStage = 'awaiting_payment' | 'payment_failed' | FulfilmentStatus
+export type OrderStage = 'awaiting_payment' | 'awaiting_transfer' | 'transfer_reported' | 'payment_failed' | FulfilmentStatus
 export type FulfilmentMethod = 'pickup' | 'delivery'
 export type PaymentStatus = 'pending_payment' | 'paid' | 'failed'
 
@@ -174,6 +270,7 @@ export interface AdminOrderSummary {
   email: string
   summary: string
   fulfilmentMethod: FulfilmentMethod
+  paymentMethod: PaymentMethod
   total: number
   currency: CurrencyInfo
 }
@@ -192,6 +289,9 @@ export interface AdminOrderDetail {
   // Also the Paystack transaction reference.
   paymentReference: string
   stage: OrderStage
+  paymentMethod: PaymentMethod
+  bankTransfer: BankTransferDetails | null
+  transferReportedAt: string | null
   paymentStatus: PaymentStatus
   fulfilmentStatus: FulfilmentStatus
   paidAt: string | null
@@ -200,6 +300,9 @@ export interface AdminOrderDetail {
   customer: { fullName: string, company: string, email: string, phone: string }
   fulfilmentMethod: FulfilmentMethod
   deliveryAddress: string
+  // The delivery area chosen at checkout, as it was named then.
+  deliveryAreaName: string | null
+  customerNotes: string
   items: { productId: string, name: string, reference: string, unitPrice: number, quantity: number, lineTotal: number }[]
   currency: CurrencyInfo
   subtotal: number
@@ -208,9 +311,17 @@ export interface AdminOrderDetail {
   total: number
 }
 
-export interface OrderHistoryEntry {
+// order.status: staff moved fulfilment along. order.payment: staff confirmed a bank transfer
+// arrived, or closed it as not received.
+export type OrderHistoryEntry = {
+  action: 'order.status'
   actor: { name: string, email: string }
   changes: { field: 'fulfilmentStatus', from: FulfilmentStatus, to: FulfilmentStatus }[]
+  createdAt: string
+} | {
+  action: 'order.payment'
+  actor: { name: string, email: string }
+  changes: { field: 'paymentStatus', from: PaymentStatus, to: PaymentStatus }[]
   createdAt: string
 }
 
@@ -218,4 +329,41 @@ export interface AdminOrderResponse {
   order: AdminOrderDetail
   history: OrderHistoryEntry[]
   notes: RequestNote[]
+}
+
+// Delivery areas and their fees, managed by staff (backend models/DeliveryArea.ts).
+export interface EditableDeliveryAreaFields {
+  name: string
+  description: string
+  fee: number
+  status: ProductStatus
+  sortOrder: number
+}
+
+export interface AdminDeliveryArea extends EditableDeliveryAreaFields {
+  id: string
+  updatedAt: string
+}
+
+export interface DeliveryAreaHistoryEntry {
+  action: 'deliveryArea.create' | 'deliveryArea.update'
+  actor: { name: string, email: string }
+  changes: { field: keyof EditableDeliveryAreaFields, from: unknown, to: unknown }[]
+  createdAt: string
+}
+
+export interface BankTransferSettings extends BankTransferDetails {
+  // Offered at checkout only while on.
+  enabled: boolean
+}
+
+export interface BankTransferHistoryEntry {
+  actor: { name: string, email: string }
+  changes: { field: keyof BankTransferSettings, from: unknown, to: unknown }[]
+  createdAt: string
+}
+
+export interface BankTransferResponse {
+  settings: BankTransferSettings
+  history: BankTransferHistoryEntry[]
 }

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { ContrastAudit, EXEMPT } from './support/contrast'
-import { ADMIN, CONTACT_REF, mockApi, sampleProducts } from './support/sampleApi'
+import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, TRANSFER_ORDER_REF, mockApi, sampleProducts } from './support/sampleApi'
 
 // Every page and state of the site must meet WCAG AA text contrast at phone and desktop width,
 // including hover (desktop only). Run with `npm run check:contrast`. A new page or state belongs here.
@@ -58,9 +58,64 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await open('#shop', '.shop-cart-list .shop-stock-label')
     await audit.page(page, `${label} cart with an out-of-stock product`)
     await page.locator('.shop-order-button').click()
-    await page.locator('.shop-checkout-unavailable').waitFor()
-    await audit.page(page, `${label} checkout`)
-    if (hovering) await audit.hover(page, `${label} checkout`)
+    await page.locator('.shop-checkout-form').waitFor()
+    await audit.page(page, `${label} checkout with an out-of-stock product`)
+    api.paymentsOn = false
+    api.bankTransfer.enabled = false
+    await open('#shop/order', '.shop-checkout-unavailable')
+    await audit.page(page, `${label} checkout before payment is set up`)
+    if (hovering) await audit.hover(page, `${label} checkout before payment is set up`)
+    api.paymentsOn = true
+    api.bankTransfer.enabled = true
+    await page.evaluate(() => localStorage.setItem('gpec-order-cart', JSON.stringify([{ id: 'panel-001', quantity: 2 }])))
+    await open('#shop/order', '.shop-order-totals')
+    await audit.page(page, `${label} checkout, pickup`)
+    if (hovering) await audit.hover(page, `${label} checkout, pickup`)
+    await page.getByRole('radio', { name: /Delivery within Nigeria/ }).check()
+    await page.getByLabel('Delivery area').selectOption(AREA_ID)
+    await page.locator('.shop-order-totals', { hasText: 'Port Harcourt' }).waitFor()
+    await audit.page(page, `${label} checkout, delivery`)
+    api.paymentStartFails = true
+    await page.getByLabel('Full name').fill('Sample')
+    await page.getByLabel('Email address').fill('sample@example.com')
+    await page.getByLabel('Phone number').fill('+234 800 000 0000')
+    await page.getByLabel('Delivery address').fill('Sample address')
+    await page.getByRole('button', { name: /^Pay ₦/ }).click()
+    await page.locator('.shop-checkout-form .form-error').waitFor()
+    await audit.page(page, `${label} checkout, payment could not start`)
+    api.paymentStartFails = false
+    // The price error, with a product that has no price.
+    await page.evaluate(() => localStorage.setItem('gpec-order-cart', JSON.stringify([{ id: 'solar-001', quantity: 1 }])))
+    api.products = sampleProducts()
+    await open('#shop/order', '.shop-summary-error')
+    await audit.page(page, `${label} checkout, product without a price`)
+    for (const result of ['pending_payment', 'failed', 'paid'] as const) {
+      api.paymentResult = result
+      await open(`#shop/payment/${PAYMENT_REF}`, '#payment-result-title')
+      await audit.page(page, `${label} payment result ${result}`)
+      if (hovering) await audit.hover(page, `${label} payment result ${result}`)
+    }
+    // A bank-transfer order: the checkout choice, then its instructions before and after "I have sent it".
+    await page.evaluate(() => localStorage.setItem('gpec-order-cart', JSON.stringify([{ id: 'panel-001', quantity: 2 }])))
+    await open('#shop/order', '.shop-order-totals')
+    await page.getByRole('radio', { name: /Bank transfer/ }).check()
+    await page.getByRole('button', { name: /^Place order: / }).waitFor()
+    await audit.page(page, `${label} checkout, bank transfer`)
+    await page.getByLabel('Full name').fill('Sample')
+    await page.getByLabel('Email address').fill('sample@example.com')
+    await page.getByLabel('Phone number').fill('+234 800 000 0000')
+    api.paymentResult = 'pending_payment'
+    await page.getByRole('button', { name: /^Place order: / }).click()
+    await page.locator('.shop-transfer-details').waitFor()
+    await audit.page(page, `${label} bank transfer instructions`)
+    if (hovering) await audit.hover(page, `${label} bank transfer instructions`)
+    await page.getByRole('button', { name: 'I have sent the transfer' }).click()
+    await page.locator('.shop-checkout-unavailable .success-message').waitFor()
+    await audit.page(page, `${label} bank transfer reported`)
+    api.paymentResult = 'failed'
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByRole('heading', { name: 'This order was closed' }).waitFor()
+    await audit.page(page, `${label} bank transfer closed`)
     await page.evaluate(() => localStorage.setItem('gpec-order-cart', '[]'))
     await open('#shop/order', '.shop-empty-order')
     await audit.page(page, `${label} empty checkout page`)
@@ -141,6 +196,27 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     if (hovering) await audit.hover(page, `${label} admin order`)
     await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-notice')
     await audit.page(page, `${label} admin unpaid order`)
+    await open(`#admin/orders/${TRANSFER_ORDER_REF}`, '.admin-transfer-actions')
+    await audit.page(page, `${label} admin order awaiting bank transfer`)
+    if (hovering) await audit.hover(page, `${label} admin order awaiting bank transfer`)
+    await open('#admin/bank-transfer', '#bank-accountNumber')
+    await audit.page(page, `${label} admin bank details`)
+    if (hovering) await audit.hover(page, `${label} admin bank details`)
+    await page.getByLabel('Account number').fill('12345')
+    await page.getByRole('button', { name: 'Save bank details' }).click()
+    await page.locator('.success-message, .form-error').first().waitFor()
+    await audit.page(page, `${label} admin bank details saved`)
+    await open('#admin/delivery', '.admin-area-list')
+    await audit.page(page, `${label} admin delivery areas`)
+    if (hovering) await audit.hover(page, `${label} admin delivery areas`)
+    await page.getByLabel('Area name').fill('Sample')
+    await page.getByLabel('Delivery fee').fill('nonsense')
+    await page.getByRole('button', { name: 'Add area' }).click()
+    await page.locator('.admin-field-error').waitFor()
+    await audit.page(page, `${label} admin delivery area fee error`)
+    await open(`#admin/delivery/${AREA_ID}`, '.admin-history')
+    await audit.page(page, `${label} admin delivery area edit`)
+    if (hovering) await audit.hover(page, `${label} admin delivery area edit`)
     await open('#admin/contact-requests', '.admin-request-list')
     await audit.page(page, `${label} admin contact requests`)
     await page.getByRole('searchbox', { name: 'Search' }).fill('no such customer')

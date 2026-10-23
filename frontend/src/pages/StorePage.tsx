@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import ShopHeader from '../components/shop/ShopHeader'
 import ProductCard from '../components/shop/ProductCard'
 import Cart from '../components/shop/Cart'
 import Checkout from '../components/shop/Checkout'
+import PaymentResult from '../components/shop/PaymentResult'
 import ProductModal from '../components/shop/ProductModal'
 import CatalogueStatus from '../components/shop/CatalogueStatus'
 import { readStoredCart, storeCart } from '../services/cartStorage'
@@ -13,12 +14,14 @@ const PRODUCTS_PER_PAGE = 6
 
 interface StorePageProps {
   mode: StoreMode
+  // In payment mode: the order's Paystack reference.
+  paymentReference: string | null
   goHome: () => void
   goToCatalogue: () => void
   goToOrder: () => void
 }
 
-export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: StorePageProps) {
+export default function StorePage({ mode, paymentReference, goHome, goToCatalogue, goToOrder }: StorePageProps) {
   const [cart, setCart] = useState<CartEntry[]>(readStoredCart)
   // null while loading. The catalogue comes from the API; nothing about products is hard-coded here.
   const [products, setProducts] = useState<Product[] | null>(null)
@@ -50,14 +53,22 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
     return () => { isCurrent = false }
   }, [loadAttempt])
   useEffect(() => { storeCart(cart) }, [cart])
+  // Only after the server has confirmed the payment (ECOMMERCE_REQUIREMENTS.md, Confirmation).
+  const clearCart = useCallback(() => setCart([]), [])
+  // A bank-transfer order is placed (unpaid): its cart is done with, so a second visit to checkout
+  // does not place it again. Its result page shows how to pay.
+  function placedTransferOrder(paymentReference: string) {
+    setCart([])
+    window.location.hash = `#shop/payment/${paymentReference}`
+  }
   useEffect(() => {
     const closeLightboxOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setActiveProduct(null) }
     window.addEventListener('keydown', closeLightboxOnEscape)
     return () => window.removeEventListener('keydown', closeLightboxOnEscape)
   }, [])
 
-  // Out-of-stock products cannot be added; the card's button is disabled too. (The checkout will
-  // refuse them on the server as well.)
+  // Out-of-stock products cannot be added; the card's button is disabled too. (The checkout
+  // refuses them on the server as well.)
   function addToCart(productId: string) {
     if (!catalogue.find((product) => product.id === productId)?.inStock) return
     setCart((currentCart) => {
@@ -96,7 +107,8 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
         {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products"><div className="shop-section-heading"><p className="eyebrow"><span /> Available products</p><p>Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}–{Math.min(currentPage * PRODUCTS_PER_PAGE, catalogue.length)} of {catalogue.length} products</p></div><div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} currency={currency} onOpen={setActiveProduct} onAdd={addToCart} />)}</div><nav className="shop-pagination" aria-label="Product catalogue pages"><button type="button" onClick={() => selectPage(currentPage - 1)} disabled={currentPage === 1}>Previous</button>{Array.from({ length: totalPages }, (_, index) => { const page = index + 1; return <button type="button" key={page} className={page === currentPage ? 'is-active' : ''} aria-current={page === currentPage ? 'page' : undefined} onClick={() => selectPage(page)}>{page}</button> })}<button type="button" onClick={() => selectPage(currentPage + 1)} disabled={currentPage === totalPages}>Next</button></nav></div><Cart cartItems={cartItems} currency={currency} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} /></section>}
       </>}
       {mode === 'order' && products === null && <section className="shop-order-page"><CatalogueStatus state={loadError ? 'error' : 'loading'} errorMessage={loadError} onRetry={retryLoading} /></section>}
-      {mode === 'order' && products !== null && <section className="shop-order-page"><Checkout cartItems={cartItems} currency={currency} itemCount={itemCount} onGoToCatalogue={goToCatalogue} /></section>}
+      {mode === 'order' && products !== null && <section className="shop-order-page"><Checkout cartItems={cartItems} currency={currency} itemCount={itemCount} onGoToCatalogue={goToCatalogue} onTransferOrderPlaced={placedTransferOrder} /></section>}
+      {mode === 'payment' && paymentReference && <section className="shop-order-page"><PaymentResult paymentReference={paymentReference} onPaid={clearCart} onGoToCatalogue={goToCatalogue} onGoToOrder={goToOrder} /></section>}
     </main>
     <ProductModal product={activeProduct} currency={currency} onClose={() => setActiveProduct(null)} />
   </div>

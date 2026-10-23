@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import AdminNotes from './AdminNotes'
-import { fulfilmentMethodLabels, orderStageLabels, ordersContent, paymentStatusLabels } from '../../data/adminContent'
+import { fulfilmentMethodLabels, orderStageLabels, ordersContent, paymentMethodLabels, paymentStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
-import { addOrderNote, getOrder, setOrderStatus } from '../../services/adminApi'
+import { addOrderNote, closeUnpaidTransfer, confirmTransferReceived, getOrder, setOrderStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import { formatPrice } from '../../utils/money'
 import type { AdminOrderResponse, FulfilmentMethod, FulfilmentStatus } from '../../types'
@@ -72,6 +72,28 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
     }
   }
 
+  // A bank transfer staff have checked for in GPEC's account: it arrived, or it never did. The confirm
+  // checkbox makes "received" a deliberate statement; "not received" asks once more.
+  async function settleTransfer(received: boolean) {
+    if (!received && !window.confirm('Close this order as not received? Do this only if the transfer has not arrived. It cannot be undone.')) return
+    setResult(null)
+    setIsSaving(true)
+    try {
+      setData(await (received ? confirmTransferReceived(reference) : closeUnpaidTransfer(reference)))
+      setResult({ kind: 'success', message: received ? 'Transfer confirmed: the order is paid, and the customer has been emailed.' : 'Order closed as not received.' })
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return onSessionEnded()
+      setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to update the payment.' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  function handleTransferReceived(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void settleTransfer(true)
+  }
+
   const order = data?.order
   const money = (amount: number) => order ? formatPrice(amount, order.currency) : ''
   return <section aria-labelledby="admin-order-title">
@@ -94,8 +116,9 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
           </dl>
           <h2>{fulfilmentMethodLabels[order.fulfilmentMethod]}</h2>
           {order.fulfilmentMethod === 'delivery'
-            ? <p className="admin-request-message">{order.deliveryAddress}</p>
+            ? <>{order.deliveryAreaName && <p>Area: <strong>{order.deliveryAreaName}</strong></p>}<p className="admin-request-message">{order.deliveryAddress}</p></>
             : <p>The customer collects the order from GPEC.</p>}
+          {order.customerNotes && <><h2>Customer notes</h2><p className="admin-request-message">{order.customerNotes}</p></>}
           <h2>Items</h2>
           <div className="admin-table-wrap">
             <table className="admin-order-items">
@@ -111,15 +134,26 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
           <dl className="admin-order-totals">
             <dt>Subtotal</dt><dd>{money(order.subtotal)}</dd>
             {order.fulfilmentMethod === 'delivery' && <><dt>Delivery fee</dt><dd>{money(order.deliveryFee)}</dd></>}
-            <dt>Payment processing fee</dt><dd>{money(order.paystackFee)}</dd>
+            {order.paymentMethod === 'paystack' && <><dt>Payment processing fee</dt><dd>{money(order.paystackFee)}</dd></>}
             <dt>Total</dt><dd>{money(order.total)}</dd>
           </dl>
           <h2>Payment</h2>
           <dl>
-            <dt>Status</dt><dd>{paymentStatusLabels[order.paymentStatus]}</dd>
+            <dt>Method</dt><dd>{paymentMethodLabels[order.paymentMethod]}</dd>
+            <dt>Status</dt><dd>{order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'failed' ? 'Closed as not received' : paymentStatusLabels[order.paymentStatus]}</dd>
             {order.paidAt && <><dt>Paid</dt><dd><time dateTime={order.paidAt}>{formatDateTime(order.paidAt)}</time></dd></>}
-            <dt>Paystack reference</dt><dd className="admin-mono">{order.paymentReference}</dd>
+            {order.paymentMethod === 'paystack' && <><dt>Paystack reference</dt><dd className="admin-mono">{order.paymentReference}</dd></>}
+            {order.transferReportedAt && <><dt>Reported sent</dt><dd><time dateTime={order.transferReportedAt}>{formatDateTime(order.transferReportedAt)}</time></dd></>}
           </dl>
+          {order.bankTransfer && <>
+            <h2>Bank details given</h2>
+            <dl>
+              <dt>Bank</dt><dd>{order.bankTransfer.bankName}</dd>
+              <dt>Account name</dt><dd>{order.bankTransfer.accountName}</dd>
+              <dt>Account number</dt><dd className="admin-mono">{order.bankTransfer.accountNumber}</dd>
+              <dt>Narration</dt><dd className="admin-mono">{order.reference}</dd>
+            </dl>
+          </>}
           <AdminNotes notes={data.notes} onAdd={async (text) => setData(await addOrderNote(reference, text))} onSessionEnded={onSessionEnded} />
         </div>
         <aside className="admin-request-side">
@@ -133,13 +167,26 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
               </div>
               <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Update status <Arrow /></>}</button>
             </form>
-            : <p className="admin-notice">{ordersContent.notPaid}</p>}
+            : order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'pending_payment'
+              ? <div className="admin-transfer-actions">
+                <p className="admin-notice">{ordersContent.transferWaiting}</p>
+                <form className="admin-form" onSubmit={handleTransferReceived}>
+                  <div className="admin-field admin-checkbox">
+                    <label><input type="checkbox" name="checked" required /> I have checked GPEC’s bank account: {money(order.total)} arrived with the narration {order.reference}.</label>
+                  </div>
+                  <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Confirm transfer received <Arrow /></>}</button>
+                </form>
+                <button type="button" className="text-link" onClick={() => void settleTransfer(false)} disabled={isSaving}>Payment not received: close the order</button>
+              </div>
+            : <p className="admin-notice">{order.paymentMethod === 'bank_transfer' ? ordersContent.transferClosed : ordersContent.notPaid}</p>}
           <section className="admin-history" aria-labelledby="admin-order-history-title">
-            <h2 id="admin-order-history-title">Status history</h2>
+            <h2 id="admin-order-history-title">History</h2>
             {data.history.length === 0 ? <p>No changes yet. Paid orders start as “New”.</p>
               : <ol>{data.history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
                 <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
-                <ul>{entry.changes.map((change) => <li key={change.field}>{orderStageLabels[change.from]} → {orderStageLabels[change.to]}</li>)}</ul>
+                <ul>{entry.action === 'order.payment'
+                  ? entry.changes.map((change) => <li key={change.field}>Payment: {paymentStatusLabels[change.from]} → {change.to === 'failed' ? 'Closed as not received' : paymentStatusLabels[change.to]}</li>)
+                  : entry.changes.map((change) => <li key={change.field}>{orderStageLabels[change.from]} → {orderStageLabels[change.to]}</li>)}</ul>
               </li>)}</ol>}
           </section>
         </aside>

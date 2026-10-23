@@ -48,7 +48,7 @@ describe('order list', () => {
     expect(res.status).toBe(200)
     expect(res.headers['cache-control']).toBe('no-store')
     expect(res.body).toMatchObject({ total: 10, page: 1, totalPages: 1 })
-    expect(res.body.counts).toEqual({ awaiting_payment: 1, payment_failed: 1, new: 1, processing: 2, ready_for_pickup: 1, out_for_delivery: 1, completed: 2, cancelled: 1 })
+    expect(res.body.counts).toEqual({ awaiting_payment: 1, awaiting_transfer: 0, transfer_reported: 0, payment_failed: 1, new: 1, processing: 2, ready_for_pickup: 1, out_for_delivery: 1, completed: 2, cancelled: 1 })
     expect(res.body.items[0]).toMatchObject({
       reference: NEW_DELIVERY, stage: 'new', name: 'Adaeze Okafor', company: 'Brightline Facilities Ltd', fulfilmentMethod: 'delivery',
       summary: '1 × Custom control panel, 2 × Terminal block set', currency: { code: 'NGN', minorUnitDigits: 2 },

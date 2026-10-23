@@ -32,6 +32,7 @@ describe('GET /api/products', () => {
       alt: sampleProducts[0].alt,
       isPlaceholder: true,
       inStock: true,
+      deliveryAvailable: true,
       price: 150000,
     })
     // A product staff have not priced yet.

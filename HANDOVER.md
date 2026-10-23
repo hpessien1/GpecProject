@@ -1,6 +1,6 @@
 # Next-session handover
 
-Last updated: 2026-10-23 (end of session). Start a new session with:
+Last updated: 2026-10-23 (checkout with Paystack built). Start a new session with:
 
 ```text
 Continue work on the GPEC website at /home/worlanyo/Desktop/GpecProject.
@@ -49,8 +49,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 - **Prices show in the public shop** (owner's request) once `CURRENCY=NGN` is set on the API: each
   price, "Price to be confirmed" when unpriced, and a price "each" on cart and checkout lines. No
   totals in the browser; checkout's server computes them.
-- **Delivery fee rule: the user will come back on it.** Do not start checkout's delivery part
-  before that (options offered: pickup only for now, one flat fee from a setting, or fees by area).
+- **Delivery fees by area** (user's choice over km-based fees, later the same day): staff manage
+  delivery areas and fees at `#admin/delivery`; a per-product "Delivery available" switch makes a
+  product pickup only. **Pickup is from the Woji address.**
 - **Demo data on the live site** for GPEC to try, removed before launch (launch checklist).
 - Every account (Hetzner, Cloudflare, AWS, Paystack, Atlas) is in the project owner's name with the
   user invited as a member; the user has no Atlas dashboard access (connection string only).
@@ -117,13 +118,22 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
 
 ## Open items for the next session
 
-1. Check CI after the user pushes. Then the user deploys **both** `gpec-api` and `gpec-web` and sets
-   **`CURRENCY=NGN`** on `gpec-api` (Buildtime unticked) and redeploys it, so staff can enter prices
-   and the shop shows them. Check the live shop and home page afterwards.
-2. **Delivery fee decision** (the user will answer), then build step 5 checkout on the existing
-   Order model (CLAUDE.md 4.1 and 8): pickup/delivery form, server-computed totals with the Paystack
-   fee line (rate from configuration, never hard-coded), refuse out-of-stock products, reduce
-   counted stock on payment, the same `markOrderPaid` for webhook and verify, test keys only.
+1. **Done (checked 2026-10-23, next session):** `48beb9d` pushed, CI green (run 39955657599); both
+   resources redeployed; the live API reports `currency: NGN` and the site carries GPEC's profile.
+   All 14 products are still unpriced ("Price to be confirmed") until staff enter prices.
+2. **Checkout with Paystack and bank transfer is built (2026-10-23, committed on `main`, not
+   pushed: the user pushes, then check CI)**. Bank transfer (owner's request, after Vision 25): GPEC staff enter the Nigerian bank
+   details at `#admin/bank-transfer`, customers get them plus the reference as narration, press "I
+   have sent the transfer", and staff confirm on the order; unpaid ones are closed by hand. It
+   works without Paystack. Paystack part and tested with a stand-in Paystack, never against Paystack's real test API (no key
+   here). To switch it on: RUNBOOK 1.8 (GPEC's fee rate, test key and webhook URL in Coolify),
+   delivery areas and prices entered by staff, then a test-mode order on the live site with a
+   Paystack test card. Live keys only with GPEC's approval.
+   - **Unused illustrative images, not removed:** `portfolio-control-panel.jpg`,
+     `portfolio-solar-array.jpg`, `product-lineup.png` are still used by the backend's sample
+     products (`data/sampleProducts.ts`), so five sample products in `gpec_dev` and the live `gpec`
+     database point at them. Deleting the files would break those products' photos until they are
+     edited or the samples are archived. Waiting on the user's choice (see the session report).
 3. **Finish the live setup** (the user acts in the dashboards and sends screenshots; the assistant
    guides and never deploys):
    - **Atlas lock-down** (needs the Atlas owner): `gpec-prod` / `gpec-dev` users, network access to
@@ -140,11 +150,8 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
    sound (speech or not).
 5. When GPEC's real product list arrives: enter it with `isPlaceholder: false`, archive the samples.
    **Before launch:** `seedDemoData.js --production --remove` on the live site.
-6. Optional tidy-up, needing the owner's OK: the illustrative images no longer used by the site
-   (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`, `product-lineup.png`) are still
-   used by the browser tests' sample data; switching the tests to the new photos would let them go.
-7. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
-8. **Working preferences:** fix problems found along the way and name them in the report (owner,
+6. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
+7. **Working preferences:** fix problems found along the way and name them in the report (owner,
    2026-10-22); during screenshot-guided setup, answer directly and explain only real consequences.
 
 ## History

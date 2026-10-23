@@ -7,9 +7,9 @@ import type { AdminIdentity } from './adminAuth.js'
 
 export const ADMIN_PAGE_SIZE = 50
 const HISTORY_LIMIT = 50
-const AUDITED_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'status', 'sortOrder'] as const
+const AUDITED_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
 // Products saved before a field existed have no value for it; read them as the schema's default.
-const MISSING_FIELD_DEFAULTS: Record<string, unknown> = { outOfStock: false }
+const MISSING_FIELD_DEFAULTS: Record<string, unknown> = { outOfStock: false, deliveryAvailable: true }
 
 type StoredProduct = Record<string, unknown> & { _id: string, updatedAt?: Date }
 
@@ -104,6 +104,8 @@ export async function productHistory(id: string) {
   return records.map((record) => ({
     action: record.action,
     actor: { name: record.actor?.name ?? '', email: record.actor?.email ?? '' },
+    // For product.sale: the paid order that reduced the stock count.
+    orderReference: record.orderReference ?? null,
     changes: record.changes,
     createdAt: record.createdAt,
   }))

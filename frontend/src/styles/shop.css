@@ -534,6 +534,236 @@
   color: rgba(255, 255, 255, 0.78);
   line-height: 1.7;
 }
+/* Checkout form (components/shop/Checkout.tsx) */
+.shop-checkout-form {
+  display: grid;
+  gap: 1.25rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgba(6, 23, 71, 0.18);
+  border-top: 4px solid var(--lime);
+  background: #fff;
+  color: var(--ink);
+}
+.shop-checkout-form h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: -0.04em;
+}
+.shop-checkout-form .button {
+  justify-self: start;
+}
+.shop-checkout-form .button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.shop-field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+.shop-field {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+}
+.shop-field label,
+.shop-fulfilment legend {
+  color: var(--ink);
+  font: 0.72rem var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.shop-field input,
+.shop-field select,
+.shop-field textarea {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: #fff;
+  color: var(--ink);
+  font: 500 0.9rem/1.5 var(--sans);
+}
+.shop-field textarea {
+  resize: vertical;
+}
+.shop-field input:focus-visible,
+.shop-field select:focus-visible,
+.shop-field textarea:focus-visible,
+.shop-choice input:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+.shop-field small,
+.shop-field-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.shop-field .shop-field-error {
+  padding-left: 0.5rem;
+  border-left: 3px solid var(--lime);
+  color: var(--ink);
+  font-weight: 700;
+}
+.shop-fulfilment {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.shop-fulfilment legend {
+  margin-bottom: 0.75rem;
+  padding: 0;
+}
+.shop-choice {
+  display: flex;
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+.shop-choice:has(input:checked) {
+  border-color: var(--forest);
+  box-shadow: inset 3px 0 0 var(--forest);
+}
+.shop-choice.is-disabled {
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.shop-choice input {
+  flex: 0 0 auto;
+  margin: 0.2rem 0 0;
+  accent-color: var(--forest);
+}
+.shop-choice small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+/* Paystack test keys: a plain, unmissable notice (CLAUDE.md 4.1). */
+.shop-test-mode {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border: 2px dashed var(--ink);
+  background: var(--sand);
+  color: var(--ink);
+  font: 700 0.75rem/1.5 var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.shop-checkout-privacy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.shop-checkout-privacy a {
+  color: var(--forest);
+  font-weight: 700;
+}
+/* Totals worked out by the server (components/shop/OrderTotals.tsx), on the dark summary panel. */
+.shop-order-totals {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem 1rem;
+  margin: 1.2rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 0.82rem;
+}
+.shop-order-totals dt {
+  color: rgba(255, 255, 255, 0.82);
+}
+.shop-order-totals dt small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+}
+.shop-order-totals dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+}
+.shop-order-totals .shop-order-total {
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.shop-summary-error {
+  margin: 1rem 0 0;
+  padding-left: 0.6rem;
+  border-left: 3px solid var(--lime-soft);
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.shop-order-summary .shop-pickup-label {
+  justify-self: start;
+  display: inline-block;
+  margin: 0.4rem 0 0;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #fff;
+  font: 700 0.72rem/1.4 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+/* Payment result (components/shop/PaymentResult.tsx, TransferInstructions.tsx) */
+.shop-transfer-details {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem 1.25rem;
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--forest);
+  background: var(--cream);
+  color: var(--ink);
+}
+.shop-transfer-details dt {
+  font: 0.72rem/1.9 var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.shop-transfer-details dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+/* Typed into a banking app, so easy to read digit by digit. */
+.shop-transfer-details .shop-transfer-number {
+  font: 700 1.05rem var(--mono);
+  letter-spacing: 0.06em;
+}
+.shop-payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-top: 0.6rem;
+}
+.shop-payment-actions .text-link {
+  border: 0;
+  background: transparent;
+  color: var(--forest);
+  cursor: pointer;
+}
+@media (max-width: 650px) {
+  .shop-field-row {
+    grid-template-columns: 1fr;
+  }
+}
 /* Product window (components/shop/ProductModal.tsx) */
 .shop-lightbox {
   position: fixed;

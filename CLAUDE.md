@@ -47,15 +47,15 @@ Production runs in Docker containers managed by Coolify on a Hetzner Cloud VPS, 
 on MongoDB Atlas.
 
 **User roles:**
-- `customer` — anonymous visitor. Browses, adds to cart, and (planned) buys and pays through
-  Paystack, choosing pickup or delivery. Questions of any kind go through the contact form; there
+- `customer` — anonymous visitor. Browses, adds to cart, and buys and pays through Paystack,
+  choosing pickup or delivery (with a delivery area). Questions of any kind go through the contact form; there
   are no "order enquiries". No customer accounts.
-- `admin` — GPEC staff, at `#admin`. They log in, manage products, prices, and stock (with a
-  change history), and follow up contact requests; the Orders list arrives with checkout. Accounts are created only with
+- `admin` — GPEC staff, at `#admin`. They log in, manage products, prices, stock, and delivery areas
+  (with a change history), follow up orders, and follow up contact requests. Accounts are created only with
   `npm run admin:create` (Section 7); there is no sign-up.
 
-**Core domains:** products (catalogue, prices), cart, orders (planned, paid), payments (planned,
-Paystack), fulfilment (pickup or delivery), contact requests (questions, quotes, and general contact).
+**Core domains:** products (catalogue, prices), cart, orders, payments (Paystack), fulfilment
+(pickup, or delivery by area), contact requests (questions, quotes, and general contact).
 
 ---
 
@@ -142,8 +142,13 @@ Paystack flow; the *Why* notes record the failure each one prevents.
   the raw body with the secret key) using `crypto.timingSafeEqual`, then parse the JSON **only after**
   the signature passes. Unsigned or malformed requests get a quiet 400, never a 500.
 - **Webhook idempotency:** store each received event in a `WebhookEvent` collection with a unique
-  index on Paystack's event `id`. A duplicate delivery (Paystack retries) is detected and skipped.
-  Store only the fields the code reads, not the full payload.
+  index on its ID. A duplicate delivery (Paystack retries) is detected and skipped. Store only the
+  fields the code reads, not the full payload. Paystack's events carry no event ID of their own, so
+  the ID is the event name plus the transaction's `id` (`charge.success:4099260516`). If processing
+  fails, the record is removed and the answer is `500`, so Paystack's retry is processed.
+- **Unguessable references.** The order's `_id` is made from 12 random bytes (`randomOrderId` in
+  `services/checkout.ts`), not a default ObjectId, which counts up: the payment result page is
+  opened by this reference alone. That page shows no personal details either way.
 - **Reference = the order's MongoDB `_id`.** Unique per attempt, and Paystack treats a repeated
   reference as the same transaction.
 - **Create, then initialize, then roll back on failure.** Create the order as `pending_payment`,
@@ -160,6 +165,14 @@ Paystack flow; the *Why* notes record the failure each one prevents.
 - **Test mode is visible:** the server derives a `paystackTestMode` flag from whether the key starts
   with `sk_test_` and exposes it publicly; the checkout shows a "TEST MODE" badge. Switching to live
   keys requires explicit direction from the project owner.
+- **Bank transfer** (2026-10-23, the owner's request) is the one payment that is not confirmed by
+  Paystack: staff confirm on the order that the money arrived (`confirmTransferReceived`), which uses
+  the same settlement as `markOrderPaid` (`settleOrder`: conditional update, stock, emails) and
+  writes an `order.payment` AuditRecord in the same transaction. `markOrderPaid` refuses bank-transfer
+  orders, and the transfer actions refuse Paystack orders. A customer's "I have sent the transfer"
+  proves nothing. GPEC's bank details (`BankTransferSettings`) decide where money goes: every change
+  is recorded and emailed to all active admins. The account is Nigerian (bank, account name, 10-digit
+  NUBAN), so bank transfer is offered only while `CURRENCY` is NGN. No Paystack fee on transfers.
 - **Paystack fee is passed to the customer** as a separate, visible line in the order summary
   before they pay. The fee rule (percentage, flat amount, cap) is configuration taken from GPEC's
   Paystack plan, never hard-coded from memory. The product prices themselves are never changed.
@@ -180,8 +193,9 @@ Every route validates body, params, and query before any logic runs (see
 ### 4.4 Every UI restriction needs a matching server check
 
 A disabled button or client-side validation enforces nothing. Example: an out-of-stock product's
-"Add to cart" button is disabled, and the checkout (step 5) must refuse that product on the server
-too; today nothing is sent to the server from the cart, so there is nothing to refuse yet. When you
+"Add to cart" button is disabled, and the checkout refuses that product on the server too
+(`OUT_OF_STOCK`); a pickup-only product disables delivery in the form, and the server refuses
+delivery for it (`PICKUP_ONLY`). When you
 add a frontend gate, confirm the backend enforces the same condition.
 
 ### 4.5 Admin access
@@ -239,8 +253,9 @@ per-IP budget (each public form route gets its own) — 10 requests per 15 minut
 production, 100 in development and test (set in `src/config.ts`). The production limit is the
 security boundary; the looser one exists so manual and automated checks do not lock the developer
 out. Keep that difference deliberate. Admin login has a stricter budget that counts **failed**
-attempts only: 5 per 15 minutes in production, 50 otherwise. Still needed: order creation and the
-Paystack webhook (its own limiter). All visitors are anonymous, so key by IP. The in-memory store
+attempts only: 5 per 15 minutes in production, 50 otherwise. Checkout has its own budgets
+(`orderRateLimit` 10, `checkoutReadRateLimit` 120 for quotes and payment checks), and the Paystack
+webhook its own (300). All visitors are anonymous, so key by IP. The in-memory store
 only works with one API instance (Section 6.3).
 
 **Spam trap.** Both public forms include a hidden `website` field (`components/SpamTrapField.tsx`):
@@ -327,11 +342,13 @@ name), and logs which database it found. The guard only works if production sets
   of stock when the switch is on or the count is 0 (`isInStock`, same rule in the frontend's
   `utils/stock.ts`). Out-of-stock products stay in the shop, labelled, and cannot be added to the
   cart; archiving removes a product from the shop. Customers see only `inStock`, never the count.
-  The count goes down automatically only once paid orders exist (step 5); until then staff set it. `GET /api/products` returns
+  `deliveryAvailable` (default true; off means pickup only). The count goes down when an order is
+  paid (never below 0, recorded as AuditRecord `product.sale`, with `orderReference` and no actor);
+  checkout refuses a quantity above the count. `GET /api/products` returns
   active products with `price` (or `null` if unpriced) and `currency` once `CURRENCY` is set; while it
   is unset, no prices and `currency: null` (2026-10-23, owner's request). The shop shows each price,
-  "Price to be confirmed" for unpriced products, and a price "each" on cart and checkout lines, but no
-  totals: those come with checkout, worked out by the server.
+  "Price to be confirmed" for unpriced products (which cannot be bought online), and a price "each" on
+  cart and checkout lines; totals come only from the server's checkout quote.
   The 14 current products are samples from `backend/src/data/sampleProducts.ts`, loaded by
   `npm run seed:products` (Section 11).
 
@@ -340,13 +357,28 @@ name), and logs which database it found. The guard only works if production sets
   index deletes expired sessions). **AdminPasswordReset** — the same shape for "forgot password"
   links: `tokenHash` (unique), `admin`, `expiresAt` (TTL); deleted when used or replaced.
   **AuditRecord** — `action`, `targetType`, `targetId`, `actor { adminId, email, name }`
-  (copied at the time), `changes [{ field, from, to }]`, `createdAt`; never edited or deleted.
+  (copied at the time; `null` only for `product.sale`, which has `orderReference` instead),
+  `changes [{ field, from, to }]`, `createdAt`; never edited or deleted.
+
+- **DeliveryArea** (`backend/src/models/DeliveryArea.ts`, 2026-10-23) — `name` (unique),
+  `description`, `fee` (smallest unit, per order), `status` (`active` | `archived`), `sortOrder`,
+  timestamps. Staff manage them at `#admin/delivery`; every change is an AuditRecord
+  (`deliveryArea.create` / `.update`). The owner chose areas over distance-based fees (2026-10-23):
+  no mapping service, no customer addresses sent to one. Customers choosing delivery pick one.
+- **BankTransferSettings** (`backend/src/models/BankTransferSettings.ts`) — one record (`_id`
+  `bank-transfer`): `enabled`, `bankName`, `accountName`, `accountNumber` (10 digits), `instructions`,
+  `payWithinDays` (1–30). Managed at `#admin/bank-transfer`; AuditRecord `bankTransfer.update`.
+  Orders also have `paymentMethod` (`paystack` | `bank_transfer`, default `paystack`), `bankTransfer`
+  (the details given, copied), and `transferReportedAt`.
+- **WebhookEvent** (`backend/src/models/WebhookEvent.ts`) — `eventId` (unique), `event`,
+  `reference`, `outcome` (`processed` | `ignored`), timestamps (Section 4.1).
 
 - **Order** (`backend/src/models/Order.ts`; built 2026-10-22, before checkout, so staff screens and
   demo data exist) — `_id` (also the Paystack reference), `reference` (unique,
   `GPEC-O-YYYY-XXXXXXXX`), `customer { fullName, company, email, phone }`,
   `items [{ productId, name, reference, unitPrice, quantity, lineTotal }]` (**unit price snapshotted
-  at order time**), `fulfilmentMethod` (`pickup` | `delivery`), `deliveryAddress` (delivery only),
+  at order time**), `fulfilmentMethod` (`pickup` | `delivery`), `deliveryAddress` (delivery only), `deliveryArea
+  { areaId, name }` (delivery only, copied at the time), `customerNotes`,
   `currency` (the order's own), `subtotal`, `deliveryFee`, `paystackFee`, `total` (smallest unit),
   `paymentStatus` (`pending_payment` | `paid` | `failed`; **set only by the server**, after
   Paystack confirms), `paidAt`, `fulfilmentStatus` (`new` → `processing` → `ready_for_pickup` or
@@ -355,12 +387,7 @@ name), and logs which database it found. The guard only works if production sets
   AuditRecord `order.status`), timestamps. The admin list shows one **stage** per order: unpaid
   orders as "Awaiting payment" or "Payment failed", paid ones by fulfilment status (the user chose
   this two-part model, 2026-10-22). Staff notes reuse **RequestNote** (`targetType: 'order'`).
-  Checkout (step 5) creates orders; nothing does yet except the demo command.
-
-**Planned entities** (define fully when built, and update this section):
-
-- **WebhookEvent** — Paystack event `id` (unique index), event type, minimal payload, processing
-  status, timestamps (Section 4.1).
+  Checkout creates orders (`services/checkout.ts`); the demo command adds demo ones.
 
 **General rules:**
 
@@ -399,10 +426,10 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── app.ts            # helmet, CORS, JSON parsing, rate limits, routes, 404, error handler
 │       ├── errors.ts         # HttpError, ValidationError, NotFoundError, ConflictError
 │       ├── middleware/       # requireAdmin.ts: the one admin login check
-│       ├── routes/           # HTTP wiring: public (products, product images, contact) and admin* routers
+│       ├── routes/           # HTTP wiring: public (products, product images, contact, checkout, Paystack webhook) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
-│       ├── models/           # ContactRequest, Order, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord
-│       ├── services/         # Business logic: products, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, productImages
+│       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord
+│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, productImages
 │       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers
 │       └── data/             # sampleProducts.ts (seed products); demoData.ts (demo orders and contact requests)
@@ -416,7 +443,7 @@ name), and logs which database it found. The guard only works if production sets
     ├── public/assets/        # Images and videos served at /assets/...
     └── src/
         ├── main.tsx          # Entry point
-        ├── App.tsx           # Hash router: #shop, #shop/order, #privacy, #admin… (lazy-loaded), else landing
+        ├── App.tsx           # Hash router: #shop, #shop/order, #shop/payment/<ref>, #privacy, #admin… (lazy-loaded), else landing
         ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, contact and admin API
         ├── pages/            # LandingPage.tsx, StorePage.tsx, PrivacyPage.tsx, AdminPage.tsx
         ├── components/       # Header, Footer, ServiceShowcase, SpamTrapField, PlaceholderText, …; shop/, admin/
@@ -469,7 +496,7 @@ by code.
 ## 7. Tech Stack & Commands
 
 **Stack:** TypeScript 7 in strict mode on both sides (ES modules). React 19 + Vite 8 frontend.
-Node.js 22, Express 5, Mongoose 8, MongoDB. Payments: Paystack (planned, hosted redirect checkout).
+Node.js 22, Express 5, Mongoose 8, MongoDB. Payments: Paystack (hosted redirect checkout).
 
 - Frontend: Vite compiles the TypeScript; `tsc -b` only type-checks (`tsconfig.app.json` for
   `src/`, `tsconfig.node.json` for `vite.config.ts`).
@@ -530,8 +557,9 @@ mongosh "<MONGODB_URI>" --eval 'db.contactrequests.find().sort({createdAt:-1}).l
   it is unset), `FRONTEND_URL` (the public site; links in emails, later the Paystack callback), and
   the email settings `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `EMAIL_FROM`,
   `STAFF_NOTIFICATION_EMAILS` (all or none), and the photo storage settings `S3_REGION`,
-  `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (all or none). Payments will add `PAYSTACK_SECRET_KEY` and the
-  Paystack fee settings — add them to `.env.example` when implemented.
+  `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (all or none), and the Paystack settings `PAYSTACK_SECRET_KEY`,
+  `PAYSTACK_FEE_PERCENT`, `PAYSTACK_FEE_FLAT`, `PAYSTACK_FEE_FLAT_WAIVED_BELOW`, `PAYSTACK_FEE_CAP`
+  (all or none; they also need `CURRENCY` and `FRONTEND_URL`; amounts in kobo).
 - `frontend/.env.example`: `VITE_API_BASE_URL`. Anything prefixed `VITE_` is public; never put a
   secret there.
 - `MONGODB_URI` points to MongoDB Atlas. The database name is the path segment before `?`:
@@ -670,24 +698,31 @@ bugs) plus React hook and accessibility rules. Every switched-off rule and every
 - Call Paystack from a route directly once a payments service exists — go through it.
 - Swallow errors silently. If you deliberately ignore one, log it and comment why.
 
-### Payments (Paystack) — planned
-All Paystack HTTP calls live in one module (e.g. `services/paystack.ts`); the rules are in
-Section 4.1.
+### Payments (Paystack)
+Built 2026-10-23 (test mode; setup in `docs/RUNBOOK.md` 1.8). All Paystack HTTP calls live in
+`services/paystack.ts` (`PaystackClient`; tests pass `FakePaystack` from `tests/helpers.ts`); the
+order flow is `services/checkout.ts`; the fee rule is `services/paystackFee.ts` (the charge is grossed
+up so GPEC receives the full order value after Paystack's fee; the rule comes from the five
+`PAYSTACK_*` settings). The rules are in Section 4.1. Routes: `routes/checkout.ts`,
+`routes/paystackWebhook.ts`.
 1. `POST` order route: validate items and fulfilment choice → compute subtotal, delivery fee,
    Paystack fee, and total on the server → create order `pending_payment` → call Initialize
    Transaction with `reference` = order `_id`, amount in minor units, configured currency, and a
    server-built `callback_url` → on failure delete the order → return `authorization_url` →
    frontend redirects.
-2. Paystack redirects the customer to the callback URL → frontend asks the server to verify →
-   server calls Verify Transaction and runs `markOrderPaid`.
+2. Paystack redirects the customer to `FRONTEND_URL/shop/payment-complete?reference=…` (a path,
+   because Paystack appends a query, which a `#` address would swallow); `main.tsx` turns it into
+   `#shop/payment/<reference>` → the page asks the server → server calls Verify Transaction and runs
+   `markOrderPaid`.
 3. Webhook route (raw body, signature verified, event recorded in `WebhookEvent`) runs the same
    `markOrderPaid`.
 4. Only the caller that wins `markOrderPaid`'s conditional update sends confirmation emails. Show
    the confirmation and clear the cart only after verified payment.
-5. Failed or abandoned payment: order stays unpaid; customer can retry. Never create a second order
-   silently for the same cart without a clear rule.
-6. Paystack API errors (e.g. a declined card) return `400` with a clear message and are not logged
-   as server errors.
+5. Failed or abandoned payment: order stays unpaid (or `failed`); the cart is kept. The rule for
+   retrying: each "Pay" creates a new order; abandoned ones stay "Awaiting payment" for staff.
+6. A declined card happens on Paystack's page, not in this API. Paystack refusing to start or check
+   a payment answers `502` (`PAYMENT_START_FAILED`, `PAYMENT_CHECK_FAILED`) and is logged with the
+   order reference only.
 
 ### Email / notifications (Amazon SES)
 Each new contact request emails GPEC staff (details, reply-to the customer, and a link
@@ -845,8 +880,8 @@ links for admins only, never store a raw public URL on the record, and update th
 2. **For any UI change, drive the real app in a browser** at 390px and desktop width. Rereading
    JSX/CSS is not verification.
    For style or layout changes, also run `npm run check:contrast` in `frontend/`.
-3. **For the shop:** catalogue → open product → add to cart → change quantity → checkout (until
-   Paystack exists, it shows the order and says online payment is not available yet) → an
+3. **For the shop:** catalogue → open product → add to cart → change quantity → checkout (pickup, and delivery with an area; with payments off it says online payment
+   is not available yet) → an
    out-of-stock product is labelled and cannot be added. With payments: → pay in test mode →
    confirmation → paid order present in MongoDB.
 4. **For payments:** use Paystack **test keys only**. Verify success, failure, and abandoned
@@ -1002,9 +1037,16 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - No business hours or social media links yet (not in GPEC's profile); the footer shows none.
 
 **Functionality**
-- The shop cannot take orders yet: checkout shows the order and says online payment is not
-  available until GPEC's Paystack account is set up (step 5). Prices show in the shop once `CURRENCY=NGN` is set on the API and staff enter them. The Orders
-  admin screens work (list, detail, fulfilment status, notes), but only demo orders exist.
+- Checkout with Paystack is built and tested (test mode), but **off on the live site** until the
+  `PAYSTACK_*` settings are added in Coolify (RUNBOOK 1.8); until then checkout says online payment
+  is not available yet. No sample product has a price yet, so nothing can be bought until staff
+  enter prices. No delivery areas exist yet (GPEC's to enter), so only pickup is offered until then.
+  Collection hours are not known: the site says GPEC will contact the customer to agree a time.
+- Bank transfer is built but off until GPEC's staff enter the bank details and switch it on. Staff
+  confirm each transfer by hand, so there is no automatic match with the bank statement, and stock is
+  not held while a transfer is awaited. Unpaid transfer orders are closed by hand (owner's choice).
+  An admin's login can now confirm payments and change the bank account: another reason to decide
+  on admin 2FA before launch.
 - **Demo data** (owner's request, 2026-10-22, for showing GPEC the admin screens): 10 orders and 8
   contact requests from `data/demoData.ts`, realistic and unmarked on screen at the owner's request,
   with `example.com` emails and `+234 000` phone numbers. `npm run seed:demo` adds them,
@@ -1052,15 +1094,14 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - No favicon: every page load requests `/favicon.ico` and gets a 404. Needs GPEC's logo mark.
 
 **Open business decisions (needed from GPEC)**
-- Delivery fee rule for delivery orders: unknown. Do not invent one.
-- Pickup location and hours.
+- The delivery areas and their fees (staff enter them at `#admin/delivery`). Do not invent any.
+- Collection hours for pickup (the location is the Woji address, confirmed by the owner 2026-10-23).
 - Refund, cancellation, and returns policy for paid orders.
 - Who receives order and contact-request notifications.
 - The Paystack fee rate on GPEC's own plan. Paystack publishes 1.5% + ₦100 for local payments, the
   ₦100 waived under ₦2,500, capped at ₦2,000 (checked 2026-10-23); confirm in GPEC's dashboard, and
   that passing the fee to customers is allowed under GPEC's Paystack terms. (Decided 2026-10-23: the
   currency is NGN, and customers pay the Paystack fee.)
-- Whether the Woji service location is also the pickup location for shop orders.
 - Atlas cluster tier (must include backups before launch).
 
 ---

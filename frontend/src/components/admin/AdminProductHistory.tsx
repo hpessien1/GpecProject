@@ -44,9 +44,9 @@ export default function AdminProductHistory({ productId, currency, onSessionEnde
       : !history ? <p className="admin-loading" role="status">Loading history…</p>
       : history.length === 0 ? <p>No changes recorded yet. Sample products added by the seed script have no history until someone edits them.</p>
       : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
-        <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email}) · {entry.action === 'product.create' ? 'Created' : 'Changed'}</p>
-        <ul>{entry.changes.filter((change) => entry.action === 'product.update' || change.to !== null).map((change) => <li key={change.field}>
-          <strong>{productFieldLabels[change.field]}</strong>{entry.action === 'product.update' && <>: {describeValue(change.field, change.from, currency)} →</>} {describeValue(change.field, change.to, currency)}
+        <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.action === 'product.sale' ? <>Sold online · order {entry.orderReference}</> : <>{entry.actor.name} ({entry.actor.email}) · {entry.action === 'product.create' ? 'Created' : 'Changed'}</>}</p>
+        <ul>{entry.changes.filter((change) => entry.action !== 'product.create' || change.to !== null).map((change) => <li key={change.field}>
+          <strong>{productFieldLabels[change.field]}</strong>{entry.action !== 'product.create' && <>: {describeValue(change.field, change.from, currency)} →</>} {describeValue(change.field, change.to, currency)}
         </li>)}</ul>
       </li>)}</ol>}
   </section>

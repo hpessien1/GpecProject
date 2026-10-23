@@ -8,7 +8,7 @@ Prices are fixed and set by GPEC through the admin panel. Payment happens on Pay
 
 The shop is for buying: there are no "order enquiries" about price or availability. Customers either buy in the shop or ask GPEC through the contact form, which also handles general service requests and quotes (for example, a custom panel design or a solar site assessment). Contact requests are not paid online.
 
-> **Status (2026-10-23):** The catalogue (served from MongoDB), cart, and stock handling are built. Checkout shows the order and says online payment is not available yet, with a link to the contact form, until GPEC's Paystack account is set up; the checkout form, pickup/delivery choice, and payment come with it. The products are labelled samples until GPEC supplies its real list. Admins manage products, prices (in naira, once `CURRENCY=NGN` is set on the server; the shop then shows them, with "Price to be confirmed" for unpriced products and no totals until checkout), and stock, and follow up contact requests. The admin Orders tab explains that orders appear once Paystack checkout exists.
+> **Status (2026-10-23):** Built: catalogue (from MongoDB), cart, stock, and checkout with Paystack (test mode) or bank transfer to GPEC's account (confirmed by staff): pickup or delivery, delivery areas and fees managed by staff, a server-worked order summary with the payment processing fee, the redirect to Paystack, server verification (return page and signed webhook), confirmation, emails, and stock reduced on payment. Online payment switches on once GPEC's Paystack settings are added on the server (`docs/RUNBOOK.md` 1.8); until then checkout shows the order and says online payment is not available yet. The products are labelled samples until GPEC supplies its real list. Live keys need GPEC's approval.
 
 ## Scope
 
@@ -21,7 +21,7 @@ The shop is for buying: there are no "order enquiries" about price or availabili
 - Fulfilment choice: pickup or delivery
 - Customer details form
 - Order summary with subtotal, delivery fee, and total
-- Online payment through Paystack's hosted payment page (redirect)
+- Online payment through Paystack's hosted payment page (redirect), or bank transfer to GPEC's account
 - Server-side payment verification
 - Confirmation after verified payment
 - Admin price and product management (built: login, create, edit, archive, change history)
@@ -33,7 +33,7 @@ The shop is for buying: there are no "order enquiries" about price or availabili
 - Payment providers other than Paystack
 - Customer account registration or login
 - Automatic order fulfilment
-- Live delivery-cost calculation (delivery fee rules are not yet defined)
+- Delivery fees calculated from distance or a map (fees come from GPEC's own list of delivery areas; see below)
 
 ## Functional Requirements
 
@@ -56,7 +56,7 @@ The shop is for buying: there are no "order enquiries" about price or availabili
 - Availability is managed by GPEC staff in the admin panel, not asked about by customers.
 - A product GPEC no longer sells is archived: it leaves the shop.
 - A product GPEC cannot supply for now is marked out of stock: it stays in the shop, labelled "Out of stock", and cannot be added to the cart or bought. The server refuses it at checkout too.
-- Staff may also keep a stock count for a product (optional). When counted, the product is out of stock at 0. Paid orders reduce the count (with checkout). Customers see only in stock or out of stock, never the count.
+- Staff may also keep a stock count for a product (optional). When counted, the product is out of stock at 0. Paid orders reduce the count (never below 0). Customers see only in stock or out of stock, never the count.
 - Each product page offers a way to ask GPEC a question before buying, through the contact form.
 - Product cards must remain usable on desktop and mobile screens.
 
@@ -104,10 +104,20 @@ Collect only information required to fulfil the order:
 - Email address
 - Phone number
 - Fulfilment method: **Pickup** or **Delivery** (required)
+- Delivery area, **only for Delivery**: chosen from GPEC's list
 - Delivery address, **required only when Delivery is selected**; hidden and not collected for Pickup
 - Additional requirements or notes, optional
 
-Pickup orders have no delivery fee. Delivery orders will carry a delivery fee once GPEC defines its delivery fee rules (see Open Decisions).
+Pickup orders have no delivery fee and are collected from GPEC at #19 King Slope Street, Woji, off Alcon Road, Port Harcourt, Rivers State (confirmed by the project owner, 2026-10-23); GPEC contacts the customer to agree a collection time.
+
+#### Delivery areas and fees
+
+Delivery is within Nigeria. The fee depends on where the order goes, through **delivery areas** that GPEC staff manage in the admin panel (*Delivery*): each area has a name (for example "Port Harcourt: Woji, GRA, Trans-Amadi" or "Within 10 km of Woji"), an optional description of what it covers, and a fee per order. The customer picks their area at checkout and the server adds that area's fee. A customer whose area is not listed can choose pickup or contact GPEC. Chosen with the project owner on 2026-10-23 instead of a distance calculation, which would need a paid mapping service and send customers' addresses to it.
+
+- Every change to an area (name, fee, archiving) records who made it and when. Archived areas are no longer offered. Past orders keep the area name and fee they were charged.
+- With no areas listed, customers can only choose pickup.
+- Staff can mark a product as not delivered (*Delivery available* switched off, e.g. a large panel): an order containing it can only be picked up, the checkout says why, and the server refuses delivery for it.
+- One fee per order and area; it does not depend on the size or number of items.
 
 The form must also display a read-only order summary: products, quantities, unit prices, subtotal, delivery fee, payment processing fee, and total.
 
@@ -115,11 +125,13 @@ Prices and payments are in Nigerian naira (NGN), confirmed by GPEC on 2026-10-23
 
 Required fields must have visible labels and validation messages. Email format must be validated before submission. The form must include privacy wording explaining how GPEC uses the customer's details.
 
-### 6. Payment (Paystack)
+### 6. Payment (Paystack or bank transfer)
+
+The customer chooses how to pay when both are open: **Paystack** (Section 6 below) or **bank transfer** (6a). Each is offered only while it is set up: Paystack through its server settings, bank transfer while GPEC staff have entered the bank details and switched it on in the admin panel (*Bank details*).
 
 - Submitting the checkout form creates an order on the server with status `pending_payment`.
 - The server calculates the subtotal, delivery fee, payment processing fee, and total from its own price data and fee rules. Prices, fees, totals, currency, and return addresses sent by the browser are ignored.
-- The server refuses to start a payment for an order that is already paid.
+- The server refuses to start a payment for an order that is already paid. Each press of "Pay" creates a new order with its own payment reference; an order the customer abandons on Paystack's page stays "Awaiting payment" in the admin panel, and nothing was charged.
 - The server creates a Paystack transaction with a unique order reference and returns Paystack's payment page URL.
 - The customer is redirected to Paystack's hosted payment page to pay.
 - After payment, Paystack returns the customer to the GPEC site.
@@ -127,13 +139,26 @@ Required fields must have visible labels and validation messages. Email format m
 - The same payment must never be applied twice, even if Paystack sends a notification more than once.
 - While Paystack test keys are in use, the site must show a visible "Test mode" notice.
 
+### 6a. Bank transfer
+
+Added 2026-10-23 at the project owner's request, adapted from the sister project Vision 25.
+
+- **Bank details for Nigeria:** staff enter the bank name, the account name, and the 10-digit account number (NUBAN), plus optional instructions and how many days customers have to pay (1 to 30; 3 to start). No sort code, branch, or SWIFT code: Nigerian transfers do not need them. Bank transfer is offered only while the shop currency is naira (NGN).
+- Every change to the bank details is recorded (who, old and new value, when) and emailed to every active admin, because a quietly changed account number would send customers' money elsewhere.
+- **No payment processing fee**: that fee is Paystack's charge, and Paystack is not involved.
+- Placing the order creates it unpaid, with a copy of the bank details given, and empties the cart. The customer sees, and is emailed, the account details, the exact amount, the order reference to use as the **narration**, and the date to pay by. GPEC staff are emailed that an order awaits a transfer.
+- The customer can press "I have sent the transfer". It tells staff (one email) and marks the order "Transfer reported"; it proves nothing.
+- Staff check GPEC's bank account and, on the order, confirm "transfer received" (ticking that the full amount arrived with that narration). Only then is the order paid: stock goes down, and the paid emails go to the customer and staff. The confirmation is recorded with who and when.
+- If the money never arrives, staff close the order as "Payment not received" (recorded). Nothing closes it automatically (owner's choice, 2026-10-23), and stock is not held while waiting.
+- The admin Orders list shows unpaid transfers as "Awaiting transfer" or "Transfer reported".
+
 ### 7. Confirmation
 
-- After verified payment, show a confirmation with the order reference, items, amount paid, and fulfilment method.
-- For pickup orders, explain how and where to collect the order (details to be supplied by GPEC).
+- After verified payment, show a confirmation with the order reference, items, amount paid, and fulfilment method. (For a bank transfer, the page first shows how to pay; it shows the confirmation once staff have confirmed the money arrived.)
+- For pickup orders, explain where to collect the order (the Woji address) and that GPEC will contact the customer to agree a time (collection hours not yet supplied).
 - For delivery orders, explain that GPEC will contact the customer about delivery.
 - Clear the cart only after payment is verified.
-- Send a confirmation email to the customer and notify GPEC staff (planned; recipients to be confirmed).
+- Send a confirmation email to the customer and notify GPEC staff (built; staff recipients to be confirmed by GPEC).
 - If payment fails or is abandoned, keep the cart, explain that no payment was taken, and let the customer try again.
 - Preserve entered form values when validation fails.
 
@@ -144,7 +169,7 @@ Required fields must have visible labels and validation messages. Email format m
 - Price changes appear on the customer-facing catalogue.
 - A price change does not alter the price of orders already placed.
 - Every price, product, and order status change records who made it and when.
-- Admins can view paid orders and their fulfilment details (planned, with orders).
+- Admins can view orders and their fulfilment details, and manage delivery areas and fees.
 
 ## Suggested User Flow
 
@@ -162,9 +187,9 @@ Required fields must have visible labels and validation messages. Email format m
 
 ## Open Decisions (to be confirmed by GPEC)
 
-- Delivery fee rules and delivery areas.
+- The delivery areas and their fees (staff enter them in the admin panel).
 - The Paystack fee rate on GPEC's own plan (Paystack publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000; checked 2026-10-23), and confirmation that passing it to customers is allowed under GPEC's Paystack terms.
-- Pickup location (perhaps the service location, #19 King Slope Street, Woji, Port Harcourt) and collection hours.
+- Collection hours for pickup (the location is the Woji address).
 - Refund, cancellation, and returns policy.
 - Recipients for order notifications.
 

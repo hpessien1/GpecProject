@@ -86,7 +86,7 @@ function collectText({ rootSelector, relativeToRoot, onScreenOnly }: { rootSelec
     if (onScreenOnly) seen.add(node)
     items.push({ where: describe(el), text: (node.textContent ?? '').trim().slice(0, 50), color: parse(style.color), opacity: opacityOf(el), size: parseFloat(style.fontSize), weight: Number(style.fontWeight), rects: boxes.map(toBox) })
   }
-  for (const input of root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input:not([type=hidden]):not([type=checkbox]), textarea')) {
+  for (const input of root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea')) {
     const r = input.getBoundingClientRect()
     const usePlaceholder = !input.value && !!input.placeholder
     if ((onScreenOnly && seen.has(input)) || !r.width || input.closest('[aria-hidden="true"]') || (!usePlaceholder && !input.value) || !visibleIn(input, r) || !onScreen(input, r)) continue

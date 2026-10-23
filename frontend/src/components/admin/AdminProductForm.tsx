@@ -80,6 +80,7 @@ export default function AdminProductForm({ product, currency, imageUploads, isSa
       outOfStock: formData.get('outOfStock') === 'on',
       // Empty: not counted. The input only accepts whole numbers from 0.
       stockQuantity: stockQuantity === '' ? null : Number(stockQuantity),
+      deliveryAvailable: formData.get('deliveryAvailable') === 'on',
       status: field('status') === 'archived' ? 'archived' : 'active',
       sortOrder: sortOrder === '' ? undefined : Number(sortOrder),
     })
@@ -101,7 +102,7 @@ export default function AdminProductForm({ product, currency, imageUploads, isSa
     <Field name="alt" errors={errors} hint="Describes the image for people who cannot see it.">
       <input id="product-alt" name="alt" required maxLength={300} defaultValue={product?.alt} aria-describedby={describedBy('alt', errors, true)} />
     </Field>
-    <Field name="price" errors={errors} hint={currency ? `In ${currency.code}. Leave empty for no price. Prices are not shown in the shop until online checkout is built.` : 'Prices can be set once GPEC confirms the shop currency.'}>
+    <Field name="price" errors={errors} hint={currency ? `In ${currency.code}. Leave empty for no price: the shop then shows “Price to be confirmed”, and the product cannot be bought online.` : 'Prices can be set once GPEC confirms the shop currency.'}>
       <input id="product-price" name="price" inputMode="decimal" disabled={!currency} defaultValue={currency ? minorUnitsToInput(product?.price ?? null, currency) : ''} aria-describedby={describedBy('price', errors, true)} />
     </Field>
     <div className="admin-field admin-checkbox">
@@ -111,6 +112,10 @@ export default function AdminProductForm({ product, currency, imageUploads, isSa
     <Field name="stockQuantity" errors={errors} hint="Optional. Leave empty if GPEC does not count this product. When a number is set, the shop shows the product as out of stock at 0. Customers never see the number.">
       <input id="product-stockQuantity" name="stockQuantity" type="number" min={0} max={1000000} step={1} inputMode="numeric" defaultValue={product?.stockQuantity ?? ''} aria-describedby={describedBy('stockQuantity', errors, true)} />
     </Field>
+    <div className="admin-field admin-checkbox">
+      <label><input name="deliveryAvailable" type="checkbox" defaultChecked={product?.deliveryAvailable ?? true} /> {productFieldLabels.deliveryAvailable}: GPEC delivers this product. Untick it for products that must be collected (for example, a large panel): an order containing it can then only be picked up.</label>
+      {errors.deliveryAvailable && <small className="admin-field-error">{errors.deliveryAvailable}</small>}
+    </div>
     <Field name="status" errors={errors}>
       <select id="product-status" name="status" defaultValue={product?.status ?? 'active'} aria-describedby={describedBy('status', errors, false)}>
         {Object.entries(productStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}

@@ -7,7 +7,7 @@ export const privacyStatus = 'Draft — this notice has not yet been approved by
 
 export const privacyLastUpdated = '[[date GPEC approves this notice]]'
 
-export const privacyIntro = 'This notice explains what information this website collects when you contact GPEC, why we collect it, who can see it, and the choices you have.'
+export const privacyIntro = 'This notice explains what information this website collects when you contact GPEC or buy from the shop, why we collect it, who can see it, and the choices you have.'
 
 export interface PrivacySection {
   title: string
@@ -25,10 +25,11 @@ export const privacySections: PrivacySection[] = [
   },
   {
     title: 'What we collect and why',
-    paragraphs: ['We only collect what you type into our forms, and only to respond to you.'],
+    paragraphs: ['We only collect what you type into our forms, and only to respond to you or fulfil your order.'],
     list: [
       'Contact form: your name and email address (required), and your company, phone number, the topic you choose, and your message. We use these to reply to your enquiry and to email you a confirmation with your reference number.',
-      'We never ask for card or bank details on this website. If online payment is added later, payment details will be entered on our payment provider’s own secure page, and this notice will be updated before that happens.',
+      'Shop orders: your name, email address, and phone number (required), your company and any notes (optional), the products you order, and whether you collect the order or have it delivered. For delivery we also ask for your delivery area and address; for pickup we do not ask for an address. We use these to fulfil your order, contact you about it, and email you a confirmation.',
+      'Payment: you pay on Paystack’s own secure page, or by bank transfer to GPEC’s account. We never ask for, see, or store your card details or banking logins. Paystack tells us whether the payment succeeded and how much was paid. If you pay by bank transfer, GPEC’s bank statement shows the payment as your bank sends it (usually the account name and the narration you enter); staff use it only to match your payment to your order.',
     ],
   },
   {
@@ -49,15 +50,16 @@ export const privacySections: PrivacySection[] = [
   {
     title: 'Who can see your information',
     paragraphs: [
-      'Your enquiries can be read only by authorised GPEC staff, through a password-protected area of the website. Each staff member has their own account, and changes they make are recorded. Staff may add notes on how they followed up your enquiry; these are kept with it and seen only by staff.',
+      'Your enquiries and orders can be read only by authorised GPEC staff, through a password-protected area of the website. Each staff member has their own account, and changes they make are recorded. Staff may add notes on how they followed up your enquiry; these are kept with it and seen only by staff.',
       'The information is stored in a database run for us by MongoDB Atlas ([[database region, shown on the cluster’s page in MongoDB Atlas]]). The website runs on a server rented from Hetzner in Nuremberg, Germany. These companies store the data for us; they do not use it for their own purposes.',
-      'Emails about your enquiry, a confirmation to you and a notification to GPEC staff, are sent through Amazon Web Services’ email service, Amazon SES, from its Stockholm, Sweden region. It sends the emails for us and does not use your details for its own purposes.',
+      'Payments are handled by Paystack. To take your payment we send Paystack your email address, the amount, and your order reference. Paystack handles your payment details under its own privacy policy.',
+      'Emails about your enquiry or order, a confirmation to you and a notification to GPEC staff, are sent through Amazon Web Services’ email service, Amazon SES, from its Stockholm, Sweden region. It sends the emails for us and does not use your details for its own purposes.',
       'This means your information is stored and processed outside Nigeria.',
     ],
   },
   {
     title: 'How long we keep it',
-    paragraphs: ['[[How long GPEC keeps contact messages, and what happens after that, e.g. deleted after a set number of years]]'],
+    paragraphs: ['[[How long GPEC keeps contact messages and orders, and what happens after that, e.g. deleted after a set number of years (orders may need to be kept longer for tax and accounting)]]'],
   },
   {
     title: 'Your choices',
@@ -69,7 +71,7 @@ export const privacySections: PrivacySection[] = [
   {
     title: 'How we protect it',
     paragraphs: [
-      'The website uses an encrypted (HTTPS) connection, access to enquiries is limited to staff accounts, and the forms are protected against automated abuse.',
+      'The website uses an encrypted (HTTPS) connection, access to enquiries and orders is limited to staff accounts, and the forms are protected against automated abuse.',
       'To stop automated abuse, the website briefly counts how many times each internet (IP) address sends a form, and how many confirmation emails go to each email address. These counts are kept only in the server’s working memory, are never saved with your enquiry, and are cleared within an hour.',
     ],
   },

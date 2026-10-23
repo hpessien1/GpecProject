@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 // Only the admin screens use these styles, so they load with this page (lazy-loaded in App.tsx).
 import '../styles/admin.css'
+import AdminBankTransfer from '../components/admin/AdminBankTransfer'
+import AdminDeliveryAreaEditor from '../components/admin/AdminDeliveryAreaEditor'
+import AdminDeliveryAreas from '../components/admin/AdminDeliveryAreas'
 import AdminForgotPassword from '../components/admin/AdminForgotPassword'
 import AdminHeader from '../components/admin/AdminHeader'
 import AdminLogin from '../components/admin/AdminLogin'
@@ -19,6 +22,7 @@ import type { AdminRequestKind, AdminSessionInfo } from '../types'
 
 interface AdminPageProps {
   // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/orders[/<reference>],
+  // #admin/delivery[/<id>], #admin/bank-transfer,
   // #admin/contact-requests[/<reference>], or (without logging in) #admin/forgot-password and
   // #admin/reset-password/<token>
   route: string
@@ -33,6 +37,9 @@ type AdminView =
   | { kind: 'password' }
   | { kind: 'orders' }
   | { kind: 'order', reference: string }
+  | { kind: 'delivery' }
+  | { kind: 'bankTransfer' }
+  | { kind: 'deliveryArea', areaId: string }
   | { kind: 'requests', requestKind: AdminRequestKind }
   | { kind: 'request', requestKind: AdminRequestKind, reference: string }
 
@@ -45,6 +52,10 @@ function parseView(route: string): AdminView {
   if (route === '#admin/orders') return { kind: 'orders' }
   const order = /^#admin\/orders\/([^/]+)$/.exec(route)
   if (order) return { kind: 'order', reference: decodeURIComponent(order[1]) }
+  if (route === '#admin/delivery') return { kind: 'delivery' }
+  if (route === '#admin/bank-transfer') return { kind: 'bankTransfer' }
+  const deliveryArea = /^#admin\/delivery\/([^/]+)$/.exec(route)
+  if (deliveryArea) return { kind: 'deliveryArea', areaId: decodeURIComponent(deliveryArea[1]) }
   const product = /^#admin\/products\/([^/]+)$/.exec(route)
   if (product) return { kind: 'edit', productId: decodeURIComponent(product[1]) }
   const request = /^#admin\/contact-requests(?:\/([^/]+))?$/.exec(route)
@@ -58,6 +69,8 @@ function parseView(route: string): AdminView {
 function sectionOf(view: AdminView) {
   if (view.kind === 'requests' || view.kind === 'request') return view.requestKind
   if (view.kind === 'orders' || view.kind === 'order') return 'orders'
+  if (view.kind === 'delivery' || view.kind === 'deliveryArea') return 'delivery'
+  if (view.kind === 'bankTransfer') return 'bank-transfer'
   return view.kind === 'password' ? null : 'products'
 }
 
@@ -138,6 +151,9 @@ export default function AdminPage({ route }: AdminPageProps) {
         : view.kind === 'password' ? <AdminPasswordForm onSessionEnded={handleSessionEnded} />
         : view.kind === 'orders' ? <AdminOrders onSessionEnded={handleSessionEnded} />
         : view.kind === 'order' ? <AdminOrderDetail key={route} reference={view.reference} onSessionEnded={handleSessionEnded} />
+        : view.kind === 'bankTransfer' ? <AdminBankTransfer currency={session.currency} onSessionEnded={handleSessionEnded} />
+        : view.kind === 'delivery' ? <AdminDeliveryAreas currency={session.currency} onSessionEnded={handleSessionEnded} />
+        : view.kind === 'deliveryArea' ? <AdminDeliveryAreaEditor key={route} areaId={view.areaId} currency={session.currency} onSessionEnded={handleSessionEnded} />
         : view.kind === 'requests' ? <AdminRequestList key={view.requestKind} kind={view.requestKind} onSessionEnded={handleSessionEnded} />
         : view.kind === 'request' ? <AdminRequestDetail key={route} kind={view.requestKind} reference={view.reference} onSessionEnded={handleSessionEnded} />
         : <AdminProductEditor key={route} productId={view.kind === 'edit' ? view.productId : undefined} currency={session.currency} imageUploads={session.imageUploads} flash={flashMessage} onCreated={handleCreated} onSessionEnded={handleSessionEnded} />}

@@ -15,7 +15,7 @@ export default function ShopHeader({ mode, itemCount, onGoHome, onGoToCatalogue,
     <div className="shop-brand"><a href="#home" onClick={onGoHome} aria-label="Return to GPEC home"><LogoLockup /></a><small>Product ordering</small></div>
     <nav className="shop-navigation" aria-label="Store navigation">
       <a href="#home" onClick={onGoHome}>Return to site</a>
-      {mode === 'order' && <button type="button" className="shop-link-button" onClick={onGoToCatalogue}>Continue browsing</button>}
+      {mode !== 'catalogue' && <button type="button" className="shop-link-button" onClick={onGoToCatalogue}>Continue browsing</button>}
       <button type="button" className="shop-cart-trigger" onClick={onShowCart}>Cart <span>{itemCount}</span></button>
     </nav>
   </header>

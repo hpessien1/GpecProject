@@ -47,6 +47,14 @@
   font-size: 0.85rem;
   line-height: 1.5;
 }
+/* A screen's explanation under its heading (delivery areas). */
+.admin-intro {
+  max-width: 720px;
+  margin: 0 0 1.5rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
 .admin-help,
 .admin-count {
   color: var(--ink);
@@ -443,8 +451,30 @@
 /* Not going ahead, or not paid: a dashed outline sets them apart from orders in progress. */
 .admin-status-cancelled,
 .admin-status-payment_failed,
-.admin-status-awaiting_payment {
+.admin-status-awaiting_payment,
+.admin-status-awaiting_transfer,
+.admin-status-transfer_reported {
   border-style: dashed;
+}
+/* The customer says they paid: staff should check the bank account, so it stands out. */
+.admin-status-transfer_reported {
+  background: var(--sand);
+}
+/* Confirming a bank transfer (components/admin/AdminOrderDetail.tsx) */
+.admin-transfer-actions {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+}
+.admin-transfer-actions .admin-notice {
+  margin: 0;
+}
+.admin-transfer-actions .text-link {
+  border: 0;
+  background: transparent;
+  color: var(--forest);
+  cursor: pointer;
+  text-align: left;
 }
 .admin-request-list {
   margin: 0 0 1.5rem;

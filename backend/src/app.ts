@@ -14,16 +14,22 @@ import { s3ImageStore } from './services/imageStore.js'
 import type { ImageStore } from './services/imageStore.js'
 import { createNotifier } from './services/notifications.js'
 import { requireAdmin } from './middleware/requireAdmin.js'
+import { paystackClient } from './services/paystack.js'
+import type { PaystackClient } from './services/paystack.js'
+import adminBankTransferRouter from './routes/adminBankTransfer.js'
+import adminDeliveryAreasRouter from './routes/adminDeliveryAreas.js'
 import adminOrdersRouter from './routes/adminOrders.js'
 import adminProductImagesRouter from './routes/adminProductImages.js'
 import adminProductsRouter from './routes/adminProducts.js'
 import adminRequestsRouter from './routes/adminRequests.js'
 import adminSessionRouter from './routes/adminSession.js'
+import checkoutRouter from './routes/checkout.js'
 import contactRequestsRouter from './routes/contactRequests.js'
+import paystackWebhookRouter from './routes/paystackWebhook.js'
 import productImagesRouter from './routes/productImages.js'
 import productsRouter from './routes/products.js'
 
-export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'currency' | 'email' | 'imageStorage'>
+export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments'>
 
 // Errors from express.json and express.raw carry a 4xx status and type (e.g. 'entity.too.large').
 function isBodyReadError(error: unknown): error is { status: number } {
@@ -31,7 +37,7 @@ function isBodyReadError(error: unknown): error is { status: number } {
     && typeof error.status === 'number' && error.status >= 400 && error.status < 500
 }
 
-// Each public form route gets its own per-IP budget (the contact form; the checkout will get its own).
+// Each public form route gets its own per-IP budget (the contact form, and the checkout's routes).
 function formLimiter({ windowMs, limit }: RateLimitSettings) {
   return rateLimit({
     windowMs,
@@ -45,11 +51,13 @@ function formLimiter({ windowMs, limit }: RateLimitSettings) {
 // mailer: tests pass a recorder; otherwise Amazon SES when email is configured, or nothing.
 // breachCheck: tests pass a stand-in; otherwise Pwned Passwords.
 // imageStore: tests pass an in-memory store; otherwise Amazon S3 when configured, or nothing (uploads off).
+// paystack: tests pass a stand-in; otherwise Paystack's API when payments are configured, or nothing.
 export default function createApp(
   config: AppConfig,
   mailer: Mailer | null = config.email ? sesMailer(config.email) : null,
   breachCheck: BreachedPasswordCheck = pwnedPasswordsCheck(),
   imageStore: ImageStore | null = config.imageStorage ? s3ImageStore(config.imageStorage) : null,
+  paystack: PaystackClient | null = config.payments ? paystackClient(config.payments.secretKey) : null,
 ) {
   const notifier = createNotifier(mailer, config.email)
   const app = express()
@@ -60,6 +68,8 @@ export default function createApp(
   app.use(helmet())
   // credentials: the admin session cookie may be sent, but only from the listed origins.
   app.use(cors({ origin: config.clientOrigins, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type'] }))
+  // Before express.json: the webhook's signature is checked against the raw body (CLAUDE.md 4.1).
+  app.use('/api/paystack/webhook', paystackWebhookRouter(config.payments?.secretKey ?? null, notifier, formLimiter(config.webhookRateLimit)))
   app.use(express.json({ limit: '32kb' }))
 
   // 503 when MongoDB does not answer, so the health check reflects whether the API can do its job.
@@ -70,13 +80,16 @@ export default function createApp(
   app.use('/api/products', productsRouter(config.currency))
   app.use('/api/product-images', productImagesRouter(imageStore))
   app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter(notifier))
+  app.use('/api/checkout', checkoutRouter(config, paystack, notifier, { read: formLimiter(config.checkoutReadRateLimit), order: formLimiter(config.orderRateLimit) }))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.
   app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
   app.use('/api/admin/session', adminSessionRouter(config, breachCheck, imageStore !== null, notifier))
   app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
   app.use('/api/admin/product-images', requireAdmin(config.clientOrigins), adminProductImagesRouter(imageStore))
   app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest'))
-  app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter())
+  app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier))
+  app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))
+  app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier))
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof HttpError) return res.status(error.status).json({ message: error.message, code: error.code, errors: error.errors })

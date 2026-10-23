@@ -119,4 +119,49 @@ describe('loadConfig', () => {
     expect(load).toThrow('S3_ACCESS_KEY_ID is required when any S3 setting is set')
     expect(load).toThrow('S3_SECRET_ACCESS_KEY is required when any S3 setting is set')
   })
+  describe('Paystack', () => {
+    const payments = {
+      CURRENCY: 'NGN',
+      FRONTEND_URL: 'https://www.example.com/',
+      PAYSTACK_SECRET_KEY: 'sk_test_abc123',
+      PAYSTACK_FEE_PERCENT: '1.5',
+      PAYSTACK_FEE_FLAT: '10000',
+      PAYSTACK_FEE_FLAT_WAIVED_BELOW: '250000',
+      PAYSTACK_FEE_CAP: '200000',
+    }
+
+    it('leaves payments off when no Paystack setting is given', () => {
+      expect(loadConfig({}).payments).toBeNull()
+    })
+
+    it('turns payments on with every setting, reading the percentage exactly, in test mode for a test key', () => {
+      expect(loadConfig(payments).payments).toEqual({
+        secretKey: 'sk_test_abc123',
+        testMode: true,
+        fee: { percentBasisPoints: 150, flat: 10_000, flatWaivedBelow: 250_000, cap: 200_000 },
+        siteUrl: 'https://www.example.com',
+      })
+      expect(loadConfig({ ...payments, PAYSTACK_FEE_PERCENT: '1.95' }).payments?.fee.percentBasisPoints).toBe(195)
+      expect(loadConfig({ ...payments, PAYSTACK_SECRET_KEY: 'sk_live_abc123' }).payments?.testMode).toBe(false)
+    })
+
+    it('refuses a partial setup and names what is missing', () => {
+      expect(() => loadConfig({ ...payments, PAYSTACK_FEE_CAP: undefined })).toThrow('PAYSTACK_FEE_CAP is required when any Paystack setting is set')
+    })
+
+    it('requires a currency and a return address, never assuming either', () => {
+      expect(() => loadConfig({ ...payments, CURRENCY: undefined })).toThrow('CURRENCY is required when Paystack is configured')
+      expect(() => loadConfig({ ...payments, FRONTEND_URL: undefined })).toThrow('FRONTEND_URL is required when Paystack is configured')
+    })
+
+    it.each([
+      ['PAYSTACK_SECRET_KEY', 'pk_test_abc123'],
+      ['PAYSTACK_FEE_PERCENT', '15'],
+      ['PAYSTACK_FEE_PERCENT', '1,5'],
+      ['PAYSTACK_FEE_FLAT', '100.50'],
+      ['PAYSTACK_FEE_CAP', '0'],
+    ])('rejects %s=%s', (name, value) => {
+      expect(() => loadConfig({ ...payments, [name]: value })).toThrow(name)
+    })
+  })
 })

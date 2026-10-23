@@ -1,4 +1,4 @@
-import type { AdminRequestKind, EditableProductFields, FulfilmentMethod, OrderStage, PaymentStatus, RequestStatus } from '../types'
+import type { AdminRequestKind, BankTransferSettings, EditableDeliveryAreaFields, EditableProductFields, PaymentMethod, FulfilmentMethod, OrderStage, PaymentStatus, RequestStatus } from '../types'
 
 // Labels for product fields, shared by the edit form and the change history.
 export const productFieldLabels: Record<keyof EditableProductFields | 'id', string> = {
@@ -13,6 +13,7 @@ export const productFieldLabels: Record<keyof EditableProductFields | 'id', stri
   isPlaceholder: 'Sample listing',
   outOfStock: 'Out of stock',
   stockQuantity: 'Stock count',
+  deliveryAvailable: 'Delivery available',
   status: 'Status',
   sortOrder: 'Position in shop',
 }
@@ -20,6 +21,62 @@ export const productFieldLabels: Record<keyof EditableProductFields | 'id', stri
 export const productStatusLabels = {
   active: 'Active (shown in the shop)',
   archived: 'Archived (hidden from the shop)',
+}
+
+export const deliveryAreaFieldLabels: Record<keyof EditableDeliveryAreaFields, string> = {
+  name: 'Area name',
+  description: 'What it covers',
+  fee: 'Delivery fee',
+  status: 'Status',
+  sortOrder: 'Position in list',
+}
+
+export const deliveryAreaStatusLabels = {
+  active: 'Active (offered at checkout)',
+  archived: 'Archived (not offered)',
+}
+
+// Delivery areas: GPEC's own list of where it delivers and for how much (owner's choice, 2026-10-23,
+// instead of a distance calculation, which would need a mapping service and send customers' addresses
+// to it).
+export const deliveryAreasContent = {
+  eyebrow: 'Shop',
+  title: 'Delivery areas',
+  intro: 'Customers who choose delivery pick one of these areas at checkout, and its fee is added to their order. Name areas so customers can find theirs, for example “Port Harcourt: Woji, GRA, Trans-Amadi” or “Within 10 km of Woji”. A customer whose area is not listed can choose pickup or contact GPEC.',
+  empty: 'No delivery areas yet, so customers can only choose pickup. Add the first area below.',
+  noCurrency: 'Delivery fees cannot be set yet: the shop currency has not been configured.',
+  pastOrders: 'Changing a fee or name does not change orders already placed: each order keeps the area and fee it was charged.',
+}
+
+export const paymentMethodLabels: Record<PaymentMethod, string> = {
+  paystack: 'Paystack',
+  bank_transfer: 'Bank transfer',
+}
+
+export const bankTransferFieldLabels: Record<keyof BankTransferSettings, string> = {
+  enabled: 'Offer bank transfer at checkout',
+  bankName: 'Bank name',
+  accountName: 'Account name',
+  accountNumber: 'Account number',
+  instructions: 'Extra instructions for customers',
+  payWithinDays: 'Days to pay within',
+}
+
+// GPEC's Nigerian bank account for customers who pay by transfer. What a Nigerian transfer needs: the
+// bank, the account name, and the 10-digit NUBAN account number (no sort code or SWIFT code).
+export const bankTransferContent = {
+  eyebrow: 'Shop',
+  title: 'Bank details',
+  intro: 'Customers who choose bank transfer at checkout see these details, with the amount and their order reference to use as the narration. Their order waits as “Awaiting transfer” until you confirm on the order that the money arrived.',
+  warning: 'These details decide where customers send their money. Every change is recorded and emailed to all admins. Check them carefully before saving.',
+  noCurrency: 'Bank transfer is offered only while the shop currency is naira (NGN).',
+  hints: {
+    bankName: 'The bank as customers will find it in their banking app, e.g. Access Bank, GTBank, Zenith Bank.',
+    accountName: 'Exactly as the bank has it, e.g. GPEC Engineering Company Limited. Customers check it before sending.',
+    accountNumber: 'The 10-digit account number (NUBAN).',
+    instructions: 'Optional, e.g. where to send proof of payment.',
+    payWithinDays: 'Customers are asked to pay within this many days. Close unpaid orders by hand after that (“Payment not received” on the order).',
+  },
 }
 
 export const requestStatusLabels: Record<RequestStatus, string> = {
@@ -32,13 +89,15 @@ export const requestKindContent: Record<AdminRequestKind, { title: string, eyebr
   'contact-requests': { title: 'Contact requests', eyebrow: 'From the contact form', empty: 'No contact requests here yet.' },
 }
 
-// Orders from the shop. Real orders arrive with Paystack checkout (ROADMAP step 5).
+// Orders from the shop's checkout. Unpaid ones are customers who did not finish paying on Paystack.
 export const ordersContent = {
   eyebrow: 'From the shop',
   title: 'Orders',
-  empty: 'No orders yet. Orders appear here once online payment through Paystack is set up: who ordered, what they bought, the amount paid, and whether they chose pickup or delivery.',
+  empty: 'No orders yet. Orders placed in the shop appear here: who ordered, what they bought, the amount, and whether they chose pickup or delivery.',
   noMatches: (search: string) => `No orders match “${search}”.`,
   notPaid: 'Payment has not been completed, so this order cannot be moved along. Only the website changes payment status, after Paystack confirms a payment.',
+  transferWaiting: 'The customer chose bank transfer. Check GPEC’s bank account for this amount with the order reference as the narration, then confirm it here. The order can be moved along once it is paid.',
+  transferClosed: 'Closed as not received: the transfer never arrived. If the customer did pay, they can contact GPEC; place a new order for them if needed.',
 }
 
 // In the order a typical order moves through them.
@@ -50,6 +109,8 @@ export const orderStageLabels: Record<OrderStage, string> = {
   completed: 'Completed',
   cancelled: 'Cancelled',
   awaiting_payment: 'Awaiting payment',
+  awaiting_transfer: 'Awaiting transfer',
+  transfer_reported: 'Transfer reported',
   payment_failed: 'Payment failed',
 }
 

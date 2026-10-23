@@ -11,7 +11,7 @@ const SITE_IMAGE_PATTERN = /^\/assets\/[A-Za-z0-9._-]+\.(png|jpe?g|webp)$/
 // In the smallest currency unit: 10^12 kobo is 10 billion naira, far above any real product.
 const MAX_PRICE = 1_000_000_000_000
 
-const EDITABLE_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'status', 'sortOrder'] as const
+const EDITABLE_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
 const REQUIRED_ON_CREATE = ['id', 'name', 'reference', 'description', 'image', 'alt'] as const
 
 export interface ProductChanges {
@@ -25,6 +25,7 @@ export interface ProductChanges {
   isPlaceholder?: boolean
   outOfStock?: boolean
   stockQuantity?: number | null
+  deliveryAvailable?: boolean
   status?: typeof PRODUCT_STATUSES[number]
   sortOrder?: number
 }
@@ -71,6 +72,10 @@ function readEditableFields(source: Fields, errors: ValidationErrors): ProductCh
     const stock = source.stockQuantity
     if (stock === null || (typeof stock === 'number' && Number.isInteger(stock) && stock >= 0 && stock <= MAX_STOCK_QUANTITY)) value.stockQuantity = stock
     else errors.stockQuantity = `stockQuantity must be empty (not counted) or a whole number from 0 to ${MAX_STOCK_QUANTITY}.`
+  }
+  if (has('deliveryAvailable')) {
+    if (typeof source.deliveryAvailable === 'boolean') value.deliveryAvailable = source.deliveryAvailable
+    else errors.deliveryAvailable = 'deliveryAvailable must be true or false.'
   }
   if (has('status')) {
     const status = PRODUCT_STATUSES.find((option) => option === source.status)

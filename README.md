@@ -189,9 +189,9 @@ For work in progress, publish only information approved by the customer. Label s
 
 ## Online Ordering and Payment
 
-Customers can buy catalogue products online. Prices are fixed and set by GPEC through a protected admin panel; price changes appear on the customer-facing site. At checkout, the customer chooses **pickup** (no delivery address and no delivery fee) or **delivery** (address required; delivery fee rules to be defined by GPEC).
+Customers can buy catalogue products online. Prices are fixed and set by GPEC through a protected admin panel; price changes appear on the customer-facing site. At checkout, the customer chooses **pickup** (no delivery address and no delivery fee) or **delivery** within Nigeria (address required). Pickup is from GPEC's Woji address. The delivery fee depends on the customer's **delivery area**, chosen from a list of areas and fees that GPEC staff manage in the admin panel; products GPEC does not deliver can be marked pickup only.
 
-Prices and payments are in **Nigerian naira (NGN)** (confirmed by GPEC, 2026-10-23). Payment uses **Paystack**. GPEC wants customers to pay Paystack's transaction fee: it is added to the customer's total as a separate, visible line before payment. Paystack's published rate for local Nigerian payments is 1.5% + ₦100, with the ₦100 waived under ₦2,500 and the fee capped at ₦2,000 (Paystack's pricing pages, checked 2026-10-23); GPEC must confirm the rate on its own Paystack plan before checkout uses it. The customer is redirected to Paystack's hosted payment page and returned to the GPEC site afterwards. The website never collects or stores card details. An order counts as paid only after GPEC's server confirms the payment with Paystack. Detailed behaviour is in [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md).
+Prices and payments are in **Nigerian naira (NGN)** (confirmed by GPEC, 2026-10-23). Payment uses **Paystack**, or a **bank transfer** to GPEC's Nigerian account (details entered by staff in the admin panel; staff confirm each transfer when the money arrives). GPEC wants customers to pay Paystack's transaction fee: it is added to the customer's total as a separate, visible line before payment. Paystack's published rate for local Nigerian payments is 1.5% + ₦100, with the ₦100 waived under ₦2,500 and the fee capped at ₦2,000 (Paystack's pricing pages, checked 2026-10-23); GPEC must confirm the rate on its own Paystack plan before checkout uses it. The customer is redirected to Paystack's hosted payment page and returned to the GPEC site afterwards. The website never collects or stores card details. An order counts as paid only after GPEC's server confirms the payment with Paystack. Detailed behaviour is in [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md).
 
 Custom work, such as panel design or a solar site assessment, is not bought online. It goes through the quote flow below.
 
@@ -224,7 +224,7 @@ Received with the company profile (2026-10-23): company name, logo, about text, 
 - Product prices.
 - The Paystack fee rate on GPEC's own plan.
 - Paystack business account (keys are held by GPEC and configured on the server, never shared in code).
-- Delivery fee rules and delivery areas, plus pickup location and collection hours.
+- The delivery areas and their fees (entered by staff in the admin panel), and collection hours for pickup (the location is the Woji address).
 - Refund, cancellation, and returns policy for paid orders.
 - Staff who receive order notifications and who will manage prices in the admin panel.
 - Project descriptions, dates, and measurable outcomes for the photos already supplied, and customer names only where customers agree.

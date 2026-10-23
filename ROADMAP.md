@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-23 (end of session: company profile merged, shop prices)
+- **Last updated:** 2026-10-23 (checkout with Paystack and delivery areas built, test mode)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -15,8 +15,8 @@ does. Update this file as steps are completed or the plan changes.
 | 2. Groundwork: CI, hardening, tests | Done (2026-10-21) |
 | 3. Deploy early on Coolify | Live (2026-10-22), not announced — Atlas users and access list still needed |
 | 4. Products in MongoDB | Done (2026-10-21) |
-| 5. Checkout and Paystack (test mode) | Not started — needs GPEC information |
-| 6. Admin panel | Done for now (2026-10-21) — order lists come with step 5 |
+| 5. Checkout and Paystack (test mode) | Built (2026-10-23) — switched on once the Paystack settings are in Coolify; live keys need GPEC |
+| 6. Admin panel | Done for now (2026-10-21; orders and delivery areas 2026-10-22/23) |
 
 Already done: TypeScript conversion (frontend and backend), dependency pinning, root `.gitignore`,
 `gpec_dev` / `gpec` database split with a production startup guard, backup remote on `kworlanyo`.
@@ -116,11 +116,22 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 
 - [x] Checkout page in place: shows the order and says online payment is not available yet, with a
       link to the contact form (2026-10-22). The shop's order enquiry form was removed.
-- [ ] Order model, checkout form with pickup or delivery, and order summary with the Paystack fee
-      line. Refuse out-of-stock products on the server; paid orders reduce counted stock.
-- [ ] Paystack initialize, redirect, callback verify, and signed webhook — one shared "mark paid"
-      function.
-- [ ] Tests for tampered prices, currency mismatch, replayed webhooks, and double submission.
+- [x] Checkout form with pickup (Woji) or delivery, and an order summary worked out by the server
+      with the payment processing fee line. The server refuses unknown, archived, out-of-stock,
+      unpriced, and short-of-stock products; paid orders reduce counted stock (2026-10-23).
+- [x] Delivery areas and fees managed by staff (`#admin/delivery`, every change recorded), chosen
+      with the owner over distance-based fees; a per-product "Delivery available" switch for
+      pickup-only products (2026-10-23).
+- [x] Paystack initialize, redirect, return-page verify, and signed webhook, with one shared
+      `markOrderPaid`; order emails to staff and customer; payment result page (2026-10-23).
+- [x] Bank transfer to GPEC's Nigerian account (2026-10-23, owner's request): bank details managed
+      by staff (every change recorded and emailed to all admins), no processing fee, "I have sent
+      the transfer", and staff confirming the money arrived (or closing it as not received).
+- [x] Tests for tampered prices and fees, amount and currency mismatch, replayed webhooks,
+      simultaneous confirmations, `charge.failed` after paid, and bad signatures.
+- [ ] Bank transfer: GPEC enters its bank details and switches it on (works without Paystack).
+- [ ] Turn it on: GPEC's fee rate, Paystack test key and webhook URL in Coolify (RUNBOOK 1.8), delivery
+      areas entered, prices entered; then a test-mode order on the live site.
 - [ ] Live keys only with GPEC's approval.
 
 ## 6. Admin panel
@@ -163,6 +174,8 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 These block launch, and several block steps 4 to 6. Ask early.
 
 - [ ] Real product list: names, specifications, photos, and **prices**.
+- [ ] GPEC's bank details for bank transfer (bank, account name, 10-digit account number), entered by
+      staff in the admin panel; and who checks the bank account and confirms transfers.
 - [x] Company profile (2026-10-23): about text, vision, mission, values, twelve service areas, contact
       details, and photos of GPEC's work, now on the home page and merged into `README.md`.
 - [x] Currency: NGN, and customers pay the Paystack fee (2026-10-23). Set `CURRENCY=NGN` on the API
@@ -178,8 +191,8 @@ These block launch, and several block steps 4 to 6. Ask early.
       needed: business verification, the fee rate on GPEC's plan (Paystack publishes 1.5% + ₦100,
       waived under ₦2,500, capped at ₦2,000), and confirmation that passing the fee to customers is
       allowed under GPEC's Paystack terms.
-- [ ] Delivery fee rules and delivery areas; pickup location (perhaps the Woji service location)
-      and hours.
+- [ ] Delivery areas and their fees (staff enter them in the admin panel), and collection hours.
+      Pickup location: the Woji address (confirmed by the owner, 2026-10-23).
 - [ ] Refund, cancellation, and returns policy.
 - [ ] Business hours and social media links (phone, email, and address are in the footer since
       2026-10-23).
