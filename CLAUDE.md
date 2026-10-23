@@ -673,7 +673,7 @@ permissions:
   included; pinned to the version of `@playwright/test` and a digest, and a step fails if the two
   differ): the behaviour tests at desktop and phone width, and the text-contrast check, both against
   the production build with sample API data. (2026-10-23: installing Chromium on the plain runner
-  took up to 8 minutes and the run about 15; expected now: about 5, not yet measured on CI.)
+  took up to 8 minutes and the run about 15; the first run after the change took 3 min 39 s.)
 - **Backend:** `npm ci`, `npm run typecheck` (source and tests), `npm run lint`, `npm run build`,
   `npm test`.
 - **Docker:** builds both production images (never pushes them), so a broken Dockerfile fails here
@@ -1178,3 +1178,13 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   `frontend/e2e/` ran during the full test suite and replaced the "before" pictures it was meant to
   compare against. **Rule:** temporary Playwright scripts are deleted straight after use, and
   baselines are written outside the folder the suite reads.
+- **2026-10-23 — Made-up keys tripped the secret scan.** Test values like `sk_test_abc123` look like
+  real Paystack keys to gitleaks, which failed CI after the commit was pushed. **Rule:** fake keys
+  in tests are low-randomness (`sk_test_fake`); a finding already in pushed history goes in
+  `.gitleaksignore` by its exact fingerprint, never as a broad allowlist.
+- **2026-10-23 — A cut-off test summary hid two failures.** Reading only the last two lines of a
+  Playwright run showed "206 passed" and missed "2 failed" printed just above. **Rule:** read the
+  whole summary (passed, failed, flaky, skipped) before calling a run green.
+- **2026-10-23 — CI was slow for a reason batching would not fix.** The browser job's 15 minutes
+  were half spent installing Chromium's libraries from a slow mirror. **Rule:** before speeding up
+  CI, look at each step's timings; the browser jobs now run in Playwright's pinned image.

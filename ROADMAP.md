@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-23 (checkout with Paystack and delivery areas built, test mode)
+- **Last updated:** 2026-10-23 (checkout, bank transfer, demo shop data, faster CI)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -35,7 +35,7 @@ and split by area (`frontend/src/styles/`, admin styles loaded only with the adm
 checked for zero visual change; `/api/health` now checks the database; the illustrative portfolio
 cards no longer claim to be GPEC's work.
 
-CI's first run on GitHub passed (2026-10-20); latest green run on commit `55542da` (2026-10-22). Session handover notes are in
+CI's first run on GitHub passed (2026-10-20); latest green run on commit `7dbbae0` (2026-10-23, 3 min 39 s). Session handover notes are in
 [`HANDOVER.md`](HANDOVER.md).
 
 ---
