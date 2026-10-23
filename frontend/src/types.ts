@@ -10,10 +10,15 @@ export interface Product {
   isPlaceholder: boolean
   // False when out of stock: shown and labelled, but cannot be added to the cart.
   inStock: boolean
+  // In the currency's smallest unit (kobo for NGN); null until staff set it. Absent while the server
+  // has no currency configured.
+  price?: number | null
 }
 
 export interface ProductsResponse {
   products: Product[]
+  // null until the server's CURRENCY setting is configured; the shop shows no prices until then.
+  currency: CurrencyInfo | null
 }
 
 // What the cart stores in localStorage: product IDs and quantities only.

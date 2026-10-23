@@ -162,3 +162,38 @@ test.describe('checkout', () => {
     await expect(page.getByRole('heading', { name: 'Your cart is empty.' })).toBeVisible()
   })
 })
+
+test.describe('prices', () => {
+  test('show on the card and in the product window, in naira, with "to be confirmed" for unpriced products', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#shop')
+    const priced = page.locator('.shop-product-card', { hasText: 'Custom control panel' })
+    await expect(priced.locator('.shop-price')).toHaveText('₦1,500.50')
+    await expect(page.locator('.shop-product-card', { hasText: 'Solar power package' }).locator('.shop-price')).toHaveText('Price to be confirmed')
+    await priced.getByRole('button', { name: 'View Custom control panel details and full image' }).click()
+    await expect(page.getByRole('dialog').locator('.shop-price')).toHaveText('₦1,500.50')
+  })
+
+  test('show as a price per item in the cart and at checkout, with no total worked out in the browser', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#shop')
+    await page.getByRole('button', { name: 'Add to cart: Custom control panel' }).click()
+    await page.getByRole('button', { name: 'Add to cart: Custom control panel' }).click()
+    await page.getByRole('button', { name: 'Add to cart: Solar power package' }).click()
+    const cart = page.locator('#shop-cart')
+    await expect(cart.locator('.shop-line-price')).toHaveText(['₦1,500.50 each', 'Price to be confirmed'])
+    await expect(cart).not.toContainText('₦3,001')
+    await page.getByRole('button', { name: 'Go to checkout' }).click()
+    const summary = page.locator('.shop-order-summary')
+    await expect(summary.locator('.shop-line-price')).toHaveText(['₦1,500.50 each', 'Price to be confirmed'])
+    await expect(summary).not.toContainText('₦3,001')
+  })
+
+  test('are not shown while the server has no currency configured', async ({ page }) => {
+    await mockApi(page, { currency: null })
+    await page.goto('/#shop')
+    await expect(page.locator('.shop-product-card')).toHaveCount(6)
+    await expect(page.locator('.shop-price')).toHaveCount(0)
+    await expect(page.getByText('Price to be confirmed')).toHaveCount(0)
+  })
+})

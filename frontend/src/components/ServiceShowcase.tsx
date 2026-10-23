@@ -7,12 +7,12 @@ interface ServiceShowcaseProps {
   onAskAbout: (topic: string) => void
 }
 
-// The nine business areas: one featured in the large panel, the other eight as cards. Choosing a card
+// The twelve business areas: one featured in the large panel, the other eleven as cards. Choosing a card
 // swaps it with the featured area, so the other cards never move. The card's title is the button
 // (stretched over the whole card); "Learn more" stays a separate link to the contact form.
 export default function ServiceShowcase({ onAskAbout }: ServiceShowcaseProps) {
   const [featured, setFeatured] = useState(0)
-  // Which area each of the eight card positions shows.
+  // Which area each of the eleven card positions shows.
   const [slots, setSlots] = useState(() => services.map((_, index) => index).slice(1))
   const [announcement, setAnnouncement] = useState('')
   const panelRef = useRef<HTMLElement>(null)

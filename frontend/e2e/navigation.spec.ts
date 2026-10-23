@@ -55,19 +55,21 @@ test.describe('main menu', () => {
 })
 
 test.describe('home page sections', () => {
-  test('Services shows all nine of GPEC\'s business areas', async ({ page }) => {
+  test('Services shows all twelve of GPEC\'s business areas', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#services')
     await expect(page.locator('#service-feature h3')).toHaveText('Electrical panels')
-    await expect(page.locator('.service-select')).toHaveText(['Solar energy', 'Electrical sales', 'Solar sales', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories'].map((title) => `Show ${title} in the panel above`))
+    await expect(page.locator('.service-select')).toHaveText(['Solar energy', 'Electrical sales', 'Solar sales', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Installation & repairs', 'Generators & power', 'Security & smart home'].map((title) => `Show ${title} in the panel above`))
   })
 
-  test('About and Current Work show their text, with no "sample" label', async ({ page }) => {
+  test('About shows GPEC\'s profile, vision, mission, and values; Current Work has no "sample" label', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#about')
-    await expect(page.locator('#about .about-lead')).toContainText('GPEC is an engineering company')
-    await expect(page.locator('#about .about-body p')).toHaveCount(2)
-    await expect(page.locator('#about .about-highlights li')).toHaveCount(3)
+    await expect(page.locator('#about .about-lead')).toContainText('GPEC Engineering is an engineering service provider in Port Harcourt')
+    await expect(page.locator('#about .about-body p')).toHaveCount(3)
+    await expect(page.locator('#about .about-highlights:not(.about-values) strong')).toHaveText(['Our vision', 'Our mission'])
+    await expect(page.getByRole('heading', { name: 'Our core values' })).toBeVisible()
+    await expect(page.locator('#about .about-values strong')).toHaveText(['Quality', 'Safety', 'Integrity', 'Innovation', 'Reliability', 'Customer satisfaction'])
     await expect(page.locator('#current-work .current-work-lead')).toBeVisible()
     await expect(page.locator('.current-work-list li')).toHaveCount(3)
     await expect(page.getByText(/Sample content/)).toHaveCount(0)
@@ -82,15 +84,28 @@ test.describe('home page sections', () => {
     await expect(first.locator('time')).toHaveText(/^\d{1,2} [A-Z][a-z]{2} \d{4}$/)
   })
 
-  test('project cards with illustrative images do not claim to be GPEC work', async ({ page }) => {
+  test('the workmanship cards show GPEC\'s own photos, with no "illustrative" label', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#projects')
-    const illustrative = page.locator('.work-card').filter({ has: page.locator('.work-image-note', { hasText: 'Illustrative visual' }) })
-    await expect(illustrative).toHaveCount(2)
-    for (const card of await illustrative.all()) {
-      await expect(card).toContainText('Illustrative example of this service, not a GPEC project')
-      await expect(card).not.toContainText(/built by|delivered by|project portfolio/i)
+    const workmanship = page.locator('.work-card').filter({ hasText: 'Our workmanship' })
+    await expect(workmanship).toHaveCount(2)
+    for (const card of await workmanship.all()) {
+      await expect(card).toContainText('From GPEC’s own work')
+      await expect(card.locator('img')).toHaveAttribute('src', /^\/assets\/gpec-/)
     }
+    await expect(page.locator('#projects').getByText(/illustrative/i)).toHaveCount(0)
+  })
+
+  test('the footer shows GPEC\'s real contact details, with working email and phone links', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/')
+    const contact = page.locator('footer address')
+    await expect(contact.getByRole('link', { name: 'gpecengineeringcompanylimited@gmail.com' })).toHaveAttribute('href', 'mailto:gpecengineeringcompanylimited@gmail.com')
+    await expect(contact.getByRole('link', { name: '+234 703 197 5609' })).toHaveAttribute('href', 'tel:+2347031975609')
+    await expect(contact.getByRole('link', { name: '+234 701 541 1707' })).toHaveAttribute('href', 'tel:+2347015411707')
+    await expect(contact).toContainText('#19 King Slope Street, Woji, off Alcon Road, Port Harcourt, Rivers State')
+    await expect(page.locator('footer')).toContainText('GPEC Engineering Company Limited')
+    await expect(page.locator('footer')).not.toContainText(/example\.com|000 000|Mon–Fri/)
   })
 })
 

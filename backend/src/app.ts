@@ -67,7 +67,7 @@ export default function createApp(
     if (await databaseIsReachable()) return res.json({ status: 'ok' })
     return res.status(503).json({ status: 'unavailable', message: 'The database cannot be reached.' })
   })
-  app.use('/api/products', productsRouter)
+  app.use('/api/products', productsRouter(config.currency))
   app.use('/api/product-images', productImagesRouter(imageStore))
   app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter(notifier))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.

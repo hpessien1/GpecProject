@@ -19,8 +19,8 @@ export const privacySections: PrivacySection[] = [
   {
     title: 'Who we are',
     paragraphs: [
-      'This website is run by [[GPEC’s registered company name and registration number]], [[registered address]].',
-      'For any question about your information, contact [[privacy contact email address]].',
+      'This website is run by GPEC Engineering Company Limited ([[company registration number]]), [[registered address, if different from #19 King Slope Street, Woji, off Alcon Road, Port Harcourt, Rivers State]].',
+      'For any question about your information, contact gpecengineeringcompanylimited@gmail.com.',
     ],
   },
   {
@@ -62,7 +62,7 @@ export const privacySections: PrivacySection[] = [
   {
     title: 'Your choices',
     paragraphs: [
-      'You can ask us what information we hold about you, ask us to correct it, or ask us to delete it, by contacting [[privacy contact email address]].',
+      'You can ask us what information we hold about you, ask us to correct it, or ask us to delete it, by contacting gpecengineeringcompanylimited@gmail.com.',
       '[[Legal basis and data-protection rights wording, to be confirmed by GPEC with its legal adviser, for example under the Nigeria Data Protection Act 2023]]',
     ],
   },

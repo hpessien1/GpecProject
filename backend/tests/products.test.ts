@@ -9,17 +9,18 @@ useTestDatabase()
 const app = testApp()
 
 describe('GET /api/products', () => {
-  it('returns an empty list when there are no products', async () => {
+  it('returns an empty list, with the configured currency, when there are no products', async () => {
     const res = await request(app).get('/api/products')
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ products: [] })
+    expect(res.body).toEqual({ products: [], currency: { code: 'NGN', minorUnitDigits: 2 } })
   })
 
-  it('returns active products in sort order, labelled as placeholders, without prices', async () => {
+  it('returns active products in sort order, labelled as placeholders, with prices once the currency is set', async () => {
     await seedSampleProducts()
     await Product.updateOne({ _id: 'panel-001' }, { price: 150000 })
     const res = await request(app).get('/api/products')
     expect(res.status).toBe(200)
+    expect(res.body.currency).toEqual({ code: 'NGN', minorUnitDigits: 2 })
     expect(res.body.products.map((product: { id: string }) => product.id)).toEqual(sampleProducts.map((product) => product.id))
     expect(res.body.products[0]).toEqual({
       id: 'panel-001',
@@ -31,7 +32,26 @@ describe('GET /api/products', () => {
       alt: sampleProducts[0].alt,
       isPlaceholder: true,
       inStock: true,
+      price: 150000,
     })
+    // A product staff have not priced yet.
+    expect(res.body.products[1].price).toBeNull()
+  })
+
+  it('leaves prices out while no currency is configured, so a bare number is never shown', async () => {
+    await seedSampleProducts()
+    await Product.updateOne({ _id: 'panel-001' }, { price: 150000 })
+    const res = await request(testApp({ currency: null })).get('/api/products')
+    expect(res.body.currency).toBeNull()
+    expect(res.body.products.every((product: object) => !('price' in product))).toBe(true)
+  })
+
+  it('shows a price change made by staff straight away', async () => {
+    await seedSampleProducts()
+    await Product.updateOne({ _id: 'panel-001' }, { price: 150000 })
+    await Product.updateOne({ _id: 'panel-001' }, { price: 175050 })
+    const res = await request(app).get('/api/products')
+    expect(res.body.products[0].price).toBe(175050)
   })
 
   it('leaves out archived products', async () => {

@@ -42,11 +42,13 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `POST /api/admin/product-images`
 - Public product photos: `GET /api/product-images/:hash.webp`
 
-`GET /api/products` returns `{ products: [...] }`: every active product in display order, with `id`,
-`name`, `reference`, `description`, `specs`, `image`, `alt`, `isPlaceholder` (true for sample
-data not supplied by GPEC), and `inStock` (false when staff marked it out of stock or its counted
-stock is 0; the count itself is never returned). Prices are not returned until checkout (roadmap step 5) configures the
-currency.
+`GET /api/products` returns `{ products: [...], currency }`: every active product in display order,
+with `id`, `name`, `reference`, `description`, `specs`, `image`, `alt`, `isPlaceholder` (true for
+sample data not supplied by GPEC), `inStock` (false when staff marked it out of stock or its counted
+stock is 0; the count itself is never returned), and `price` (in the currency's smallest unit, e.g.
+kobo; `null` until staff set it). `currency` is `{ code, minorUnitDigits }` from the `CURRENCY`
+setting. While `CURRENCY` is unset, `currency` is `null` and products carry no `price`, so a bare
+number is never shown.
 
 There are no order enquiries: customers buy in the shop (Paystack checkout, roadmap step 5) or ask
 through the contact form.

@@ -13,6 +13,9 @@ export const contactSubjects = [
   'Electronics',
   'Industrial products',
   'Industrial accessories',
+  'Installation and repairs',
+  'Generators and power systems',
+  'Security and smart home',
   'Other inquiry',
 ]
 

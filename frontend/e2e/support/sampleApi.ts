@@ -23,13 +23,14 @@ export const RESET_TOKEN = 'r'.repeat(43)
 export const RESET_REQUESTED_MESSAGE = 'If this email address belongs to a GPEC admin account, a link to reset the password is on its way. It works for 30 minutes. Check the spam folder if it does not arrive.'
 const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
 
-function sampleProduct(id: string, name: string, reference: string, image: string): Product {
-  return { id, name, reference, description: `${name}: sample description for testing.`, specs: ['Spec one', 'Spec two'], image, alt: `${name} photo`, isPlaceholder: true, inStock: true }
+function sampleProduct(id: string, name: string, reference: string, image: string, price: number | null = null): Product {
+  return { id, name, reference, description: `${name}: sample description for testing.`, specs: ['Spec one', 'Spec two'], image, alt: `${name} photo`, isPlaceholder: true, inStock: true, price }
 }
 
 export function sampleProducts(): Product[] {
   return [
-    sampleProduct('panel-001', 'Custom control panel', 'GPEC-CP-001', '/assets/electrical-panels-product.png'),
+    // The only priced product (₦1,500.50), as in the admin products below.
+    sampleProduct('panel-001', 'Custom control panel', 'GPEC-CP-001', '/assets/electrical-panels-product.png', 150050),
     sampleProduct('solar-001', 'Solar power package', 'GPEC-SOL-020', '/assets/portfolio-solar-array.jpg'),
     sampleProduct('components-001', 'Industrial electrical components', 'GPEC-IEC-033', '/assets/portfolio-electrical-components-poster.jpg'),
     sampleProduct('accessories-001', 'Panel accessories', 'GPEC-PA-042', '/assets/product-lineup.png'),
@@ -155,7 +156,8 @@ function reply(state: ApiState, request: Request): Reply {
   const body = jsonBody(request) ?? {}
   const session: AdminSessionInfo = { admin: { name: ADMIN.name, email: ADMIN.email }, currency: state.currency, imageUploads: state.imageUploads }
 
-  if (path === '/api/products') return state.products === 'error' ? [500, { message: 'Something went wrong on our side. Please try again.' }] : [200, { products: state.products }]
+  // Like the real API: prices only while a currency is configured.
+  if (path === '/api/products') return state.products === 'error' ? [500, { message: 'Something went wrong on our side. Please try again.' }] : [200, { products: state.currency ? state.products : state.products.map(({ price: _price, ...product }) => product), currency: state.currency }]
   if (path === '/api/contact-requests') return state.formsFail ? [400, { message: 'Check your details and try again.' }] : [201, { reference: 'GPEC-C-2026-AAAAAAAA', createdAt: now }]
 
   if (path === '/api/admin/session' && method === 'POST') {

@@ -17,17 +17,21 @@ test.describe('services showcase', () => {
     await expect(feature(page).locator('h3')).toHaveText('Solar accessories')
     await expect(feature(page)).toContainText('Mounting rails, connectors')
     await expect(feature(page).locator('img')).toHaveAttribute('alt', /.+/)
-    await expect(feature(page).locator('.service-image-note')).toHaveText('Illustrative image')
-    expect(await slotTitles(page)).toEqual(['Solar energy', 'Electrical sales', 'Solar sales', 'Electrical panels', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories'])
+    await expect(feature(page).locator('.service-image-note')).toHaveCount(0)
+    expect(await slotTitles(page)).toEqual(['Solar energy', 'Electrical sales', 'Solar sales', 'Electrical panels', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Installation & repairs', 'Generators & power', 'Security & smart home'])
     await expect(page.locator('.service-showcase [aria-live]')).toHaveText('Showing Solar accessories')
   })
 
-  test('the original panel image is not labelled illustrative, the others are', async ({ page }) => {
+  test('every area shows a photo of GPEC\'s own work or stock, none labelled illustrative', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#services')
-    await expect(feature(page).locator('.service-image-note')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Show Electronics in the panel above' }).click()
-    await expect(feature(page).locator('.service-image-note')).toBeVisible()
+    for (let round = 0; round < 12; round++) {
+      const image = feature(page).locator('img')
+      await expect(image).toHaveAttribute('alt', /.+/)
+      await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+      await expect(feature(page).locator('.service-image-note')).toHaveCount(0)
+      await page.locator('.service-select').nth(round % 11).click()
+    }
   })
 
   test('works from the keyboard, and focus stays where it was', async ({ page }, testInfo) => {
@@ -59,6 +63,22 @@ test.describe('services showcase', () => {
     await expect(feature(page).locator('h3')).toHaveText('Electrical panels')
   })
 
+  test('the last of the eleven cards fills its row, and its "Learn more" chooses its own topic', async ({ page }, testInfo) => {
+    await mockApi(page)
+    await page.goto('/#services')
+    const cards = page.locator('.service-mini-card')
+    await expect(cards).toHaveCount(11)
+    const last = cards.last()
+    await expect(last).toContainText('Security & smart home')
+    if (testInfo.project.name === 'desktop') {
+      const [grid, card] = await Promise.all([page.locator('.service-support-grid').boundingBox(), last.boundingBox()])
+      // A normal card is half the grid; the last one spans both columns.
+      expect(card?.width ?? 0).toBeGreaterThan((grid?.width ?? 0) * 0.9)
+    }
+    await last.getByRole('link', { name: 'Ask about Security & smart home' }).click()
+    await expect(page.locator('select[name="subject"]')).toHaveValue('Security and smart home')
+  })
+
   test('on phones, the panel scrolls into view when a card further down is chosen', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'phone', 'phone layout only')
     await mockApi(page)
@@ -72,7 +92,7 @@ test.describe('services showcase', () => {
   test('every business area\'s title fits whole in the panel', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#services')
-    for (let round = 0; round < 9; round++) {
+    for (let round = 0; round < 12; round++) {
       const split = await feature(page).locator('h3').evaluate((h3) => {
         const text = h3.firstChild
         if (!text) return 'no text'
@@ -87,7 +107,7 @@ test.describe('services showcase', () => {
         return null
       })
       expect(split, `title word split or overflowing: ${split}`).toBeNull()
-      await page.locator('.service-select').nth(round % 8).click()
+      await page.locator('.service-select').nth(round % 11).click()
     }
   })
 })
@@ -96,7 +116,7 @@ test.describe('contact form topics', () => {
   test('offer one topic per business area, plus Other', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#contact')
-    await expect(page.locator('select[name="subject"] option:not([disabled])')).toHaveText(['Electrical panels', 'Solar energy', 'Electrical products', 'Solar products', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial products', 'Industrial accessories', 'Other inquiry'])
+    await expect(page.locator('select[name="subject"] option:not([disabled])')).toHaveText(['Electrical panels', 'Solar energy', 'Electrical products', 'Solar products', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial products', 'Industrial accessories', 'Installation and repairs', 'Generators and power systems', 'Security and smart home', 'Other inquiry'])
   })
 
   test('a chosen topic is sent and cleared after sending', async ({ page }) => {

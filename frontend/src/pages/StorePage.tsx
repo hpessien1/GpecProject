@@ -7,7 +7,7 @@ import ProductModal from '../components/shop/ProductModal'
 import CatalogueStatus from '../components/shop/CatalogueStatus'
 import { readStoredCart, storeCart } from '../services/cartStorage'
 import { fetchProducts } from '../services/productApi'
-import type { CartEntry, CartLine, Product, StoreMode } from '../types'
+import type { CartEntry, CartLine, CurrencyInfo, Product, StoreMode } from '../types'
 
 const PRODUCTS_PER_PAGE = 6
 
@@ -22,6 +22,8 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
   const [cart, setCart] = useState<CartEntry[]>(readStoredCart)
   // null while loading. The catalogue comes from the API; nothing about products is hard-coded here.
   const [products, setProducts] = useState<Product[] | null>(null)
+  // The currency prices are in; null while the server has none configured (no prices shown).
+  const [currency, setCurrency] = useState<CurrencyInfo | null>(null)
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [activeProduct, setActiveProduct] = useState<Product | null>(null)
@@ -37,9 +39,10 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
   useEffect(() => {
     let isCurrent = true
     fetchProducts()
-      .then((loadedProducts) => {
+      .then(({ products: loadedProducts, currency: loadedCurrency }) => {
         if (!isCurrent) return
         setProducts(loadedProducts)
+        setCurrency(loadedCurrency)
         // Drop cart entries for products that have been archived or removed since they were added.
         setCart((currentCart) => currentCart.filter((item) => loadedProducts.some((product) => product.id === item.id)))
       })
@@ -90,11 +93,11 @@ export default function StorePage({ mode, goHome, goToCatalogue, goToOrder }: St
     <main id="shop-main" tabIndex={-1}>
       {mode === 'catalogue' && <>
         <section className="shop-hero"><div><p className="eyebrow"><span /> GPEC product catalogue</p><h1>Source what<br /><em>your work needs.</em></h1></div><p>Browse GPEC’s electrical, solar, and industrial products and add what you need to your cart. Questions about a product? <a href="#contact">Ask GPEC</a>.</p></section>
-        {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products"><div className="shop-section-heading"><p className="eyebrow"><span /> Available products</p><p>Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}–{Math.min(currentPage * PRODUCTS_PER_PAGE, catalogue.length)} of {catalogue.length} products</p></div><div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} onOpen={setActiveProduct} onAdd={addToCart} />)}</div><nav className="shop-pagination" aria-label="Product catalogue pages"><button type="button" onClick={() => selectPage(currentPage - 1)} disabled={currentPage === 1}>Previous</button>{Array.from({ length: totalPages }, (_, index) => { const page = index + 1; return <button type="button" key={page} className={page === currentPage ? 'is-active' : ''} aria-current={page === currentPage ? 'page' : undefined} onClick={() => selectPage(page)}>{page}</button> })}<button type="button" onClick={() => selectPage(currentPage + 1)} disabled={currentPage === totalPages}>Next</button></nav></div><Cart cartItems={cartItems} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} /></section>}
+        {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products"><div className="shop-section-heading"><p className="eyebrow"><span /> Available products</p><p>Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}–{Math.min(currentPage * PRODUCTS_PER_PAGE, catalogue.length)} of {catalogue.length} products</p></div><div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} currency={currency} onOpen={setActiveProduct} onAdd={addToCart} />)}</div><nav className="shop-pagination" aria-label="Product catalogue pages"><button type="button" onClick={() => selectPage(currentPage - 1)} disabled={currentPage === 1}>Previous</button>{Array.from({ length: totalPages }, (_, index) => { const page = index + 1; return <button type="button" key={page} className={page === currentPage ? 'is-active' : ''} aria-current={page === currentPage ? 'page' : undefined} onClick={() => selectPage(page)}>{page}</button> })}<button type="button" onClick={() => selectPage(currentPage + 1)} disabled={currentPage === totalPages}>Next</button></nav></div><Cart cartItems={cartItems} currency={currency} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} /></section>}
       </>}
       {mode === 'order' && products === null && <section className="shop-order-page"><CatalogueStatus state={loadError ? 'error' : 'loading'} errorMessage={loadError} onRetry={retryLoading} /></section>}
-      {mode === 'order' && products !== null && <section className="shop-order-page"><Checkout cartItems={cartItems} itemCount={itemCount} onGoToCatalogue={goToCatalogue} /></section>}
+      {mode === 'order' && products !== null && <section className="shop-order-page"><Checkout cartItems={cartItems} currency={currency} itemCount={itemCount} onGoToCatalogue={goToCatalogue} /></section>}
     </main>
-    <ProductModal product={activeProduct} onClose={() => setActiveProduct(null)} />
+    <ProductModal product={activeProduct} currency={currency} onClose={() => setActiveProduct(null)} />
   </div>
 }

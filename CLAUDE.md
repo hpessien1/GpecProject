@@ -328,7 +328,10 @@ name), and logs which database it found. The guard only works if production sets
   `utils/stock.ts`). Out-of-stock products stay in the shop, labelled, and cannot be added to the
   cart; archiving removes a product from the shop. Customers see only `inStock`, never the count.
   The count goes down automatically only once paid orders exist (step 5); until then staff set it. `GET /api/products` returns
-  active products **without** `price` until step 5 configures the currency.
+  active products with `price` (or `null` if unpriced) and `currency` once `CURRENCY` is set; while it
+  is unset, no prices and `currency: null` (2026-10-23, owner's request). The shop shows each price,
+  "Price to be confirmed" for unpriced products, and a price "each" on cart and checkout lines, but no
+  totals: those come with checkout, worked out by the server.
   The 14 current products are samples from `backend/src/data/sampleProducts.ts`, loaded by
   `npm run seed:products` (Section 11).
 
@@ -969,8 +972,8 @@ status), or add a new failure path. No update needed for pure refactors or styli
 Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
 **Deployment** (live since 2026-10-22, not announced)
-- **The live site is public with mock content** (About, Current Work, footer contacts) and an empty
-  shop. Do not share or announce the address until GPEC's real content is in.
+- **The live site is public with mock Current Work entries**, sample products, and demo orders and
+  requests. Do not share or announce the address until GPEC's real content is in.
 - **Atlas is not locked down.** Production uses the developer's existing login, which reaches both
   `gpec` and `gpec_dev`, and the access list has not been checked (it may allow `0.0.0.0/0`). The
   developer has no Atlas dashboard access; the Atlas owner must create `gpec-prod` and `gpec-dev`,
@@ -987,20 +990,20 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   enclosure"). The shop labels each one "Sample listing · details to be confirmed by GPEC" until
   GPEC's real product list replaces them. No prices exist yet.
 - The client name "Afrizone" is published; permission is unconfirmed.
-- About and Current Work (home page) contain **mock content**, added at the project owner's request
-  (2026-10-21). It avoids specific claims (no years, numbers, certifications, client names, or
-  photos). At the owner's request **nothing on the page marks it as mock**; only the code comments
-  in `data/landingContent.ts` do. **Before launch, replace both with GPEC-approved text.**
+- Current Work (home page) contains **mock content**, added at the project owner's request
+  (2026-10-21); GPEC's company profile has no dated updates to replace it. It avoids specific claims
+  (no years, numbers, certifications, client names, or photos). At the owner's request **nothing on
+  the page marks it as mock**; only the code comment in `data/landingContent.ts` does. **Before
+  launch, replace it with GPEC-approved, dated updates.** (About, the footer contacts, the twelve
+  service areas, and the project photos now come from GPEC's profile, 2026-10-23.)
 - The first project video (`portfolio-electrical-components.mp4`) has a sound track and no captions.
   GPEC must confirm whether it contains speech; if so, add captions (a `<track>`), otherwise mute it
   or remove the track. Marked in `LandingPage.tsx` with an `oxlint-disable` comment.
-- The footer shows **mock contact details** (owner's request, 2026-10-21): `info@example.com` (a
-  domain reserved for examples) and an invalid phone number, so no customer can reach a stranger.
-  Replace with GPEC's real details in `data/landingContent.ts` (`companyContact`) before launch.
+- No business hours or social media links yet (not in GPEC's profile); the footer shows none.
 
 **Functionality**
 - The shop cannot take orders yet: checkout shows the order and says online payment is not
-  available until GPEC's Paystack account is set up (step 5). No prices are shown yet. The Orders
+  available until GPEC's Paystack account is set up (step 5). Prices show in the shop once `CURRENCY=NGN` is set on the API and staff enter them. The Orders
   admin screens work (list, detail, fulfilment status, notes), but only demo orders exist.
 - **Demo data** (owner's request, 2026-10-22, for showing GPEC the admin screens): 10 orders and 8
   contact requests from `data/demoData.ts`, realistic and unmarked on screen at the owner's request,
@@ -1019,8 +1022,6 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   until it is edited in the admin panel.
 - The contact-form topic list is duplicated (`frontend/src/data/landingContent.ts` and
   `backend/src/validation/contactRequest.ts`); a backend test fails if the two differ.
-- Services areas 2–9 use existing photos marked "Illustrative image" (some repeat; three are
-  Afrizone project stills, at the owner's request) until GPEC supplies a photo per area.
 - Staff reply to requests by email or phone outside the site (the detail page links to both); the
   site does not record replies, only the notes staff add. Request search is a case-insensitive
   substring match with no index, which is fine for GPEC's volume; revisit (text index) if the
@@ -1035,7 +1036,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   complaint handling beyond SES's account-level suppression list (SES can report these through SNS).
 - No file uploads on the quote form.
 - The privacy notice (`#privacy`) is a **draft**: GPEC must supply the highlighted placeholders
-  (legal name, privacy contact, retention, legal wording) and approve it. Hosting is filled in
+  (registration number, registered address if different from the service location, retention,
+  legal wording) and approve it. The legal name and contact email were filled in on 2026-10-23
+  (GPEC's published email is used as the privacy contact; GPEC may name another). Hosting is filled in
   (2026-10-23: server in Nuremberg, Germany; email from Stockholm, Sweden) except the **Atlas
   database region**, which only the Atlas owner can see.
 
@@ -1049,13 +1052,15 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - No favicon: every page load requests `/favicon.ico` and gets a 404. Needs GPEC's logo mark.
 
 **Open business decisions (needed from GPEC)**
-- Currency: expected NGN, not confirmed.
 - Delivery fee rule for delivery orders: unknown. Do not invent one.
 - Pickup location and hours.
 - Refund, cancellation, and returns policy for paid orders.
 - Who receives order and contact-request notifications.
-- Paystack fee rule from GPEC's Paystack plan, and confirmation that passing the fee to customers is
-  allowed under GPEC's Paystack terms.
+- The Paystack fee rate on GPEC's own plan. Paystack publishes 1.5% + ₦100 for local payments, the
+  ₦100 waived under ₦2,500, capped at ₦2,000 (checked 2026-10-23); confirm in GPEC's dashboard, and
+  that passing the fee to customers is allowed under GPEC's Paystack terms. (Decided 2026-10-23: the
+  currency is NGN, and customers pay the Paystack fee.)
+- Whether the Woji service location is also the pickup location for shop orders.
 - Atlas cluster tier (must include backups before launch).
 
 ---
@@ -1108,3 +1113,12 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   computed styles but not by the screenshots, and the comparison also caught the build minifier
   rewriting `background` with `background-size` in one rule. **Rule:** for a CSS refactor, compare
   computed styles across states and widths; screenshots alone miss hover and focus states.
+- **2026-10-23 — New content broke a layout made for old content.** The Projects intro was set to
+  `white-space: nowrap` for a one-line sentence; GPEC's longer text then made the page 1300px wide
+  between 900 and 1180px. Only a before/after screenshot comparison at several widths caught it.
+  **Rule:** after a content change, check the page for sideways scrolling across the whole width
+  range (320–1600px), not just at 390px and desktop.
+- **2026-10-23 — A temporary test script overwrote its own baseline.** A screenshot script left in
+  `frontend/e2e/` ran during the full test suite and replaced the "before" pictures it was meant to
+  compare against. **Rule:** temporary Playwright scripts are deleted straight after use, and
+  baselines are written outside the folder the suite reads.

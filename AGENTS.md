@@ -9,7 +9,8 @@ Use [`README.md`](README.md) as the source brief for company services, recommend
 ## Content rules
 
 - Keep descriptions accurate, direct, and understandable to both technical and nontechnical customers.
-- Preserve all nine business areas in the README: electrical control and distribution panels, solar energy, electrical sales, solar sales, solar accessories, electrical accessories, electronics, industrial products, and industrial accessories.
+- Preserve all twelve business areas in the README: electrical control and distribution panels, solar energy, electrical sales, solar sales, solar accessories, electrical accessories, electronics, industrial products, industrial accessories, electrical installation and repairs, generators and power systems, and security and smart home systems.
+- GPEC's own wording in the README's "Company Profile" (about, vision, mission, values, safety and quality) is approved for the site as written, with light grammar corrections only.
 - Do not invent company history, locations, clients, projects, testimonials, credentials, certifications, product brands, stock, prices, warranties, savings, or performance figures. Prices come only from GPEC through the admin panel.
 - Use clearly marked placeholders when GPEC has not supplied required information. Do not present placeholder copy as fact.
 - Publish customer names, project photographs, drawings, and testimonials only when GPEC has permission.

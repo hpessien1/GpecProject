@@ -1,8 +1,9 @@
 import Product, { isInStock } from '../models/Product.js'
 import { sampleProducts } from '../data/sampleProducts.js'
 
-// What the public catalogue shows. Price is left out until step 5 configures the currency: a bare
-// number with no currency would be ambiguous to the shop.
+// What the public catalogue shows. Price (whole smallest units, e.g. kobo; null until staff set it)
+// is included only when the CURRENCY setting is configured: a bare number with no currency would be
+// ambiguous to the shop.
 export interface PublicProduct {
   id: string
   name: string
@@ -14,12 +15,14 @@ export interface PublicProduct {
   isPlaceholder: boolean
   // Out of stock (switched off by staff, or a counted stock of 0): shown, labelled, not buyable.
   inStock: boolean
+  price?: number | null
 }
 
 // More than any realistic catalogue; stops one request from reading an unbounded collection.
 const MAX_PUBLIC_PRODUCTS = 1000
 
-export async function listActiveProducts(): Promise<PublicProduct[]> {
+// currency: the configured CURRENCY setting, or null (prices left out).
+export async function listActiveProducts(currency: string | null): Promise<PublicProduct[]> {
   const products = await Product.find({ status: 'active' }).sort({ sortOrder: 1, _id: 1 }).limit(MAX_PUBLIC_PRODUCTS).lean()
   return products.map((product) => ({
     id: product._id,
@@ -31,6 +34,7 @@ export async function listActiveProducts(): Promise<PublicProduct[]> {
     alt: product.alt,
     isPlaceholder: product.isPlaceholder,
     inStock: isInStock(product),
+    ...(currency ? { price: product.price ?? null } : {}),
   }))
 }
 

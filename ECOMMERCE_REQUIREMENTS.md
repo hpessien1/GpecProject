@@ -4,11 +4,11 @@
 
 Provide a product catalogue where customers can view products and prices, inspect full product images, add multiple products to a cart, choose pickup or delivery, and pay online through Paystack.
 
-Prices are fixed and set by GPEC through an admin panel (planned). Payment happens on Paystack's hosted payment page: the customer is redirected to Paystack to pay and returned to the GPEC site afterwards. GPEC's website never collects, sees, or stores card details.
+Prices are fixed and set by GPEC through the admin panel. Payment happens on Paystack's hosted payment page: the customer is redirected to Paystack to pay and returned to the GPEC site afterwards. GPEC's website never collects, sees, or stores card details.
 
 The shop is for buying: there are no "order enquiries" about price or availability. Customers either buy in the shop or ask GPEC through the contact form, which also handles general service requests and quotes (for example, a custom panel design or a solar site assessment). Contact requests are not paid online.
 
-> **Status (2026-10-22):** The catalogue (served from MongoDB), cart, and stock handling are built. Checkout shows the order and says online payment is not available yet, with a link to the contact form, until GPEC's Paystack account is set up; the checkout form, pickup/delivery choice, and payment come with it. The products are labelled samples until GPEC supplies its real list. Admins manage products, prices (unset until GPEC confirms the currency), and stock, and follow up contact requests. The admin Orders tab explains that orders appear once Paystack checkout exists.
+> **Status (2026-10-23):** The catalogue (served from MongoDB), cart, and stock handling are built. Checkout shows the order and says online payment is not available yet, with a link to the contact form, until GPEC's Paystack account is set up; the checkout form, pickup/delivery choice, and payment come with it. The products are labelled samples until GPEC supplies its real list. Admins manage products, prices (in naira, once `CURRENCY=NGN` is set on the server; the shop then shows them, with "Price to be confirmed" for unpriced products and no totals until checkout), and stock, and follow up contact requests. The admin Orders tab explains that orders appear once Paystack checkout exists.
 
 ## Scope
 
@@ -111,7 +111,7 @@ Pickup orders have no delivery fee. Delivery orders will carry a delivery fee on
 
 The form must also display a read-only order summary: products, quantities, unit prices, subtotal, delivery fee, payment processing fee, and total.
 
-The Paystack transaction fee is added to the customer's total as a separate, clearly labelled "Payment processing fee" line, shown before the customer is redirected to pay. Product prices are not changed. The fee rule comes from GPEC's Paystack plan.
+Prices and payments are in Nigerian naira (NGN), confirmed by GPEC on 2026-10-23. GPEC wants customers to pay the Paystack transaction fee: it is added to the customer's total as a separate, clearly labelled "Payment processing fee" line, shown before the customer is redirected to pay. Product prices are not changed. The fee rule comes from GPEC's Paystack plan, as server configuration.
 
 Required fields must have visible labels and validation messages. Email format must be validated before submission. The form must include privacy wording explaining how GPEC uses the customer's details.
 
@@ -162,10 +162,9 @@ Required fields must have visible labels and validation messages. Email format m
 
 ## Open Decisions (to be confirmed by GPEC)
 
-- Currency (GPEC is in Nigeria; NGN expected but not confirmed).
 - Delivery fee rules and delivery areas.
-- Paystack fee rule from GPEC's Paystack plan, and confirmation that passing it to customers is allowed under GPEC's Paystack terms.
-- Pickup location and collection hours.
+- The Paystack fee rate on GPEC's own plan (Paystack publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000; checked 2026-10-23), and confirmation that passing it to customers is allowed under GPEC's Paystack terms.
+- Pickup location (perhaps the service location, #19 King Slope Street, Woji, Port Harcourt) and collection hours.
 - Refund, cancellation, and returns policy.
 - Recipients for order notifications.
 

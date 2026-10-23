@@ -24,9 +24,12 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await open('', '.hero')
     await audit.page(page, `${label} home`)
     if (hovering) await audit.hover(page, `${label} home`)
-    // A photo-backed service in the featured panel, with its "Illustrative image" label.
+    // A photo-backed service in the featured panel, and the full-width last card.
     await page.getByRole('button', { name: 'Show Solar sales in the panel above' }).click()
     await audit.page(page, `${label} services with Solar sales featured`)
+    await page.getByRole('button', { name: 'Show Security & smart home in the panel above' }).click()
+    await audit.page(page, `${label} services with Security & smart home featured`)
+    if (hovering) await audit.hover(page, `${label} services with Security & smart home featured`)
     api.formsFail = true
     const contact = page.locator('.quote-form')
     await contact.getByLabel('Full name').fill('Sample')

@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-23
+- **Last updated:** 2026-10-23 (end of session: company profile merged, shop prices)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -106,6 +106,8 @@ The project owner deploys; the AI assistant prepares files and instructions only
       error, and empty states, and enquiries look products up in the database.
 - [x] Seed script (`npm run seed:products`): adds the 14 sample products, never overwrites, refuses
       the production database without `--production`. The shop labels them as samples.
+- [x] Prices in the public shop (2026-10-23, owner's request): shown once `CURRENCY` is set on the
+      API, "Price to be confirmed" for unpriced products, no totals until checkout.
 - [ ] Replace the samples with GPEC's real product list when it arrives (needs GPEC).
 
 ## 5. Checkout and Paystack (test mode)
@@ -161,25 +163,26 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 These block launch, and several block steps 4 to 6. Ask early.
 
 - [ ] Real product list: names, specifications, photos, and **prices**.
-- [ ] One photo per business area for the Services showcase (areas 2–9 show labelled illustrative
-      images until then).
-- [ ] Currency confirmation (NGN expected). Until then admins cannot enter prices.
+- [x] Company profile (2026-10-23): about text, vision, mission, values, twelve service areas, contact
+      details, and photos of GPEC's work, now on the home page and merged into `README.md`.
+- [x] Currency: NGN, and customers pay the Paystack fee (2026-10-23). Set `CURRENCY=NGN` on the API
+      in Coolify so staff can enter prices.
 - [ ] Names and emails of the GPEC staff who need admin accounts.
-- [ ] Content for the About section (background, registrations, location) and approved
-      current-work updates with dates. Unlabelled mock content fills both until then.
-      **Replace both before launch**
-      (`frontend/src/data/landingContent.ts`).
+- [ ] Approved current-work updates with dates (the profile has none). Unlabelled mock content fills
+      Current Work until then. **Replace before launch** (`frontend/src/data/landingContent.ts`).
 - [ ] Whether the first project video's sound contains speech (captions needed if so).
-- [ ] Privacy notice details and approval: legal company name and number, address, privacy contact
-      email, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
+- [ ] Privacy notice details and approval: registration number, registered address if different
+      from the service location, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
       Plus, from the Atlas owner, the database region (server and email regions are filled in).
 - [ ] Paystack: the account exists in test mode with the developer invited (2026-10-22); still
-      needed: business verification, the fee rule from GPEC's plan, and confirmation that passing
-      the Paystack fee to customers is allowed under GPEC's Paystack terms.
-- [ ] Delivery fee rules and delivery areas; pickup location and hours.
+      needed: business verification, the fee rate on GPEC's plan (Paystack publishes 1.5% + ₦100,
+      waived under ₦2,500, capped at ₦2,000), and confirmation that passing the fee to customers is
+      allowed under GPEC's Paystack terms.
+- [ ] Delivery fee rules and delivery areas; pickup location (perhaps the Woji service location)
+      and hours.
 - [ ] Refund, cancellation, and returns policy.
-- [ ] Phone, email, address, business hours, and social links for the site. Mock, unreachable
-      details are in the footer until then; **replace before launch**.
+- [ ] Business hours and social media links (phone, email, and address are in the footer since
+      2026-10-23).
 - [x] Domain names: `gpecengineering.com` and `api.gpecengineering.com` (2026-10-22).
 - [ ] Named owners at GPEC for each account, and incident owners (runbook Section 5). For now every
       account is in the project owner's name, with the developer invited.
@@ -190,7 +193,8 @@ These block launch, and several block steps 4 to 6. Ask early.
       developer's address for now).
 - [x] Amazon SES: domain verified, sending key, email on in production (2026-10-23, eu-north-1).
       Production access requested; until AWS approves it, only verified addresses get mail.
-- [x] S3 bucket for product photos and its key, uploads on in production and tested (2026-10-23).- [ ] Permission to name Afrizone, and approved real project photos.
+- [x] S3 bucket for product photos and its key, uploads on in production and tested (2026-10-23).
+- [ ] Permission to name Afrizone (GPEC's photos, and the people in them, were approved on 2026-10-23).
 
 ## Later / not yet scheduled
 

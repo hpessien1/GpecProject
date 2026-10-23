@@ -11,6 +11,10 @@ playwright-report/
 # macOS folder metadata
 .DS_Store
 
+# GPEC's company profile PDF (source for README.md and the site's content). 23 MB, and the
+# repository is public: kept locally, never committed. Its photos are in frontend/public/assets/.
+/GPEC Engineering Company*.pdf
+
 # Environment files (secrets). The .env.example templates stay tracked.
 .env
 .env.*

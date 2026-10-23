@@ -460,6 +460,7 @@
 }
 .about-highlights li {
   display: grid;
+  align-content: start;
   gap: 0.3rem;
   padding-left: 1rem;
   border-left: 2px solid var(--lime);
@@ -473,10 +474,26 @@
   font-size: 0.88rem;
   line-height: 1.6;
 }
+.about-values-title {
+  margin: 2.2rem 0 0;
+  color: var(--ink);
+  font: 500 0.72rem var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.about-values {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 1rem;
+}
 @media (max-width: 820px) {
   .about {
     grid-template-columns: 1fr;
     gap: 2rem;
+  }
+}
+@media (max-width: 540px) {
+  .about-values {
+    grid-template-columns: 1fr;
   }
 }
 /* Electrical panels (#panels): photo, capability cards, panel types, and component index. */
@@ -947,7 +964,7 @@
     align-items: flex-start;
   }
 }
-/* Services (#services): the featured area and the eight cards (components/ServiceShowcase.tsx). */
+/* Services (#services): the featured area and the eleven cards (components/ServiceShowcase.tsx). */
 .services .section-heading {
   margin-bottom: 2.25rem;
 }
@@ -1045,7 +1062,7 @@
   min-width: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(0, 1fr));
   border-left: 1px solid rgba(6, 23, 71, 0.2);
 }
 .service-mini-card {
@@ -1068,6 +1085,10 @@
 }
 .service-mini-card:last-child {
   border-bottom: 0;
+}
+/* An odd number of cards: the last one fills its row instead of leaving an empty cell. */
+.service-mini-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 .service-mini-top {
   width: 100%;
@@ -1476,7 +1497,6 @@
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.86rem;
   line-height: 1.5;
-  white-space: nowrap;
 }
 .work-dark .eyebrow {
   color: var(--ink);
@@ -1631,15 +1651,12 @@
     flex: 0 0 min(38vw, 240px);
     scroll-snap-align: start;
   }
-  /* Was 540px: between 541 and about 800px these one-line texts ran off the side of the page. */
+  /* Was 540px: between 541 and about 800px this one-line heading ran off the side of the page. */
   .work-top h2 {
     white-space: normal;
   }
   .work-intro-card {
     margin: -1rem 0 1.8rem;
-  }
-  .work-intro-card p {
-    white-space: normal;
   }
 }
 @media (max-width: 540px) {
