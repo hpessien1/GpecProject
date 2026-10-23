@@ -685,8 +685,8 @@ to it in the admin panel) and sends the customer a plain-text confirmation with 
 - Customer confirmations are capped at 3 per address per hour (in memory; one API instance), so
   the forms cannot be used to flood a stranger's inbox. Staff notifications are not capped.
 - **Off until configured.** All five `SES_*`/`EMAIL_*`/`STAFF_*` settings plus `FRONTEND_URL`, or
-  none; a partial set stops the server at startup (`config.ts`). GPEC has no AWS account yet;
-  setup: `docs/RUNBOOK.md` Section 1.6. A sending-only IAM key, never the root account.
+  none; a partial set stops the server at startup (`config.ts`). On in production since
+  2026-10-23 (region eu-north-1); setup: `docs/RUNBOOK.md` Section 1.6. A sending-only IAM key, never the root account.
 
 ### Product photos (Amazon S3)
 Admins upload a product photo from their own device in the product form (approved, with Amazon S3
@@ -966,7 +966,8 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   enquiry feature, found 2026-10-23; the developer was advised to drop it. Nothing reads it.
 - Every account (Hetzner, Cloudflare, AWS, Paystack, Atlas) is in the project owner's own name, not
   GPEC's; moving them is the owner's decision (RUNBOOK Section 5).
-- No first admin account on the live site yet (RUNBOOK 1.4). Amazon SES and S3 not set up yet.
+- AWS (SES and S3) is in **eu-north-1 (Stockholm)**, not Frankfurt: the free-plan project is locked to
+  the region it was created in. Fine for email and cached photos; no need to move.
 
 **Content (AGENTS.md rules)**
 - The 14 products are samples with invented references and specs (e.g. "415 V", "IP54
@@ -1013,15 +1014,17 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   lists reach tens of thousands of requests.
 - No admin 2FA, no admin account management in the panel (create, reset, and deactivate are by
   command or database only; each admin can change their own password).
-- Product photo uploads are built but **off**: GPEC has no Amazon S3 bucket yet (RUNBOOK 1.7). Until
-  then product images must already be in `public/assets/`.
-- **No "forgot password" for admins yet; required once email works** (user's decision,
-  2026-10-22). Until SES is set up, resets are by command only. When built, follow Section 4.5:
+- Product photo uploads are **on** in production since 2026-10-23 (bucket `gpec-product-images`,
+  eu-north-1); the first live upload worked the same day.
+- **No "forgot password" for admins yet; required now that email works** (user's decision,
+  2026-10-22). Until it is built, resets are by command only. When built, follow Section 4.5:
   a random single-use link token that expires quickly, stored only as a hash; the same reply
   whether or not the email has an account; its own rate limit; a reset ends all that admin's
   sessions.
-- Email notifications are built but **off**: GPEC has no Amazon SES account yet (RUNBOOK 1.6).
-  No bounce or complaint handling yet (SES can report these through SNS).
+- Email notifications are **on** in production since 2026-10-23, but SES is still in the sandbox
+  (production access requested 2026-10-23): until approved, only verified addresses receive mail.
+  Staff notifications go to the developer's address until GPEC names its staff. No bounce or
+  complaint handling beyond SES's account-level suppression list (SES can report these through SNS).
 - No file uploads on the quote form.
 - The privacy notice (`#privacy`) is a **draft**: GPEC must supply the highlighted placeholders
   (legal name, privacy contact, retention, hosting regions, legal wording) and approve it.

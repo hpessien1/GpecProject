@@ -185,12 +185,11 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Atlas owner: create the `gpec-prod` and `gpec-dev` users and limit network access (runbook
       1.1).
 - [ ] Upgrade the AWS project from the free plan to a paid plan with a spend limit before launch.
-- [ ] Who receives order and contact-request notifications (`STAFF_NOTIFICATION_EMAILS`).
-- [ ] Amazon SES: the AWS project exists (2026-10-22); still to do: verify the domain, request
-      production access, the sending key (RUNBOOK 1.6). Email stays off until then.
-- [ ] In the same AWS project, a private S3 bucket for product photos and its upload key (RUNBOOK
-      1.7). Photo uploads stay off until then.
-- [ ] Permission to name Afrizone, and approved real project photos.
+- [ ] Who receives order and contact-request notifications (`STAFF_NOTIFICATION_EMAILS`; the
+      developer's address for now).
+- [x] Amazon SES: domain verified, sending key, email on in production (2026-10-23, eu-north-1).
+      Production access requested; until AWS approves it, only verified addresses get mail.
+- [x] S3 bucket for product photos and its key, uploads on in production and tested (2026-10-23).- [ ] Permission to name Afrizone, and approved real project photos.
 
 ## Later / not yet scheduled
 

@@ -123,11 +123,15 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
      requests on the live site so GPEC can try it: `seedProducts.js --production`, then (after the
      admin account) `seedDemoData.js --production` in the `gpec-api` terminal (RUNBOOK 1.5).
      **Before launch, `seedDemoData.js --production --remove`** (CLAUDE.md launch checklist).
-3. **AWS, region eu-central-1 (Frankfurt):** the user has member access to the project owner's AWS
-   Settings project (free plan until 2027-04-22; the owner must upgrade before launch). Next:
-   RUNBOOK 1.6 (SES: verify `gpecengineering.com`, DKIM CNAMEs in Cloudflare as DNS only, DMARC,
-   production access; then fill in the email region in the privacy notice) and 1.7 (S3 bucket).
-   **Then build "forgot password" for admins** (rules in CLAUDE.md Known Gaps).
+3. **AWS, region eu-north-1 (Stockholm; the free-plan project is locked to it):** the user has
+   member access to the project owner's AWS Settings project (free plan until 2027-04-22; the owner
+   must upgrade before launch). Done 2026-10-23: SES domain verified (DKIM, DMARC), production
+   access requested (up to 96 hours), sending key and email settings in Coolify; S3 bucket
+   `gpec-product-images`, key (with `s3:ListBucket`, RUNBOOK 1.7), and settings in Coolify; a live
+   photo upload worked. Still to do: verify a staff
+   address in SES and send a `[TEST]` contact request; set `STAFF_NOTIFICATION_EMAILS` to GPEC's
+   staff once they say who (it is the user's own for now); fill in the email region (Stockholm) in
+   the privacy notice. **Then build "forgot password" for admins** (rules in CLAUDE.md Known Gaps).
 4. Paystack: the user has test-mode access as a member. When GPEC confirms the details, build step 5 checkout on the existing Order model (CLAUDE.md 4.1 and
    8): checkout form with pickup or delivery, server-computed totals, refuse out-of-stock products,
    reduce counted stock on payment, the same `markOrderPaid` for webhook and verify, test keys only.

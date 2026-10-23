@@ -23,7 +23,7 @@ deploys. Engineering rules behind these steps are in
 | Server | Hetzner Cloud, project "Gpec Engineering", server `gpec-coolify`: CX23 (2 x86 vCPU, 4 GB, 40 GB), Nuremberg, Ubuntu 24.04, IP `2.31.87.31` |
 | Domain and DNS | Cloudflare: `gpecengineering.com` registered there (auto-renew on, expires 2027-10-22), DNS there too |
 | Coolify | v4.4.7, project `GPEC`, environment `production` |
-| Amazon Web Services | An AWS Settings project; region **eu-central-1 (Frankfurt)**, the nearest to the server |
+| Amazon Web Services | An AWS Settings project (named "Idea Launchpad"); region **eu-north-1 (Stockholm)**. SES email and S3 photos set up 2026-10-23 |
 
 HTTPS is handled by Coolify's proxy (Traefik with Let's Encrypt). Both images run as non-root users
 and have a Docker health check.
@@ -187,8 +187,11 @@ simply off**: everything else works, and the API log says `Email notifications a
    limit). It is on AWS's **free plan**, whose access ends on 2027-04-22 or when the credits run
    out: the owner must **upgrade it to a paid plan and set a spend limit before launch**, or email
    and photos stop. Two-factor on the owner's login.
-2. **Region.** **eu-central-1 (Frankfurt)**, the nearest to the server in Nuremberg. Choose it in the
-   console's region menu before every step below.
+2. **Region.** **eu-north-1 (Stockholm)**. A free-plan project is locked to the region it was
+   created in (Frankfurt, nearer the server, was refused until the owner upgrades). The distance
+   makes no practical difference for email or for photos, which browsers cache for a year. The
+   console home page has no region menu; it appears inside each service, or change `region=` in
+   the address.
 3. **Verify GPEC's domain.** SES → *Identities* → *Create identity* → *Domain* →
    `gpecengineering.com` with *Easy DKIM* on. SES shows three CNAME records: add them in Cloudflare
    with Proxy status **DNS only** (proxied records fail verification; Cloudflare adds the domain to
@@ -198,9 +201,9 @@ simply off**: everything else works, and the API log says `Email notifications a
    day. For a first test, verify the staff addresses (*Identities* → *Email address*). Then request
    production access (SES → *Account dashboard* → *Request production access*): use case
    *Transactional*, describing "confirmations and staff notifications for messages submitted on our
-   website". Approval usually takes about a day. (Not yet known: whether a member, not only the
-   owner, can send this request from an AWS Settings project.) Customer confirmations to unverified addresses
-   only work after this.
+   website". AWS says review takes up to 96 hours; customer confirmations to unverified addresses
+   only work after it. A project member can send the request (done 2026-10-23; the form had no
+   use-case box, so AWS may ask by email).
 5. **A sending-only key.** IAM → *Users* → create `gpec-ses-sender` (no console access) with this
    policy, then create an access key for it:
 
@@ -241,9 +244,10 @@ API checks and resizes each photo and keeps it in a **private** S3 bucket; visit
 from the API, never from the bucket. **Until this is set up, uploads are simply off**: the form asks
 for an image already on the site, and the API log says `Product photo uploads are off`.
 
-1. **AWS account and region.** The AWS project from Section 1.6 (step 1), region eu-central-1.
-2. **Bucket.** S3 → *Create bucket* → a name such as `gpec-product-images` (bucket names are
-   unique across AWS), in that region. Keep **Block all public access on** (the default) and
+1. **AWS account and region.** The AWS project from Section 1.6 (step 1), region eu-north-1.
+2. **Bucket.** S3 → *Create bucket* → `gpec-product-images` (bucket names are unique across AWS),
+   in that region, type *General purpose*, namespace **Global** (the newer account-regional
+   namespace changes bucket naming; not tried). Keep **Block all public access on** (the default) and
    default encryption on. No bucket policy is needed.
 3. **An upload-and-read-only key.** IAM → *Users* → create `gpec-product-images` (no console access)
    with this policy (use the real bucket name), then create an access key for it:
@@ -251,22 +255,32 @@ for an image already on the site, and the API log says `Product photo uploads ar
    ```json
    {
      "Version": "2012-10-17",
-     "Statement": [{
-       "Effect": "Allow",
-       "Action": ["s3:PutObject", "s3:GetObject"],
-       "Resource": "arn:aws:s3:::gpec-product-images/product-images/*"
-     }]
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": ["s3:PutObject", "s3:GetObject"],
+         "Resource": "arn:aws:s3:::gpec-product-images/product-images/*"
+       },
+       {
+         "Effect": "Allow",
+         "Action": "s3:ListBucket",
+         "Resource": "arn:aws:s3:::gpec-product-images"
+       }
+     ]
    }
    ```
 
-   It can only add and read product photos in that one bucket; a leaked key cannot delete anything,
-   list the bucket, or touch other AWS services.
+   It can only add, read, and list product photos in that one bucket; a leaked key cannot delete
+   anything or touch other AWS services. **The list permission is needed:** without it, S3 answers a
+   request for a missing photo with `AccessDenied` instead of "not found", and the API returns 500
+   instead of 404 (found on the live site, 2026-10-23). The list only shows photo file names, and
+   the photos are public on the site anyway.
 4. **Coolify.** On the API resource, set all four (a partial set stops the API at startup with a
    list of what is missing), then redeploy the API:
 
    | Variable | Value |
    |---|---|
-   | `S3_REGION` | The bucket's region (`eu-central-1`) |
+   | `S3_REGION` | The bucket's region (`eu-north-1`) |
    | `S3_BUCKET` | The bucket name from step 2 |
    | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | The key from step 3 (secret; Coolify only) |
 
@@ -322,7 +336,7 @@ database separately (or restored from an Atlas backup).
 | No emails, and the log says `Email notifications are off` | Email settings not set in Coolify | Expected until SES is set up (Section 1.6). |
 | Admin product form says "Photo uploads are not set up yet", or offers no photo upload | `S3_*` settings not set in Coolify | Expected until S3 is set up (Section 1.7). |
 | Photo upload fails with "Something went wrong" and the API log shows `AccessDenied` or `NoSuchBucket` | Wrong key, bucket name, or region; or the IAM policy names a different bucket | Check Section 1.7, steps 2–4. |
-| Shop shows a broken image for an uploaded photo | The photo was never stored (bucket or key changed since), or the API cannot reach S3 | Open `https://api.gpecengineering.com/api/<the product's image value>`: 404 means it is not in the bucket (upload it again); 500 means an S3 problem (check the API log). |
+| Shop shows a broken image for an uploaded photo | The photo was never stored (bucket or key changed since), or the API cannot reach S3 | Open `https://api.gpecengineering.com/api/<the product's image value>`: 404 means it is not in the bucket (upload it again); 500 means an S3 problem (check the API log; `AccessDenied` naming `s3:ListBucket` means the key's policy lacks the list permission from Section 1.7, step 3). |
 | A secret leaked (connection string, SES key, future Paystack key) | — | Rotate it at the source first (Atlas: change the `gpec-prod` password; SES or S3: create a new access key for `gpec-ses-sender` or `gpec-product-images` and delete the old one; Paystack: regenerate the key), update it in Coolify, redeploy, then tell the developer so the git history can be checked. |
 
 ### Payments (from roadmap step 5)

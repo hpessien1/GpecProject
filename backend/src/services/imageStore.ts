@@ -31,6 +31,8 @@ export function s3ImageStore(settings: ImageStorageSettings): ImageStore {
         if (!object.Body) return null
         return { body: await object.Body.transformToByteArray(), contentType: object.ContentType ?? 'application/octet-stream' }
       } catch (error) {
+        // S3 reports a missing key as NoSuchKey only to callers allowed s3:ListBucket; otherwise it
+        // answers AccessDenied, which stays a server error here (RUNBOOK 1.7 gives the key both).
         if (error instanceof Error && error.name === 'NoSuchKey') return null
         throw error
       }
