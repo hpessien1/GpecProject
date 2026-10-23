@@ -130,8 +130,8 @@ All commits on `main`; details in each commit message and in CLAUDE.md.
    `gpec-product-images`, key (with `s3:ListBucket`, RUNBOOK 1.7), and settings in Coolify; a live
    photo upload worked. Still to do: verify a staff
    address in SES and send a `[TEST]` contact request; set `STAFF_NOTIFICATION_EMAILS` to GPEC's
-   staff once they say who (it is the user's own for now); fill in the email region (Stockholm) in
-   the privacy notice. "Forgot password" for admins was built on 2026-10-23 (CLAUDE.md 4.5); try it
+   staff once they say who (it is the user's own for now). The privacy notice names the server and
+   email regions (2026-10-23); the Atlas owner must supply the database region. "Forgot password" for admins was built on 2026-10-23 (CLAUDE.md 4.5); try it
    on the live site once your address is verified in SES (deploy the API and the site first).
 4. Paystack: the user has test-mode access as a member. When GPEC confirms the details, build step 5 checkout on the existing Order model (CLAUDE.md 4.1 and
    8): checkout form with pickup or delivery, server-computed totals, refuse out-of-stock products,

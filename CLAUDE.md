@@ -1035,7 +1035,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   complaint handling beyond SES's account-level suppression list (SES can report these through SNS).
 - No file uploads on the quote form.
 - The privacy notice (`#privacy`) is a **draft**: GPEC must supply the highlighted placeholders
-  (legal name, privacy contact, retention, hosting regions, legal wording) and approve it.
+  (legal name, privacy contact, retention, legal wording) and approve it. Hosting is filled in
+  (2026-10-23: server in Nuremberg, Germany; email from Stockholm, Sweden) except the **Atlas
+  database region**, which only the Atlas owner can see.
 
 **Styling**
 - About 68 hex colours remain outside `:root` (2026-10-21; 163 before the cleanup): 45 are white

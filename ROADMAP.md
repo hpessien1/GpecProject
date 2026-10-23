@@ -172,6 +172,7 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Whether the first project video's sound contains speech (captions needed if so).
 - [ ] Privacy notice details and approval: legal company name and number, address, privacy contact
       email, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
+      Plus, from the Atlas owner, the database region (server and email regions are filled in).
 - [ ] Paystack: the account exists in test mode with the developer invited (2026-10-22); still
       needed: business verification, the fee rule from GPEC's plan, and confirmation that passing
       the Paystack fee to customers is allowed under GPEC's Paystack terms.
