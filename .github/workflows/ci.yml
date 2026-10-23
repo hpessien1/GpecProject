@@ -35,8 +35,25 @@ jobs:
       - run: npm run build
 
   browser:
-    name: Frontend (browser tests and text contrast)
+    name: Frontend (${{ matrix.suite.name }})
     runs-on: ubuntu-latest
+    # Two machines side by side, each about half the work: the behaviour tests at desktop and phone
+    # width, and the text-contrast check (14 parts). One machine running both took about 7 minutes.
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - { name: 'browser tests, desktop and phone', projects: '--project=desktop --project=phone' }
+          - { name: 'text contrast', projects: '--project=contrast' }
+    # Playwright's own image already holds Chromium and the system libraries it needs. Installing them
+    # on the plain runner took 1 to 8 minutes, mostly waiting on Ubuntu's package mirror (8 minutes on
+    # 2026-10-23). Its version must equal frontend's @playwright/test (checked below). To upgrade:
+    # change both, then read the new digest with
+    # `docker buildx imagetools inspect mcr.microsoft.com/playwright:v<version>-noble`.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble@sha256:b0ab6f3cb99aa7803adbc14d9027ec1785fc6e433b97e134e0f8fe61683b6b53
+      # Chromium uses shared memory; Docker's small default can crash it.
+      options: --ipc=host
     defaults:
       run:
         working-directory: frontend
@@ -48,12 +65,15 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      # The browser Playwright drives, plus the system libraries it needs on Ubuntu.
-      - run: npx playwright install --with-deps chromium
-      # Builds the site, serves it with vite preview, and runs every project: behaviour tests at
-      # desktop and phone width, and the WCAG text-contrast check. The API is answered with sample
-      # data inside the browser, so no backend or database is needed. Failures print in this log.
-      - run: npx playwright test
+      # A different Playwright version would look for browsers the image does not have; say so plainly.
+      - name: Playwright version matches the image
+        run: |
+          version=$(node -p "require('@playwright/test/package.json').version")
+          grep -q "mcr.microsoft.com/playwright:v$version-noble@" ../.github/workflows/ci.yml || { echo "@playwright/test is $version, but the CI image is a different version. Update the browser job's image in .github/workflows/ci.yml."; exit 1; }
+      # Builds the site, serves it with vite preview, and runs this machine's projects. The API is
+      # answered with sample data inside the browser, so no backend or database is needed. Failures
+      # print in this log.
+      - run: npx playwright test ${{ matrix.suite.projects }}
 
   backend:
     name: Backend (type-check, lint, build, and tests)

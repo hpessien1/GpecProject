@@ -669,8 +669,11 @@ database outage the proxy may then stop sending traffic to the API, so the site'
 permissions:
 
 - **Frontend:** `npm ci`, `npm run lint`, `npm run build` (type-checks first).
-- **Browser:** `npm ci`, installs Chromium, then `npx playwright test`: behaviour tests at desktop
-  and phone width and the text-contrast check, against the production build with sample API data.
+- **Browser:** two jobs side by side, inside Playwright's own image (Chromium and its libraries
+  included; pinned to the version of `@playwright/test` and a digest, and a step fails if the two
+  differ): the behaviour tests at desktop and phone width, and the text-contrast check, both against
+  the production build with sample API data. (2026-10-23: installing Chromium on the plain runner
+  took up to 8 minutes and the run about 15; expected now: about 5, not yet measured on CI.)
 - **Backend:** `npm ci`, `npm run typecheck` (source and tests), `npm run lint`, `npm run build`,
   `npm test`.
 - **Docker:** builds both production images (never pushes them), so a broken Dockerfile fails here
@@ -849,7 +852,9 @@ links for admins only, never store a raw public URL on the record, and update th
   - **Run `cd frontend && npm run check:contrast` after any change to colours, styles, or layout**
     (CI runs it too). It checks every page and state at both widths, including hover, against the
     production build with sample API data, using axe-core and a pixel comparison. A new page or
-    state must be added to `frontend/e2e/contrast.spec.ts`. Exemptions go in `EXEMPT` in
+    state must be added to `frontend/e2e/contrast.spec.ts`, in the part whose pages it uses (each
+    part is its own test with a fresh browser and sample API, so parts run side by side; a part
+    must set up any state it needs, such as the cart). Exemptions go in `EXEMPT` in
     `e2e/support/contrast.ts`, each with a reason.
 - **Navigation:** the menu items live in `data/landingContent.ts` (`navigationLinks`), in the brief's
   order, with Shop as the highlighted button. Above 1100px the full menu sits in the header; at

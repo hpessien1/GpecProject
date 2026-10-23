@@ -1,26 +1,30 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { ContrastAudit, EXEMPT } from './support/contrast'
-import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, mockApi, sampleProducts } from './support/sampleApi'
+import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, logInAsAdmin, mockApi, sampleProducts } from './support/sampleApi'
+import type { ApiState } from './support/sampleApi'
 
 // Every page and state of the site must meet WCAG AA text contrast at phone and desktop width,
 // including hover (desktop only). Run with `npm run check:contrast`. A new page or state belongs here.
 // Exemptions: support/contrast.ts, EXEMPT, each with a reason.
+//
+// Split into parts, each with its own browser and sample API, so the parts run side by side (one long
+// test per width took up to 4 minutes on CI while other workers sat idle). A part's states follow on
+// from each other; keep a new state in the part whose pages it uses.
 
-for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]] as const) {
-  test(`text contrast meets WCAG AA (${label})`, async ({ browser }) => {
-    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', deviceScaleFactor: 1, baseURL: test.info().project.use.baseURL })
-    const page = await context.newPage()
-    const api = await mockApi(page)
-    const audit = new ContrastAudit()
-    const hovering = label === 'desktop'
-    const open = async (hash: string, waitFor: string) => {
-      await page.goto(`/${hash}`)
-      await page.reload({ waitUntil: 'networkidle' })
-      await page.locator(waitFor).first().waitFor()
-    }
+interface Part {
+  page: Page
+  api: ApiState
+  audit: ContrastAudit
+  label: string
+  hovering: boolean
+  open: (hash: string, waitFor: string) => Promise<void>
+}
 
+const parts: [string, (part: Part) => Promise<void>][] = [
+  ['home page and contact form', async ({ page, api, audit, label, hovering, open }) => {
     await open('', '.hero')
     await audit.page(page, `${label} home`)
     if (hovering) await audit.hover(page, `${label} home`)
@@ -42,7 +46,8 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await contact.getByRole('button', { name: 'Send inquiry' }).click()
     await contact.locator('.success-message').waitFor()
     await audit.page(page, `${label} contact form sent`)
-
+  }],
+  ['shop, cart, empty and error states, privacy notice', async ({ page, api, audit, label, hovering, open }) => {
     // One product out of stock, so its label and disabled button are checked too.
     api.products = sampleProducts().map((product) => product.id === 'solar-001' ? { ...product, inStock: false } : product)
     await open('#shop', '.shop-product-card')
@@ -60,6 +65,23 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await page.locator('.shop-order-button').click()
     await page.locator('.shop-checkout-form').waitFor()
     await audit.page(page, `${label} checkout with an out-of-stock product`)
+    await page.evaluate(() => localStorage.setItem('gpec-order-cart', '[]'))
+    await open('#shop/order', '.shop-empty-order')
+    await audit.page(page, `${label} empty checkout page`)
+    api.products = 'error'
+    await open('#shop', '.shop-status')
+    await audit.page(page, `${label} shop load error`)
+    api.products = []
+    await open('#shop', '.shop-status')
+    await audit.page(page, `${label} shop with no products`)
+
+    await open('#privacy', '.privacy-page')
+    await audit.page(page, `${label} privacy notice`)
+  }],
+  ['checkout', async ({ page, api, audit, label, hovering, open }) => {
+    // A cart with a priced and an unpriced product, as a customer arriving from the shop would have.
+    await open('#shop', '.shop-product-card')
+    await page.evaluate(() => localStorage.setItem('gpec-order-cart', JSON.stringify([{ id: 'panel-001', quantity: 1 }, { id: 'solar-001', quantity: 1 }])))
     api.paymentsOn = false
     api.bankTransfer.enabled = false
     await open('#shop/order', '.shop-checkout-unavailable')
@@ -89,6 +111,8 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     api.products = sampleProducts()
     await open('#shop/order', '.shop-summary-error')
     await audit.page(page, `${label} checkout, product without a price`)
+  }],
+  ['payment results and bank transfer', async ({ page, api, audit, label, hovering, open }) => {
     for (const result of ['pending_payment', 'failed', 'paid'] as const) {
       api.paymentResult = result
       await open(`#shop/payment/${PAYMENT_REF}`, '#payment-result-title')
@@ -116,19 +140,8 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await page.reload({ waitUntil: 'networkidle' })
     await page.getByRole('heading', { name: 'This order was closed' }).waitFor()
     await audit.page(page, `${label} bank transfer closed`)
-    await page.evaluate(() => localStorage.setItem('gpec-order-cart', '[]'))
-    await open('#shop/order', '.shop-empty-order')
-    await audit.page(page, `${label} empty checkout page`)
-    api.products = 'error'
-    await open('#shop', '.shop-status')
-    await audit.page(page, `${label} shop load error`)
-    api.products = []
-    await open('#shop', '.shop-status')
-    await audit.page(page, `${label} shop with no products`)
-
-    await open('#privacy', '.privacy-page')
-    await audit.page(page, `${label} privacy notice`)
-
+  }],
+  ['admin login and password reset', async ({ page, audit, label, hovering, open }) => {
     await open('#admin/forgot-password', '.admin-login')
     await page.getByLabel('Email address').fill(ADMIN.email)
     await page.getByRole('button', { name: 'Email me a reset link' }).click()
@@ -158,6 +171,9 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await page.locator('.admin-product-list').waitFor()
     await audit.page(page, `${label} admin products`)
     if (hovering) await audit.hover(page, `${label} admin products`)
+  }],
+  ['admin products, password, bank details, delivery', async ({ page, api, audit, label, hovering, open }) => {
+    await logInAsAdmin(page)
     await open('#admin/products/panel-001', '.admin-history ol')
     await audit.page(page, `${label} admin product edit`)
     api.uploadFails = true
@@ -183,22 +199,6 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await page.getByLabel('New password', { exact: true }).fill('a long enough password')
     await page.locator('.admin-password-count-ok').waitFor()
     await audit.page(page, `${label} admin password long enough`)
-    await open('#admin/orders', '.admin-order-list')
-    await audit.page(page, `${label} admin orders`)
-    if (hovering) await audit.hover(page, `${label} admin orders`)
-    // Every stage badge: the sample orders cover four; the rest are switched in place.
-    for (const stage of ['processing', 'out_for_delivery', 'cancelled', 'payment_failed']) {
-      await page.locator('.admin-order-list .admin-status').first().evaluate((badge, name) => badge.setAttribute('class', `admin-status admin-status-${name}`), stage)
-      await audit.page(page, `${label} admin orders, ${stage} badge`)
-    }
-    await open('#admin/orders/GPEC-O-2026-0000000A', '.admin-order-items')
-    await audit.page(page, `${label} admin order`)
-    if (hovering) await audit.hover(page, `${label} admin order`)
-    await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-notice')
-    await audit.page(page, `${label} admin unpaid order`)
-    await open(`#admin/orders/${TRANSFER_ORDER_REF}`, '.admin-transfer-actions')
-    await audit.page(page, `${label} admin order awaiting bank transfer`)
-    if (hovering) await audit.hover(page, `${label} admin order awaiting bank transfer`)
     const realBank = api.bankTransfer
     api.bankTransfer = { ...SITE_SAMPLE_BANK, instructions: '', payWithinDays: 3, enabled: false }
     await open('#admin/bank-transfer', '.admin-notice-strong')
@@ -222,6 +222,25 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     await open(`#admin/delivery/${AREA_ID}`, '.admin-history')
     await audit.page(page, `${label} admin delivery area edit`)
     if (hovering) await audit.hover(page, `${label} admin delivery area edit`)
+  }],
+  ['admin orders and contact requests', async ({ page, api, audit, label, hovering, open }) => {
+    await logInAsAdmin(page)
+    await open('#admin/orders', '.admin-order-list')
+    await audit.page(page, `${label} admin orders`)
+    if (hovering) await audit.hover(page, `${label} admin orders`)
+    // Every stage badge: the sample orders cover four; the rest are switched in place.
+    for (const stage of ['processing', 'out_for_delivery', 'cancelled', 'payment_failed']) {
+      await page.locator('.admin-order-list .admin-status').first().evaluate((badge, name) => badge.setAttribute('class', `admin-status admin-status-${name}`), stage)
+      await audit.page(page, `${label} admin orders, ${stage} badge`)
+    }
+    await open('#admin/orders/GPEC-O-2026-0000000A', '.admin-order-items')
+    await audit.page(page, `${label} admin order`)
+    if (hovering) await audit.hover(page, `${label} admin order`)
+    await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-notice')
+    await audit.page(page, `${label} admin unpaid order`)
+    await open(`#admin/orders/${TRANSFER_ORDER_REF}`, '.admin-transfer-actions')
+    await audit.page(page, `${label} admin order awaiting bank transfer`)
+    if (hovering) await audit.hover(page, `${label} admin order awaiting bank transfer`)
     await open('#admin/contact-requests', '.admin-request-list')
     await audit.page(page, `${label} admin contact requests`)
     await page.getByRole('searchbox', { name: 'Search' }).fill('no such customer')
@@ -246,9 +265,26 @@ for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844
     // One without a subject, so the detail page's other layout is checked too.
     await open('#admin/contact-requests/GPEC-C-2026-0000000C', '.admin-request-detail')
     await audit.page(page, `${label} admin contact request without subject`)
-    await context.close()
+  }],
+]
 
-    test.info().annotations.push(...EXEMPT.map((e) => ({ type: 'exempt', description: e.reason })))
-    expect(audit.report(), 'Text below WCAG AA contrast (contrast found, minimum, kind, colour, text, where, states)').toEqual([])
-  })
+for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]] as const) {
+  for (const [name, run] of parts) {
+    test(`text contrast meets WCAG AA: ${name} (${label})`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', deviceScaleFactor: 1, baseURL: test.info().project.use.baseURL })
+      const page = await context.newPage()
+      const api = await mockApi(page)
+      const audit = new ContrastAudit()
+      const open = async (hash: string, waitFor: string) => {
+        await page.goto(`/${hash}`)
+        await page.reload({ waitUntil: 'networkidle' })
+        await page.locator(waitFor).first().waitFor()
+      }
+      await run({ page, api, audit, label, hovering: label === 'desktop', open })
+      await context.close()
+
+      test.info().annotations.push(...EXEMPT.map((e) => ({ type: 'exempt', description: e.reason })))
+      expect(audit.report(), 'Text below WCAG AA contrast (contrast found, minimum, kind, colour, text, where, states)').toEqual([])
+    })
+  }
 }

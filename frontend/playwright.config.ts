@@ -17,10 +17,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
+    // Text contrast in every page and state (both widths are inside the spec), in 14 parts of up to
+    // about a minute each. Listed first, so the longest tests start first and the quick behaviour
+    // tests fill in around them, instead of a long test starting last and holding up the run.
+    { name: 'contrast', testMatch: /contrast\.spec\.ts/, timeout: 5 * 60_000 },
     { name: 'desktop', testIgnore: /contrast\.spec\.ts/, use: { viewport: { width: 1440, height: 900 } } },
     { name: 'phone', testIgnore: /contrast\.spec\.ts/, use: { viewport: { width: 390, height: 844 }, hasTouch: true } },
-    // Text contrast in every page and state (both widths are inside the spec). Slow: about a minute.
-    { name: 'contrast', testMatch: /contrast\.spec\.ts/, timeout: 10 * 60_000 },
   ],
   webServer: {
     command: `npm run build && npx vite preview --port ${PORT} --strictPort`,
