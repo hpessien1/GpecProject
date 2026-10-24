@@ -1310,3 +1310,13 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - **2026-10-24 — `npm audit fix --omit=dev` pruned the dev tools.** It removed TypeScript, `tsx`, and
   Vitest from `node_modules`. **Rule:** use plain `npm audit fix` (it changes only the lockfile's
   vulnerable entries), and run `npm ci` if dependencies were pruned.
+- **2026-10-24 — A test measured the box that overflowed.** The project clips were cut off on wide
+  screens while the test passed: it measured the gallery, which grew with the clips. **Rule:** check
+  layout against the element that clips (the one with `overflow: hidden`), at the widest sizes too.
+- **2026-10-24 — A test that could not fail.** "No email when the status does not change" re-sent a
+  status that never emails anyway, so breaking the check left it green. **Rule:** break the code each
+  new test protects and see it turn red; a test that stays green is rewritten.
+- **2026-10-24 — A restore script overwrote the wrong file.** Backups for a break-the-code check were
+  copied by file name into one folder; two files named `adminRequests.ts` (route and service)
+  collided, and the "restore" put the route over the service. **Rule:** back up under unique names
+  and compare checksums after restoring.

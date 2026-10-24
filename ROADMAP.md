@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-24 (files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
+- **Last updated:** 2026-10-24 (product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -231,3 +231,9 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [x] Files on the contact form (2026-10-24): customers may attach up to 5 photos or PDFs
       (nameplates, drawings), optional; seen only by staff in the admin panel. Needs the S3 key's
       policy extended before it is deployed (RUNBOOK 1.7).
+- [x] Reply-to address for customer emails (2026-10-24): staff set it in the admin panel (*Emails*);
+      every change recorded and emailed to all admins.
+- [x] Order update emails (2026-10-24): ready for pickup, out for delivery, cancelled, and an unpaid
+      transfer closed, unless staff untick "Tell the customer by email".
+- [x] Product categories (2026-10-24): Electrical, Solar, Electronics, Industrial; the home page's
+      Products cards open the shop filtered; staff choose each product's category.

@@ -122,7 +122,8 @@ each price. After logging in with the printed password, each person sets their o
 ## 5. Products (your machine, `gpec_dev`)
 
 ```bash
-cd backend && npm run seed:products        # adds any missing sample product; never changes existing ones
+cd backend && npm run seed:products        # adds any missing sample product, and gives sample products without a
+                                           # category their sample one; never changes anything else (no remove step)
 ```
 
 Everything else (adding real products, prices, stock, archiving) is done in the admin panel.
@@ -184,6 +185,8 @@ commands touch the live `gpec` database, so each needs `--production`; without i
 
 ```sh
 # Optional: show the 14 labelled sample products until GPEC's real list arrives (GPEC's choice).
+# Run it again after a deploy that adds product categories (2026-10-24): it fills in missing
+# categories on the sample products only.
 node dist/scripts/seedProducts.js --production
 ```
 
