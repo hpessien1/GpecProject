@@ -235,10 +235,16 @@ All admin responses are sent with `Cache-Control: no-store`.
   `cancelled`), with `counts` per stage, the total, the currency, and pickup or delivery. `q`
   searches as for contact requests. `GET /:reference` returns the order (items with prices at order
   time, amounts in the smallest unit, `currency` info, `paymentReference` for Paystack), its status
-  history, and staff `notes` (newest pages). `PATCH /:reference` with `{ fulfilmentStatus }` (and nothing else)
+  history, and staff `notes` (newest pages), plus `emailOn`. `PATCH /:reference` with
+  `{ fulfilmentStatus, notifyCustomer? }` (and nothing else)
   moves a **paid** order along and records it: unpaid orders get `409 ORDER_NOT_PAID`, a pickup
   order cannot be `out_for_delivery` nor a delivery order `ready_for_pickup` (`400`). Payment status,
-  items, amounts, and customer details cannot be changed here. `POST /:reference/notes` as for
+  items, amounts, and customer details cannot be changed here. `notifyCustomer: true` (the screen's
+  "Tell the customer by email", ticked by default) emails the customer after the change is saved,
+  only for `ready_for_pickup`, `out_for_delivery`, and `cancelled`, only when the status really
+  changes, and only while email is on; the history entry then has `customerEmailed: true`.
+  `transfer-not-received` takes the same optional `{ notifyCustomer }` (the customer is told the
+  order is closed and asked for details if they did pay); `transfer-received` still takes no body. `POST /:reference/notes` as for
   contact requests. Orders are created by checkout; demo orders by `npm run seed:demo` (on the live
   database only with `--production`, removed before launch). Delivery orders include
   `deliveryAreaName`; every order has `customerNotes`.

@@ -374,16 +374,21 @@ export type OrderHistoryEntry = {
   action: 'order.status'
   actor: { name: string, email: string }
   changes: { field: 'fulfilmentStatus', from: FulfilmentStatus, to: FulfilmentStatus }[]
+  // Staff chose to tell the customer by email.
+  customerEmailed: boolean
   createdAt: string
 } | {
   action: 'order.payment'
   actor: { name: string, email: string }
   changes: { field: 'paymentStatus', from: PaymentStatus, to: PaymentStatus }[]
+  customerEmailed: boolean
   createdAt: string
 }
 
 export interface AdminOrderResponse {
   order: AdminOrderDetail
+  // Whether the website sends email (customers can be told about changes).
+  emailOn: boolean
   history: OrderHistoryEntry[]
   historyCursor: string | null
   notes: RequestNote[]

@@ -9,6 +9,7 @@ import { searchFilter } from '../utils/search.js'
 import type { AdminIdentity } from './adminAuth.js'
 import { historyPage } from './auditHistory.js'
 import { currencyInfo } from './currency.js'
+import type { Notifier } from './notifications.js'
 import { createNote, listNotes } from './staffNotes.js'
 
 const SEARCH_FIELDS = ['reference', 'customer.fullName', 'customer.company', 'customer.email']
@@ -138,9 +139,18 @@ export async function listOrders(page: number, stage: OrderStage | null, search:
   }
 }
 
+// The statuses a customer can be emailed about, if staff choose to (the admin panel's checkbox).
+export const CUSTOMER_UPDATE_STATUSES = ['ready_for_pickup', 'out_for_delivery', 'cancelled'] as const
+type CustomerUpdateStatus = typeof CUSTOMER_UPDATE_STATUSES[number]
+const isCustomerUpdate = (status: FulfilmentStatus): status is CustomerUpdateStatus => (CUSTOMER_UPDATE_STATUSES as readonly string[]).includes(status)
+
 // Staff move a paid order along; payment status is never theirs to change. The change and its
 // audit record are saved together. Setting the status it already has changes nothing.
-export async function setFulfilmentStatus(admin: AdminIdentity, reference: string, status: FulfilmentStatus) {
+// notifyCustomer: email the customer about it (only for CUSTOMER_UPDATE_STATUSES, and only while email
+// is on). Sent after the change is saved, and recorded on the change so staff can see it was.
+export async function setFulfilmentStatus(admin: AdminIdentity, reference: string, status: FulfilmentStatus, notifyCustomer: boolean, notifier: Notifier) {
+  const emailCustomer = notifyCustomer && notifier.isOn && isCustomerUpdate(status)
+  let changed = false
   await mongoose.connection.transaction(async (session) => {
     const before = await Order.findOne({ reference }).session(session)
     if (!before) throw new NotFoundError('Order not found.')
@@ -158,8 +168,14 @@ export async function setFulfilmentStatus(admin: AdminIdentity, reference: strin
       targetId: reference,
       actor: { adminId: admin.id, email: admin.email, name: admin.name },
       changes: [{ field: 'fulfilmentStatus', from, to: status }],
+      ...(emailCustomer ? { customerEmailed: true } : {}),
     }], { session })
+    changed = true
   })
+  if (changed && emailCustomer && isCustomerUpdate(status)) {
+    const order = await Order.findOne({ reference }).lean()
+    if (order?.customer) void notifier.orderUpdate({ ...order, customer: order.customer }, status)
+  }
   return getOrder(reference)
 }
 

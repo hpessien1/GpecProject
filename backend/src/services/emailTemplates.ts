@@ -326,6 +326,49 @@ export function replyToChangedEmail(changedBy: AdminEmailData, from: string, to:
   }
 }
 
+// The order's items, without amounts: enough for the customer to recognise it.
+const itemList = (order: OrderEmailData) => order.items.map((item) => `${item.quantity} × ${item.name} (${item.reference})`)
+
+// Order updates staff choose to send (a checkbox, ticked by default, in the admin panel).
+export type OrderUpdate = 'ready_for_pickup' | 'out_for_delivery' | 'cancelled' | 'transfer_not_received'
+
+export function customerOrderUpdateEmail(order: OrderEmailData, update: OrderUpdate, siteUrl: string) {
+  const ask = `If you have a question, reply to this email, or contact GPEC through ${siteUrl}/#contact and give your order reference.`
+  const content: Record<OrderUpdate, { subject: string, lines: string[] }> = {
+    ready_for_pickup: {
+      subject: `Your GPEC order ${order.reference} is ready for pickup`,
+      lines: [
+        `Your order ${order.reference} is ready to collect from GPEC at ${PICKUP_LOCATION}.`,
+        'Please bring your order reference. If you have not yet agreed a collection time with GPEC, reply to this email to arrange one.',
+      ],
+    },
+    out_for_delivery: {
+      subject: `Your GPEC order ${order.reference} is on its way`,
+      lines: [`Your order ${order.reference} is out for delivery to the address you gave${order.deliveryArea ? ` (${order.deliveryArea.name})` : ''}.`],
+    },
+    cancelled: {
+      subject: `Your GPEC order ${order.reference} has been cancelled`,
+      lines: [
+        `Your order ${order.reference} has been cancelled.`,
+        `If you paid for it, GPEC will contact you about your refund, as set out in the refunds policy: ${siteUrl}/#refunds`,
+      ],
+    },
+    transfer_not_received: {
+      subject: `Your GPEC order ${order.reference} has been closed`,
+      lines: [
+        `GPEC has not received a bank transfer for your order ${order.reference}, so the order has been closed.`,
+        'If you have sent the money, reply to this email with the date, the amount, and the bank you sent it from, so GPEC can look for it.',
+        `To buy these items, you can place a new order at ${siteUrl}/#shop`,
+      ],
+    },
+  }
+  const { subject, lines } = content[update]
+  return {
+    subject,
+    text: [`Hello ${order.customer.fullName},`, '', ...lines, '', ...itemList(order), '', ask, '', 'GPEC', siteUrl].join('\n'),
+  }
+}
+
 export function staffOrderEmail(order: OrderEmailData, siteUrl: string) {
   return {
     subject: `New paid order ${order.reference}`,

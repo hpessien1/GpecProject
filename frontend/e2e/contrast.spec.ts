@@ -333,6 +333,20 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await open('#admin/orders/GPEC-O-2026-0000000A', '.admin-order-items')
     await audit.page(page, `${label} admin order`)
     if (hovering) await audit.hover(page, `${label} admin order`)
+    // "Tell the customer by email" with its hint, then the saved change marked "Customer emailed",
+    // then the note shown instead while email is off.
+    await page.getByLabel('Order status').selectOption('out_for_delivery')
+    await page.getByRole('checkbox', { name: 'Tell the customer by email' }).waitFor()
+    await audit.page(page, `${label} admin order, telling the customer`)
+    await page.getByRole('button', { name: 'Update status' }).click()
+    await page.locator('.admin-history-emailed').waitFor()
+    await audit.page(page, `${label} admin order, customer emailed`)
+    api.emailOn = false
+    await page.reload()
+    await page.getByLabel('Order status').selectOption('cancelled')
+    await page.getByText('Email is not set up').waitFor()
+    await audit.page(page, `${label} admin order, email off`)
+    api.emailOn = true
     await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-notice')
     await audit.page(page, `${label} admin unpaid order`)
     await open(`#admin/orders/${TRANSFER_ORDER_REF}`, '.admin-transfer-actions')
@@ -368,7 +382,7 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     const [template] = api.orders
     api.orders = [template, ...Array.from({ length: 119 }, (_, index) => ({ ...template, reference: `GPEC-O-2026-${String(index + 1).padStart(8, '0')}` }))]
     const actor = { name: ADMIN.name, email: ADMIN.email }
-    api.orderHistory[template.reference] = Array.from({ length: 11 }, (_, index) => ({ action: 'order.status' as const, actor, changes: [{ field: 'fulfilmentStatus' as const, from: 'new' as const, to: 'processing' as const }], createdAt: new Date(Date.UTC(2026, 0, 1, 0, 11 - index)).toISOString() }))
+    api.orderHistory[template.reference] = Array.from({ length: 11 }, (_, index) => ({ action: 'order.status' as const, actor, changes: [{ field: 'fulfilmentStatus' as const, from: 'new' as const, to: 'processing' as const }], customerEmailed: false, createdAt: new Date(Date.UTC(2026, 0, 1, 0, 11 - index)).toISOString() }))
     api.requestNotes[template.reference] = Array.from({ length: 11 }, (_, index) => ({ author: actor, text: `Sample note ${11 - index}`, createdAt: new Date(Date.UTC(2026, 0, 1, 0, 11 - index)).toISOString() }))
     await logInAsAdmin(page)
     await open('#admin/orders', '.admin-order-list')

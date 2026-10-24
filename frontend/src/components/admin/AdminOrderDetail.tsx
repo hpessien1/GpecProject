@@ -27,6 +27,29 @@ function isFulfilmentStatus(value: string): value is FulfilmentStatus {
   return FULFILMENT_STATUSES.some((status) => status === value)
 }
 
+// The statuses the customer can be emailed about (backend services/adminOrders.ts, CUSTOMER_UPDATE_STATUSES).
+type CustomerUpdateStatus = 'ready_for_pickup' | 'out_for_delivery' | 'cancelled'
+function isCustomerUpdate(status: FulfilmentStatus): status is CustomerUpdateStatus {
+  return status === 'ready_for_pickup' || status === 'out_for_delivery' || status === 'cancelled'
+}
+
+interface NotifyCustomerFieldProps {
+  id: string
+  emailOn: boolean
+  hint: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}
+
+// "Tell the customer by email", ticked by default; or, while email is not set up, a note saying so.
+function NotifyCustomerField({ id, emailOn, hint, checked, onChange }: NotifyCustomerFieldProps) {
+  if (!emailOn) return <p className="admin-notice">{ordersContent.emailOff}</p>
+  return <div className="admin-field admin-checkbox">
+    <label><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} aria-describedby={`${id}-hint`} /> {ordersContent.notifyLabel}</label>
+    <small id={`${id}-hint`}>{hint}</small>
+  </div>
+}
+
 // Everything about one order: who, what, how much, pickup or delivery, payment, the fulfilment
 // status staff move along, who changed it when, and staff notes.
 export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrderDetailProps) {
@@ -34,6 +57,11 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
   const [loadError, setLoadError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [result, setResult] = useState<{ kind: 'success' | 'error', message: string } | null>(null)
+  // The status chosen in the list but not saved yet (null: the order's own), and the two "Tell the
+  // customer by email" boxes, ticked by default.
+  const [chosenStatus, setChosenStatus] = useState<FulfilmentStatus | null>(null)
+  const [notifyOnStatus, setNotifyOnStatus] = useState(true)
+  const [notifyOnClose, setNotifyOnClose] = useState(true)
   const resultRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
@@ -60,11 +88,15 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
       setResult({ kind: 'success', message: `The order is already ${orderStageLabels[status]}.` })
       return
     }
+    // Sent only where the box was offered; the server emails only about these statuses anyway.
+    const notify = data.emailOn && isCustomerUpdate(status) ? notifyOnStatus : undefined
     setResult(null)
     setIsSaving(true)
     try {
-      setData(await setOrderStatus(reference, status))
-      setResult({ kind: 'success', message: `Order moved to ${orderStageLabels[status]}.` })
+      setData(await setOrderStatus(reference, status, notify))
+      setChosenStatus(null)
+      setNotifyOnStatus(true)
+      setResult({ kind: 'success', message: `Order moved to ${orderStageLabels[status]}.${notify ? ' The customer has been emailed.' : ''}` })
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return onSessionEnded()
       setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to update the order.' })
@@ -79,9 +111,10 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
     if (!received && !window.confirm('Close this order as not received? Do this only if the transfer has not arrived. It cannot be undone.')) return
     setResult(null)
     setIsSaving(true)
+    const notify = !received && data?.emailOn === true && notifyOnClose
     try {
-      setData(await (received ? confirmTransferReceived(reference) : closeUnpaidTransfer(reference)))
-      setResult({ kind: 'success', message: received ? 'Transfer confirmed: the order is paid, and the customer has been emailed.' : 'Order closed as not received.' })
+      setData(await (received ? confirmTransferReceived(reference) : closeUnpaidTransfer(reference, notify)))
+      setResult({ kind: 'success', message: received ? 'Transfer confirmed: the order is paid, and the customer has been emailed.' : `Order closed as not received.${notify ? ' The customer has been emailed.' : ''}` })
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return onSessionEnded()
       setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to update the payment.' })
@@ -97,6 +130,9 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
 
   const order = data?.order
   const money = (amount: number) => order ? formatPrice(amount, order.currency) : ''
+  const selectedStatus = chosenStatus ?? order?.fulfilmentStatus ?? 'new'
+  // The status the customer would be emailed about, if the one chosen is a change worth telling them.
+  const statusUpdate = order && selectedStatus !== order.fulfilmentStatus && isCustomerUpdate(selectedStatus) ? selectedStatus : null
   return <section aria-labelledby="admin-order-title">
     <div className="admin-heading">
       <div><p className="eyebrow"><span /> {ordersContent.title}</p><h1 id="admin-order-title" tabIndex={-1}>{reference}</h1></div>
@@ -163,10 +199,11 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
             ? <form className="admin-form admin-status-form" onSubmit={handleStatusSubmit}>
               <div className="admin-field">
                 <label htmlFor="order-status">Order status</label>
-                <select id="order-status" name="fulfilmentStatus" key={order.fulfilmentStatus} defaultValue={order.fulfilmentStatus}>
+                <select id="order-status" name="fulfilmentStatus" value={selectedStatus} onChange={(event) => { if (isFulfilmentStatus(event.target.value)) setChosenStatus(event.target.value) }}>
                   {statusesFor(order.fulfilmentMethod).map((status) => <option key={status} value={status}>{orderStageLabels[status]}</option>)}
                 </select>
               </div>
+              {statusUpdate && <NotifyCustomerField id="order-status-notify" emailOn={data.emailOn} hint={ordersContent.notifyHints[statusUpdate]} checked={notifyOnStatus} onChange={setNotifyOnStatus} />}
               <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Update status <Arrow /></>}</button>
             </form>
             : order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'pending_payment'
@@ -178,7 +215,10 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
                   </div>
                   <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Confirm transfer received <Arrow /></>}</button>
                 </form>
-                <button type="button" className="text-link" onClick={() => void settleTransfer(false)} disabled={isSaving}>Payment not received: close the order</button>
+                <div className="admin-transfer-close">
+                  <NotifyCustomerField id="transfer-close-notify" emailOn={data.emailOn} hint={ordersContent.notifyHints.transfer_not_received} checked={notifyOnClose} onChange={setNotifyOnClose} />
+                  <button type="button" className="text-link" onClick={() => void settleTransfer(false)} disabled={isSaving}>Payment not received: close the order</button>
+                </div>
               </div>
             : <p className="admin-notice">{order.paymentMethod === 'bank_transfer' ? ordersContent.transferClosed : ordersContent.notPaid}</p>}
           <section className="admin-history" aria-labelledby="admin-order-history-title">
@@ -189,7 +229,8 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
                   <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
                   <ul>{entry.action === 'order.payment'
                     ? entry.changes.map((change) => <li key={change.field}>Payment: {paymentStatusLabels[change.from]} → {change.to === 'failed' ? 'Closed as not received' : paymentStatusLabels[change.to]}</li>)
-                    : entry.changes.map((change) => <li key={change.field}>{orderStageLabels[change.from]} → {orderStageLabels[change.to]}</li>)}</ul>
+                    : entry.changes.map((change) => <li key={change.field}>{orderStageLabels[change.from]} → {orderStageLabels[change.to]}</li>)}
+                    {entry.customerEmailed && <li className="admin-history-emailed">{ordersContent.emailed}</li>}</ul>
                 </li>)}</ol>}
             </AdminOlderEntries>
           </section>

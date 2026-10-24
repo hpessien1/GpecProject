@@ -127,8 +127,9 @@ export function getOlderOrderNotes(reference: string, before: string) {
   return notesPage(`/admin/orders/${encodeURIComponent(reference)}/notes`, before)
 }
 
-export function setOrderStatus(reference: string, fulfilmentStatus: FulfilmentStatus) {
-  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}`, 'Unable to update the order.', { ...admin, method: 'PATCH', payload: { fulfilmentStatus } })
+// notifyCustomer: sent only where the screen offered "Tell the customer by email".
+export function setOrderStatus(reference: string, fulfilmentStatus: FulfilmentStatus, notifyCustomer?: boolean) {
+  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}`, 'Unable to update the order.', { ...admin, method: 'PATCH', payload: notifyCustomer === undefined ? { fulfilmentStatus } : { fulfilmentStatus, notifyCustomer } })
 }
 
 export function addOrderNote(reference: string, text: string) {
@@ -218,8 +219,8 @@ export function confirmTransferReceived(reference: string) {
   return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}/transfer-received`, 'Unable to confirm the transfer.', { ...admin, method: 'POST' })
 }
 
-export function closeUnpaidTransfer(reference: string) {
-  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}/transfer-not-received`, 'Unable to close the order.', { ...admin, method: 'POST' })
+export function closeUnpaidTransfer(reference: string, notifyCustomer: boolean) {
+  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}/transfer-not-received`, 'Unable to close the order.', { ...admin, method: 'POST', payload: { notifyCustomer } })
 }
 
 export function listSiteContent() {

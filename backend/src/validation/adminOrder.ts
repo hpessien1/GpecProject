@@ -19,13 +19,31 @@ export function validateOrderListQuery(query: unknown) {
   return { errors, value: { page, stage: stage as OrderStage | null, search } }
 }
 
-// { fulfilmentStatus } and nothing else: customer details, items, amounts, and payment status are
-// never edited by admins.
+// Whether to email the customer about a change: true or false only, false when left out.
+function notifyCustomerField(source: Record<string, unknown>, errors: ValidationErrors) {
+  if (source.notifyCustomer === undefined) return false
+  if (typeof source.notifyCustomer === 'boolean') return source.notifyCustomer
+  errors.notifyCustomer = 'notifyCustomer must be true or false.'
+  return false
+}
+
+// { fulfilmentStatus, notifyCustomer? } and nothing else: customer details, items, amounts, and
+// payment status are never edited by admins.
 export function validateFulfilmentChange(body: unknown) {
   const errors: ValidationErrors = {}
   const source = asFields(body)
-  for (const field of Object.keys(source)) if (field !== 'fulfilmentStatus') errors[field] = `${field} cannot be changed.`
+  for (const field of Object.keys(source)) if (field !== 'fulfilmentStatus' && field !== 'notifyCustomer') errors[field] = `${field} cannot be changed.`
   const status = FULFILMENT_STATUSES.find((name) => name === source.fulfilmentStatus)
   if (!status) errors.fulfilmentStatus = `fulfilmentStatus must be one of: ${FULFILMENT_STATUSES.join(', ')}.`
-  return { errors, value: { fulfilmentStatus: (status ?? 'new') as FulfilmentStatus } }
+  const notifyCustomer = notifyCustomerField(source, errors)
+  return { errors, value: { fulfilmentStatus: (status ?? 'new') as FulfilmentStatus, notifyCustomer } }
+}
+
+// Closing an unpaid transfer: { notifyCustomer? } and nothing else (who and what come from the
+// session and the route).
+export function validateTransferClose(body: unknown) {
+  const errors: ValidationErrors = {}
+  const source = asFields(body)
+  for (const field of Object.keys(source)) if (field !== 'notifyCustomer') errors[field] = `${field} cannot be sent.`
+  return { errors, value: { notifyCustomer: notifyCustomerField(source, errors) } }
 }

@@ -249,13 +249,16 @@ export async function confirmTransferReceived(admin: AdminIdentity, reference: s
 }
 
 // The transfer never arrived: staff close the order. Nothing was paid, so nothing else changes.
-export async function closeUnpaidTransfer(admin: AdminIdentity, reference: string) {
-  await unpaidTransfer(reference)
+// notifyCustomer: tell the customer by email (while email is on), after the change is saved.
+export async function closeUnpaidTransfer(admin: AdminIdentity, reference: string, notifier: Notifier, notifyCustomer: boolean) {
+  const order = await unpaidTransfer(reference)
+  const emailCustomer = notifyCustomer && notifier.isOn
   await mongoose.connection.transaction(async (session) => {
     const update = await Order.updateOne({ reference, paymentMethod: 'bank_transfer', paymentStatus: 'pending_payment' }, { $set: { paymentStatus: 'failed' } }, { session })
     if (update.modifiedCount !== 1) throw new ConflictError('This order is no longer awaiting a transfer.', 'TRANSFER_ALREADY_SETTLED')
-    await AuditRecord.create([{ action: 'order.payment', targetType: 'order', targetId: reference, actor: actorOf(admin), changes: [{ field: 'paymentStatus', from: 'pending_payment', to: 'failed' }] }], { session })
+    await AuditRecord.create([{ action: 'order.payment', targetType: 'order', targetId: reference, actor: actorOf(admin), changes: [{ field: 'paymentStatus', from: 'pending_payment', to: 'failed' }], ...(emailCustomer ? { customerEmailed: true } : {}) }], { session })
   })
+  if (emailCustomer && order.customer) void notifier.orderUpdate({ ...order, customer: order.customer }, 'transfer_not_received')
 }
 
 // The customer says they have sent the transfer. Recorded once, with one email to staff; it changes

@@ -15,6 +15,8 @@ export async function historyPage(targetType: AuditTarget, targetId: string, bef
     // For product.sale: the paid order that reduced the stock count.
     orderReference: record.orderReference ?? null,
     changes: record.changes,
+    // For order changes: whether the customer was told by email.
+    customerEmailed: record.customerEmailed === true,
     createdAt: record.createdAt,
   }))
   return { history: entries, historyCursor: cursor }

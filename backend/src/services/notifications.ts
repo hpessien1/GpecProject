@@ -1,8 +1,8 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
 import { DEFAULT_REPLY_TO, getCustomerEmailSettings } from './customerEmail.js'
-import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
-import type { AdminEmailData, ContactEmailData, OrderEmailData } from './emailTemplates.js'
+import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
+import type { AdminEmailData, ContactEmailData, OrderEmailData, OrderUpdate } from './emailTemplates.js'
 
 const HOUR = 60 * 60 * 1000
 // Confirmations per recipient address per hour. Stops the public forms being used to flood a stranger's
@@ -19,6 +19,8 @@ export interface Notifier {
   // (capped per address, like contact confirmations: anyone can place an order with any email).
   transferOrderPlaced(order: OrderEmailData & { _id: unknown }): Promise<void>
   transferReported(order: OrderEmailData): Promise<void>
+  // Staff moved an order on and chose to tell the customer. Not capped: staff send these, one per change.
+  orderUpdate(order: OrderEmailData, update: OrderUpdate): Promise<void>
   bankDetailsChanged(adminEmails: string[], changedBy: AdminEmailData, fields: string[], details: { enabled: boolean, bankName: string, accountName: string, accountNumber: string }): Promise<void>
   replyToChanged(adminEmails: string[], changedBy: AdminEmailData, from: string, to: string): Promise<void>
   // token: for the link only; it is never logged.
@@ -88,6 +90,10 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
       const messages: EmailMessage[] = [{ to: settings.staffRecipients, replyTo: order.customer.email, ...staffTransferOrderEmail(order, settings.siteUrl) }]
       if (mayConfirm(order.customer.email)) messages.push({ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerTransferOrderEmail(order, settings.siteUrl, `${settings.siteUrl}/#shop/payment/${String(order._id)}`) })
       await deliver(order.reference, messages)
+    },
+    async orderUpdate(order, update) {
+      if (!mailer || !settings) return
+      await deliver(order.reference, [{ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderUpdateEmail(order, update, settings.siteUrl) }])
     },
     async transferReported(order) {
       if (!mailer || !settings) return

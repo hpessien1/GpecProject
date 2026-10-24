@@ -509,6 +509,18 @@
   cursor: pointer;
   text-align: left;
 }
+/* "Tell the customer by email" above "Payment not received", apart from the confirm form. */
+.admin-transfer-close {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.admin-history-emailed {
+  color: var(--forest);
+  font-weight: 700;
+}
 .admin-request-list {
   margin: 0 0 1.5rem;
   padding: 0;

@@ -25,6 +25,9 @@ const auditRecordSchema = new mongoose.Schema({
   actor: { type: actorSchema, default: null, required: function (this: { action?: string }) { return this.action !== 'product.sale' } },
   orderReference: { type: String, default: null },
   changes: { type: [changeSchema], default: [] },
+  // order.status and order.payment: true when staff chose to tell the customer by email (the email
+  // goes out after the change is saved). Absent on older records and when no email was asked for.
+  customerEmailed: { type: Boolean },
 }, { timestamps: { createdAt: true, updatedAt: false }, strict: 'throw' })
 
 auditRecordSchema.index({ targetType: 1, targetId: 1, createdAt: -1 })

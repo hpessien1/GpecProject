@@ -150,7 +150,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 - Placing the order creates it unpaid, with a copy of the bank details given, and empties the cart. The customer sees, and is emailed, the account details, the exact amount, the order reference to use as the **narration**, and the date to pay by. GPEC staff are emailed that an order awaits a transfer.
 - The customer can press "I have sent the transfer". It tells staff (one email) and marks the order "Transfer reported"; it proves nothing.
 - Staff check GPEC's bank account and, on the order, confirm "transfer received" (ticking that the full amount arrived with that narration). Only then is the order paid: stock goes down, and the paid emails go to the customer and staff. The confirmation is recorded with who and when.
-- If the money never arrives, staff close the order as "Payment not received" (recorded). Nothing closes it automatically (owner's choice, 2026-10-23), and stock is not held while waiting.
+- If the money never arrives, staff close the order as "Payment not received" (recorded). Nothing closes it automatically (owner's choice, 2026-10-23), and stock is not held while waiting. The customer is emailed that the order is closed, and asked to reply with the details if they did send the money, unless staff untick "Tell the customer by email".
 - The admin Orders list shows unpaid transfers as "Awaiting transfer" or "Transfer reported".
 
 ### 7. Confirmation
@@ -171,6 +171,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 - A price change does not alter the price of orders already placed.
 - Every price, product, and order status change records who made it and when.
 - Admins can view orders and their fulfilment details, and manage delivery areas and fees.
+- When staff move an order to **Ready for pickup**, **Out for delivery**, or **Cancelled**, the customer is emailed about it (2026-10-24, the user's choice), unless staff untick "Tell the customer by email" (ticked by default: untick it when the customer already knows, or when correcting a mistake). A cancellation email points to the refunds policy and promises nothing more. The order's history shows "Customer emailed". Other status changes, and contact-request status changes, send nothing.
 
 ## Suggested User Flow
 

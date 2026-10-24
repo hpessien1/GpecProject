@@ -431,7 +431,7 @@ name), and logs which database it found. The guard only works if production sets
   Paystack confirms), `paidAt`, `fulfilmentStatus` (`new` → `processing` → `ready_for_pickup` or
   `out_for_delivery` → `completed`, or `cancelled`; staff move paid orders only; pickup orders are
   never "out for delivery" and delivery orders never "ready for pickup"; every change is an
-  AuditRecord `order.status`), timestamps. The admin list shows one **stage** per order: unpaid
+  AuditRecord `order.status`, with `customerEmailed` when the customer was told, Section 8), timestamps. The admin list shows one **stage** per order: unpaid
   orders as "Awaiting payment" or "Payment failed", paid ones by fulfilment status (the user chose
   this two-part model, 2026-10-22). Staff notes reuse **RequestNote** (`targetType: 'order'`).
   Checkout creates orders (`services/checkout.ts`); the demo command adds demo ones.
@@ -799,6 +799,13 @@ to it in the admin panel) and sends the customer a plain-text confirmation with 
   `notifications@gpecengineering.com`, is sending-only, and mail written to it directly comes back
   undelivered (forwarding it was skipped by the user's choice; RUNBOOK 1.6, step 9). Changing the reply-to is recorded and emailed to all admins,
   like bank details: it decides where customers' replies, such as proof of payment, go.
+- **Order updates** (2026-10-24, the user's choice): moving a paid order to ready for pickup, out for
+  delivery, or cancelled, and closing an unpaid transfer, email the customer unless staff untick "Tell
+  the customer by email" (ticked by default, rather than automatic: a mistaken status cannot be
+  unsent, and staff may already have phoned). Sent after the change is saved, only if the status
+  really changed and email is on; the AuditRecord gets `customerEmailed: true`. Not capped (staff
+  send them). Other order statuses and contact-request statuses email nobody. Templates promise
+  nothing beyond the refunds policy (no refund times or amounts).
 - Customer confirmations are capped at 3 per address per hour (in memory; one API instance), so
   the forms cannot be used to flood a stranger's inbox. Staff notifications are not capped.
 - **Off until configured.** All five `SES_*`/`EMAIL_*`/`STAFF_*` settings plus `FRONTEND_URL`, or

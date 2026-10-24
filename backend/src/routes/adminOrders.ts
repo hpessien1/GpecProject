@@ -4,7 +4,7 @@ import { currentAdmin } from '../middleware/requireAdmin.js'
 import { addOrderNote, getOrder, listOrders, orderHistory, orderNotes, setFulfilmentStatus } from '../services/adminOrders.js'
 import { closeUnpaidTransfer, confirmTransferReceived } from '../services/checkout.js'
 import type { Notifier } from '../services/notifications.js'
-import { ORDER_REFERENCE_PATTERN, validateFulfilmentChange, validateOrderListQuery } from '../validation/adminOrder.js'
+import { ORDER_REFERENCE_PATTERN, validateFulfilmentChange, validateOrderListQuery, validateTransferClose } from '../validation/adminOrder.js'
 import { validateNote } from '../validation/adminRequest.js'
 import { validateOlderPageQuery } from '../validation/olderPage.js'
 
@@ -31,9 +31,14 @@ export default function adminOrdersRouter(notifier: Notifier) {
     }
   })
 
+  // An order as the detail screen shows it, with emailOn: whether customers can be told about changes.
+  async function detail(order: ReturnType<typeof getOrder>) {
+    return { ...await order, emailOn: notifier.isOn }
+  }
+
   router.get('/:reference', async (req, res, next) => {
     try {
-      return res.json(await getOrder(referenceParam(req.params.reference)))
+      return res.json(await detail(getOrder(referenceParam(req.params.reference))))
     } catch (error) {
       return next(error)
     }
@@ -58,32 +63,44 @@ export default function adminOrdersRouter(notifier: Notifier) {
       const reference = referenceParam(req.params.reference)
       const { errors, value } = validateFulfilmentChange(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
-      return res.json(await setFulfilmentStatus(currentAdmin(res), reference, value.fulfilmentStatus))
+      return res.json(await detail(setFulfilmentStatus(currentAdmin(res), reference, value.fulfilmentStatus, value.notifyCustomer, notifier)))
     } catch (error) {
       return next(error)
     }
   })
 
-  // Both take no body: what happened is in the route, and who did it comes from the session.
-  for (const [path, action] of [['transfer-received', confirmTransferReceived], ['transfer-not-received', closeUnpaidTransfer]] as const) {
-    router.post(`/:reference/${path}`, async (req, res, next) => {
-      try {
-        const reference = referenceParam(req.params.reference)
-        if (Object.keys(req.body ?? {}).length > 0) throw new ValidationError({ body: 'Send no details.' })
-        await action(currentAdmin(res), reference, notifier)
-        return res.json(await getOrder(reference))
-      } catch (error) {
-        return next(error)
-      }
-    })
-  }
+  // No body: what happened is in the route, and who did it comes from the session. The customer is
+  // emailed that their order is paid, as after a Paystack payment.
+  router.post('/:reference/transfer-received', async (req, res, next) => {
+    try {
+      const reference = referenceParam(req.params.reference)
+      if (Object.keys(req.body ?? {}).length > 0) throw new ValidationError({ body: 'Send no details.' })
+      await confirmTransferReceived(currentAdmin(res), reference, notifier)
+      return res.json(await detail(getOrder(reference)))
+    } catch (error) {
+      return next(error)
+    }
+  })
+
+  // Only { notifyCustomer? }: whether to tell the customer the order was closed.
+  router.post('/:reference/transfer-not-received', async (req, res, next) => {
+    try {
+      const reference = referenceParam(req.params.reference)
+      const { errors, value } = validateTransferClose(req.body)
+      if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+      await closeUnpaidTransfer(currentAdmin(res), reference, notifier, value.notifyCustomer)
+      return res.json(await detail(getOrder(reference)))
+    } catch (error) {
+      return next(error)
+    }
+  })
 
   router.post('/:reference/notes', async (req, res, next) => {
     try {
       const reference = referenceParam(req.params.reference)
       const { errors, value } = validateNote(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
-      return res.status(201).json(await addOrderNote(currentAdmin(res), reference, value.text))
+      return res.status(201).json(await detail(addOrderNote(currentAdmin(res), reference, value.text)))
     } catch (error) {
       return next(error)
     }

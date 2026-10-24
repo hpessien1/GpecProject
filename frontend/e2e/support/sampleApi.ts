@@ -534,8 +534,10 @@ function reply(state: ApiState, request: Request): Reply {
       if (order.paymentMethod !== 'bank_transfer' || order.paymentStatus !== 'pending_payment') return [409, { message: 'This order is no longer awaiting a transfer.', code: 'TRANSFER_ALREADY_SETTLED' }]
       const to = orderMatch[2] === '/transfer-received' ? 'paid' : 'failed'
       Object.assign(order, { paymentStatus: to, stage: to === 'paid' ? 'new' : 'payment_failed', paidAt: to === 'paid' ? new Date().toISOString() : null })
-      state.orderHistory[order.reference] = [{ action: 'order.payment', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'paymentStatus', from: 'pending_payment', to }], createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
-      return [200, { order, ...historyReply(state.orderHistory[order.reference]), ...notesReply(state.requestNotes[order.reference] ?? []) }]
+      // Like the real API: closing may email the customer, if asked and while email is on.
+      const customerEmailed = to === 'failed' && body.notifyCustomer === true && state.emailOn
+      state.orderHistory[order.reference] = [{ action: 'order.payment', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'paymentStatus', from: 'pending_payment', to }], customerEmailed, createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
+      return [200, { order, emailOn: state.emailOn, ...historyReply(state.orderHistory[order.reference]), ...notesReply(state.requestNotes[order.reference] ?? []) }]
     }
     if (orderMatch[2]) {
       if (state.notesFail) return [500, { message: 'Something went wrong on our side. Please try again.' }]
@@ -544,11 +546,12 @@ function reply(state: ApiState, request: Request): Reply {
       if (order.paymentStatus !== 'paid') return [409, { message: 'Only paid orders can be moved along.', code: 'ORDER_NOT_PAID' }]
       const to = body.fulfilmentStatus as FulfilmentStatus
       if (to !== order.fulfilmentStatus) {
-        state.orderHistory[order.reference] = [{ action: 'order.status', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'fulfilmentStatus', from: order.fulfilmentStatus, to }], createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
+        const customerEmailed = body.notifyCustomer === true && state.emailOn && ['ready_for_pickup', 'out_for_delivery', 'cancelled'].includes(to)
+        state.orderHistory[order.reference] = [{ action: 'order.status', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'fulfilmentStatus', from: order.fulfilmentStatus, to }], customerEmailed, createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
         Object.assign(order, { fulfilmentStatus: to, stage: to })
       }
     }
-    return [orderMatch[2] ? 201 : 200, { order, ...historyReply(state.orderHistory[order.reference] ?? []), ...notesReply(state.requestNotes[order.reference] ?? []) }]
+    return [orderMatch[2] ? 201 : 200, { order, emailOn: state.emailOn, ...historyReply(state.orderHistory[order.reference] ?? []), ...notesReply(state.requestNotes[order.reference] ?? []) }]
   }
   const requestMatch = /^\/api\/admin\/(contact-requests)(?:\/([^/]+))?(\/notes|\/history)?$/.exec(path)
   if (requestMatch) {

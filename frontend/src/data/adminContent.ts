@@ -111,6 +111,17 @@ export const ordersContent = {
   notPaid: 'Payment has not been completed, so this order cannot be moved along. Only the website changes payment status, after Paystack confirms a payment.',
   transferWaiting: 'The customer chose bank transfer. Check GPEC’s bank account for this amount with the order reference as the narration, then confirm it here. The order can be moved along once it is paid.',
   transferClosed: 'Closed as not received: the transfer never arrived. If the customer did pay, they can contact GPEC; place a new order for them if needed.',
+  // "Tell the customer by email": ticked by default where it is offered; untick it when you have
+  // already told the customer, or are correcting a mistake.
+  notifyLabel: 'Tell the customer by email',
+  notifyHints: {
+    ready_for_pickup: 'They are told the order is ready to collect from GPEC in Woji, and asked to agree a collection time if they have not.',
+    out_for_delivery: 'They are told the order is on its way to the address they gave.',
+    cancelled: 'They are told the order is cancelled and that, if they paid, GPEC will contact them about a refund as the refunds policy says.',
+    transfer_not_received: 'They are told the order is closed because the transfer did not arrive, and asked to reply with the details if they did send it.',
+  },
+  emailOff: 'Email is not set up, so the customer is not told by email. Contact them yourself.',
+  emailed: 'Customer emailed',
 }
 
 // In the order a typical order moves through them.

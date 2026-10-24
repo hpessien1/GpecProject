@@ -167,7 +167,7 @@ test.describe('older history and notes', () => {
 
   test('says so when older changes cannot be loaded, and can try again', async ({ page }) => {
     const api = await mockApi(page)
-    api.orderHistory[ORDER_REF] = Array.from({ length: 11 }, (_, index) => ({ action: 'order.status' as const, actor, changes: [{ field: 'fulfilmentStatus' as const, from: 'new' as const, to: 'processing' as const }], createdAt: new Date(Date.UTC(2026, 0, 1, 0, 11 - index)).toISOString() }))
+    api.orderHistory[ORDER_REF] = Array.from({ length: 11 }, (_, index) => ({ action: 'order.status' as const, actor, changes: [{ field: 'fulfilmentStatus' as const, from: 'new' as const, to: 'processing' as const }], customerEmailed: false, createdAt: new Date(Date.UTC(2026, 0, 1, 0, 11 - index)).toISOString() }))
     await logInAsAdmin(page)
     await page.goto(`/#admin/orders/${ORDER_REF}`)
     await expect(historyEntries(page)).toHaveCount(10)

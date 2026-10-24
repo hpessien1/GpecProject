@@ -87,8 +87,8 @@ at 320px. Lessons are in CLAUDE.md Section 15.
   `services/checkout.ts`, Paystack only in `services/paystack.ts`, site content in
   `services/siteContent.ts` (starting text `data/siteContentDefaults.ts`), two-step login in
   `services/twoFactor.ts`, `totp.ts`, `secretBox.ts`.
-- **Tests:** 505 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 297 behaviour tests at desktop and phone (plus 3 skipped: the 2 from before
+- **Tests:** 520 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 305 behaviour tests at desktop and phone (plus 3 skipped: the 2 from before
   and the attach button's keyboard check, desktop only) and 20
   contrast tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with
   the API).
@@ -117,6 +117,11 @@ at 320px. Lessons are in CLAUDE.md Section 15.
 - **Temporary test scripts** never stay in `frontend/e2e/`; use the scratchpad.
 
 ## Open items for the next session
+
+- **Order update emails** (built 2026-10-24, not yet deployed): ready for pickup, out for delivery,
+  cancelled, and "payment not received" email the customer unless staff untick "Tell the customer by
+  email" (CLAUDE.md Section 8). After deploying, try each on a demo order with a verified address
+  (SES sandbox) and read the emails.
 
 - **Replies to customer emails** (built 2026-10-24, not yet deployed): customer emails now reply to
   an address staff set in the admin panel (*Emails*, `#admin/emails`; GPEC's published Gmail address
