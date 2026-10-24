@@ -41,7 +41,7 @@
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  font-size: 0.73rem;
+  font-size: 0.8rem;
   font-weight: 800;
 }
 .shop-navigation > a,
@@ -61,7 +61,7 @@
   background: transparent;
   color: #fff;
   padding: 0.55rem 0.75rem;
-  font: 800 0.7rem var(--sans);
+  font: 800 0.8rem var(--sans);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -74,7 +74,7 @@
   border-radius: 50%;
   background: var(--lime);
   color: var(--ink);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 @media (max-width: 650px) {
   /* Same height as the home page's header, so the logo has the same room above it. A smaller gap
@@ -154,7 +154,7 @@
 .shop-section-heading > p:not(.eyebrow) {
   margin: 0;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 /* Category filter (components/shop/CategoryFilter.tsx): links, the current one filled. */
 .shop-categories {
@@ -283,7 +283,7 @@
 .shop-product-description {
   margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.6;
 }
 .shop-product-copy ul {
@@ -298,7 +298,7 @@
   padding: 0.28rem 0.42rem;
   background: #f0f3f7;
   color: var(--ink);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 .shop-product-action {
   padding: 0 1.15rem 1.15rem;
@@ -428,7 +428,7 @@
 }
 .shop-cart-list strong {
   margin: 0.25rem 2.9rem 0.55rem 0;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   line-height: 1.25;
 }
 .quantity-control {
@@ -449,7 +449,7 @@
 }
 .quantity-control output {
   min-width: 1ch;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 .remove-cart-item {
   position: absolute;
@@ -564,7 +564,7 @@
 .shop-order-summary span {
   margin-top: 0.28rem;
   color: rgba(255, 255, 255, 0.65);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 .shop-order-count {
   margin: 0;
@@ -653,7 +653,7 @@
 .shop-field-note {
   margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.55;
 }
 .shop-field .shop-field-error {
@@ -700,7 +700,7 @@
   display: block;
   margin-top: 0.25rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 400;
   line-height: 1.5;
 }
@@ -718,7 +718,7 @@
 .shop-checkout-privacy {
   margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.6;
 }
 .shop-checkout-privacy a {
@@ -741,7 +741,7 @@
 .shop-order-totals dt small {
   display: block;
   margin-top: 0.15rem;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 .shop-order-totals dd {
   margin: 0;
@@ -908,7 +908,7 @@
   padding: 0.6rem 0.7rem;
   background: #f0f3f7;
   color: var(--ink);
-  font-size: 0.73rem;
+  font-size: 0.8rem;
 }
 .shop-lightbox-close {
   position: absolute;
@@ -1000,7 +1000,7 @@
 .shop-stock-note {
   margin: 1rem 0 0;
   color: rgba(255, 255, 255, 0.82);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.6;
 }
 /* Prices (components/shop/ProductPrice.tsx): product cards and window, then the dark cart and
@@ -1020,7 +1020,7 @@
 .shop-line-price {
   margin: 0 0 0.55rem;
   color: #fff;
-  font: 700 0.76rem var(--sans);
+  font: 700 0.8rem var(--sans);
 }
 .shop-line-price.shop-price-pending {
   color: rgba(255, 255, 255, 0.82);

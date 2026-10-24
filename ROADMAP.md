@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-24 (product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
+- **Last updated:** 2026-10-24 (all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -237,3 +237,5 @@ These block launch, and several block steps 4 to 6. Ask early.
       transfer closed, unless staff untick "Tell the customer by email".
 - [x] Product categories (2026-10-24): Electrical, Solar, Electronics, Industrial; the home page's
       Products cards open the shop filtered; staff choose each product's category.
+- [x] Larger small text (2026-10-24, user's request): button text, form hints, notes, and the footer
+      raised to 0.8rem like the labels; the phone footer's copyright line had been about 8px.

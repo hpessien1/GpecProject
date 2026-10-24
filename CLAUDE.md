@@ -937,10 +937,10 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
     hero's "GPEC / SYSTEM READY") is exempt.
   - **Labels are `.8rem` and codes `.85rem` or more** (raised from `.72rem` on 2026-10-24 at the
     user's request, who found them too small; before that, 2026-10-22, the owner had 9–10px labels
-    raised to `.72rem`). Other small text (button text, form hints) is about `.72`–`.78rem`; the
-    decorative "GPEC / SYSTEM READY" label inside the hero illustration (`.panel-label`,
-    `role="img"`) is the only text smaller. The only exception is the decorative "GPEC / SYSTEM
-    READY" label inside the hero illustration (`.panel-label`, `role="img"`).
+    raised to `.72rem`). **All other text is `.8rem` or more** too (button text, form hints, notes,
+    footer; raised from `.7`–`.78rem` on 2026-10-24 at the user's request). The only exception is
+    the decorative "GPEC / SYSTEM READY" label inside the hero illustration (`.panel-label`,
+    `role="img"`). Check with `grep -n "font[-a-z]*: [^;]*\b0\?\.[0-7][0-9]*rem" frontend/src/styles/*.css`.
   - **Run `cd frontend && npm run check:contrast` after any change to colours, styles, or layout**
     (CI runs it too). It checks every page and state at both widths, including hover, against the
     production build with sample API data, using axe-core and a pixel comparison. A new page or
@@ -1316,6 +1316,11 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - **2026-10-24 — A test that could not fail.** "No email when the status does not change" re-sent a
   status that never emails anyway, so breaking the check left it green. **Rule:** break the code each
   new test protects and see it turn red; a test that stays green is rewritten.
+- **2026-10-24 — Larger text overlapped without widening the page.** Raising small text to 0.8rem
+  made the ten "Typical components" names in one row run into each other; the sideways-scroll test
+  stayed green because each column kept its width, and the user spotted it. **Rule:** after a text
+  size change, check that text stays inside its own box (not only the page width), and look at
+  screenshots of every section at several widths.
 - **2026-10-24 — A restore script overwrote the wrong file.** Backups for a break-the-code check were
   copied by file name into one folder; two files named `adminRequests.ts` (route and service)
   collided, and the "restore" put the route over the service. **Rule:** back up under unique names

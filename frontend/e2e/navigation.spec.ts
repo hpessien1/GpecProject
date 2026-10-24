@@ -136,6 +136,22 @@ test.describe('home page sections', () => {
     }
   })
 
+  test('each typical component\'s name stays inside its own column, at every width', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#services')
+    // At 0.8rem, ten names in one row ran into each other on desktop ("Programmable" over "Meters").
+    const spilling = () => page.locator('.component-chip').evaluateAll((chips) => chips.filter((chip) => {
+      const box = chip.getBoundingClientRect()
+      const text = document.createRange()
+      text.selectNodeContents(chip.querySelector('small')!)
+      return [...text.getClientRects()].some((line) => line.left < box.left - 0.5 || line.right > box.right + 0.5)
+    }).map((chip) => chip.textContent))
+    for (const width of [1600, 1440, 1280, 1101, 900, 821, 541, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 })
+      expect(await spilling(), `names spilling at ${width}px`).toEqual([])
+    }
+  })
+
   test('the footer shows GPEC\'s real contact details, with working email and phone links', async ({ page }) => {
     await mockApi(page)
     await page.goto('/')

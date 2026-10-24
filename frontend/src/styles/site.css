@@ -24,7 +24,7 @@
   display: flex;
   align-items: center;
   gap: 2rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 .navigation > a:not(.nav-cta) {
@@ -41,7 +41,7 @@
 .menu-toggle {
   display: none;
 }
-/* Up to 1100px the eight menu items no longer fit beside the logo, so the Menu button takes over
+/* Up to 1100px the seven menu items no longer fit beside the logo, so the Menu button takes over
    and the menu opens below the header. */
 @media (max-width: 1100px) {
   .navigation {
@@ -126,7 +126,7 @@
 .footer-links {
   display: grid;
   align-content: start;
-  font-size: 0.77rem;
+  font-size: 0.8rem;
   font-weight: 700;
   grid-column: 1;
   grid-row: 1;
@@ -169,15 +169,15 @@
   color: rgba(255, 255, 255, 0.62);
   align-items: center;
 }
-/* Contact details: larger and brighter than the copyright line, because people need to read and
-   tap them. */
+/* Contact details: brighter than the copyright line and not in capitals, because people need to
+   read and tap them. */
 .footer-contact {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem 1.4rem;
   color: rgba(255, 255, 255, 0.85);
-  font: 0.72rem/1.5 var(--sans);
+  font: 0.8rem/1.5 var(--sans);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -226,6 +226,5 @@
     gap: 0.65rem;
     margin-top: 1.25rem;
     padding-top: 1rem;
-    font-size: 0.48rem;
   }
 }

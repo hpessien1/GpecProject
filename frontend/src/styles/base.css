@@ -290,7 +290,7 @@ button:hover .arrow {
   justify-content: center;
   padding: 0.85rem 1.2rem;
   gap: 0.15rem;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -319,7 +319,7 @@ button:hover .arrow {
 }
 .text-link {
   font-weight: 800;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -337,7 +337,7 @@ button:hover .arrow {
 .success-message {
   margin: 1rem 0 0;
   padding: 0.8rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   background: #fff0df;
   color: #8f3a00;
 }
@@ -347,7 +347,7 @@ button:hover .arrow {
   border-left: 3px solid var(--lime);
   background: #fff;
   color: var(--ink);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.5;
 }
 /* Messages receive focus from code after a form is sent. */

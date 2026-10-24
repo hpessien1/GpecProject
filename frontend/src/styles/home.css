@@ -558,7 +558,7 @@
 .panel-capability-card p {
   margin: 0 0 1rem;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   line-height: 1.55;
   min-height: 70px;
 }
@@ -587,7 +587,7 @@
   margin: 0.45rem 0 0;
   max-width: 390px;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1.45;
 }
 .component-list {
@@ -753,11 +753,13 @@
 .component-list > span {
   display: block;
   margin-bottom: 0.45rem;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
+/* As many columns as fit, each wide enough for "Programmable" (the list is 260 to 780px wide). */
 .component-chip-list {
   display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 0.9rem 0;
   align-items: start;
 }
 .component-chip {
@@ -766,11 +768,7 @@
   display: grid;
   place-items: center;
   gap: 0.3rem;
-  border-left: 1px solid rgba(16, 42, 51, 0.14);
   text-align: center;
-}
-.component-chip:first-child {
-  border-left: 0;
 }
 .component-symbol {
   width: 23px;
@@ -901,7 +899,7 @@
   min-height: 25px;
   max-width: 100%;
   color: var(--ink);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1.2;
   hyphens: auto;
   overflow-wrap: break-word;
@@ -930,9 +928,6 @@
   .component-list {
     grid-column: 1 / -1;
   }
-  .component-chip-list {
-    grid-template-columns: repeat(5, 1fr);
-  }
 }
 @media (max-width: 540px) {
   .panel-feature-copy h2 {
@@ -949,6 +944,22 @@
   }
   .component-list {
     grid-column: auto;
+  }
+  /* Each symbol beside its name, in two columns, or one on the narrowest phones: five columns left
+     about 50px for names such as "Programmable controllers". */
+  .component-chip-list {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.7rem 1rem;
+  }
+  .component-chip {
+    grid-template-columns: auto minmax(0, 1fr);
+    place-items: center start;
+    gap: 0.55rem;
+    padding: 0;
+    text-align: left;
+  }
+  .component-chip small {
+    min-height: 0;
   }
   .panel-summary {
     align-items: flex-start;
@@ -1349,7 +1360,7 @@
   margin-top: 0.5rem;
   padding-right: 0.4rem;
   color: rgba(224, 234, 255, 0.76);
-  font-size: 0.73rem;
+  font-size: 0.8rem;
   line-height: 1.55;
 }
 .products-sourcing {
@@ -1401,7 +1412,6 @@
   }
   .products .eyebrow {
     margin-bottom: 1rem;
-    font-size: 0.72rem;
   }
   .products-heading h2 {
     font-size: clamp(3.1rem, 14vw, 4.4rem);
@@ -1416,14 +1426,12 @@
   }
   .product-category-number {
     margin-bottom: 0.75rem;
-    font-size: 0.72rem;
   }
   .product-category strong {
     font-size: 0.98rem;
   }
   .product-category small {
     margin-top: 0.4rem;
-    font-size: 0.72rem;
   }
 }
 /* Projects (#projects): photo cards and the video gallery. */
@@ -1450,7 +1458,7 @@
   line-height: 1;
 }
 .work-card-copy span {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 .work.work-dark {
   padding-top: 5rem;
@@ -1549,7 +1557,7 @@
 .work-dark .work-image-note {
   right: 1.2rem;
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 .work-dark .work-card-copy {
   padding: 1.55rem 1.65rem 1.7rem;
@@ -1568,7 +1576,7 @@
 .work-dark .work-card-copy .work-project-summary {
   margin: -0.45rem 0 1.15rem;
   color: rgba(255, 255, 255, 0.8);
-  font: 400 0.78rem/1.6 var(--sans);
+  font: 400 0.8rem/1.6 var(--sans);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -1625,7 +1633,7 @@
   padding: clamp(2rem, 4vw, 4rem) clamp(1rem, 3vw, 3rem);
 }
 .work-dark .work-video-feature .work-card-copy > p:first-child {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 @media (max-width: 820px) {
   .work-dark .work-image {
@@ -1996,7 +2004,7 @@
   margin: 0;
   max-width: 320px;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1.55;
 }
 .quote-form button:disabled {
@@ -2145,7 +2153,7 @@
 .quote-files small {
   max-width: 560px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   line-height: 1.55;
 }
 .quote-file-list {

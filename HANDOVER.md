@@ -23,9 +23,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `9f7750a` (checkout in Paystack test mode, delivery areas,
-  bank transfer, site content, two-step login; the user reported the deploy and its checks done on
-  2026-10-24). **Not deployed yet:** everything from this session (open item 1).
+- **What is deployed:** everything up to `12ab46c`, including all of the session below (the user
+  reported the S3 policy, both deploys, the seed commands, the privacy wording, and the checks done
+  on 2026-10-24). Checked from outside the same day: `/api/health` ok, `fileUploads: true`, all 14
+  sample products have a category, and the saved privacy notice mentions attached files.
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (test mode), and 6 are done;
   step 3 (deploy) is live with the Atlas lock-down still to do.
 - **Company facts:** [`README.md`](README.md) "Company Profile", from GPEC's PDF (git-ignored, 23 MB,
@@ -80,7 +81,7 @@ upgrade the AWS plan for it now (it is on the launch checklist anyway).
   `services/requestFiles.ts` (photo re-saving shared in `services/photos.ts`), reply-to in
   `services/customerEmail.ts`, all emails in `services/notifications.ts` and `emailTemplates.ts`.
 - **Tests:** 529 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 315 behaviour tests at desktop and phone (plus 3 skipped: 2 from before and
+  with sample API data: 317 behaviour tests at desktop and phone (plus 3 skipped: 2 from before and
   the attach button's keyboard check, desktop only) and 20 contrast tests (10 parts at 2 widths)
   (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
@@ -114,29 +115,16 @@ upgrade the AWS plan for it now (it is on the launch checklist anyway).
 
 ## Open items for the next session
 
-1. **Deploy this session's work** (the user acts; the assistant guides), in this order:
-   - **First, AWS IAM:** add `arn:aws:s3:::gpec-product-images/request-files/*` to the
-     `gpec-product-images` key's policy (RUNBOOK 1.7, step 3). Without it, contact requests with
-     files fail (without files they work) and the demo command below fails storing files.
-   - Deploy `gpec-api`, then `gpec-web`.
-   - In the `gpec-api` terminal (the owner's go-ahead, CLAUDE.md Section 11):
-     `node dist/scripts/seedProducts.js --production` (no remove step: it only fills in missing
-     categories on the sample products), then
-     `node dist/scripts/seedDemoData.js --production --remove` and
-     `node dist/scripts/seedDemoData.js --production` (demo files; resets the demo records;
-     reports "Attached 3 sample files").
-   - Privacy notice: if it was already saved in *Site content*, add the attachments wording there
-     (bullet under "What we collect and why", and two changes under "Who can see your
-     information"; text in `backend/src/data/siteContentDefaults.ts`). A saved copy does not update.
-   - Check: *Emails* shows the right reply-to inbox; a `[TEST]` contact request with a photo and a
-     PDF (the photo opens, the PDF downloads; try a phone); each order update email on a demo order
-     with an SES-verified address (sandbox); the home page's four product cards and the shop filters.
+1. ~~Deploy this session's work~~: done by the user, 2026-10-24 (see "What is deployed"). Delete
+   the `[TEST]` contact request from the check if it is still there (it was only a check).
 2. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and
    photos replace them.
-3. **Later (user, 2026-10-24):** raise the remaining small text (button text 0.76rem, form hints
-   0.75–0.78rem, a few admin labels 0.72–0.75rem) to match the 0.8rem labels.
+3. ~~Raise the remaining small text to 0.8rem~~: done 2026-10-24 (next session's first change), with
+   the phone footer's copyright line, which was 0.48rem (about 8px), fixed on the way. The larger
+   text made the "Typical components" names overlap (the user spotted it on desktop), so that list
+   now has as many columns as fit (symbol beside name on phones), with a browser test at nine widths.
 4. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner:
    `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for the privacy
    notice); SES production access (requested 2026-10-23); AWS paid plan before 2027-04-22; 2FA on
