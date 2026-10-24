@@ -177,3 +177,40 @@ export const siteContentFieldLabels: Record<keyof EditableSiteContentFields, str
   sections: 'Sections',
   approved: 'Approved',
 }
+
+// Two-step login (#admin/security, the login code step, and the banner suggesting it).
+export const twoFactorContent = {
+  banner: {
+    title: 'Protect your account with two-step login',
+    text: 'Your admin account can change prices, confirm payments, and change GPEC’s bank details. With two-step login, someone who learns your password still cannot log in without a code from your phone or email.',
+    action: 'Turn on two-step login',
+    dismiss: 'Not now',
+  },
+  page: {
+    eyebrow: 'Your account',
+    title: 'Two-step login',
+    intro: 'After your password, you also enter a 6-digit code: from an app on your phone, or sent to your email. It keeps your account safe if your password is ever guessed or leaked.',
+  },
+  methods: {
+    app: { label: 'Authenticator app (recommended)', hint: 'A free app such as Google Authenticator or Microsoft Authenticator shows a new code every 30 seconds. Works without signal or internet.', unavailable: 'Not available yet: the website’s settings for authenticator apps are not in place. Ask the site administrator.' },
+    email: { label: 'Code by email', hint: 'A code is emailed to you each time you log in. Only as safe as your email account, and you must be able to read your email to log in.', unavailable: 'Not available: email is not set up on this website.' },
+  },
+  appSteps: [
+    'Install an authenticator app on your phone if you do not have one, such as Google Authenticator or Microsoft Authenticator.',
+    'In the app, add an account and scan this QR code. If you cannot scan it, type in the key below instead.',
+    'Enter the 6-digit code the app shows.',
+  ],
+  recovery: {
+    title: 'Save your recovery codes',
+    text: 'If you lose your phone or cannot get a code, each of these codes gets you in once instead. Keep them somewhere safe, away from your password: print them, or save them in a password manager. They are shown only now.',
+    confirm: 'I have saved my recovery codes somewhere safe.',
+    lowWarning: 'You are running low on recovery codes. Make new ones.',
+  },
+  disableWarning: 'Turning it off means logging in needs only your password.',
+  loginHelp: {
+    app: 'Open your authenticator app and enter the 6-digit code for GPEC Admin.',
+    email: (hint: string) => `We have emailed a 6-digit code to ${hint}. It works for 10 minutes. Check your spam folder if it does not arrive.`,
+    emailUnavailable: 'Codes cannot be emailed right now. Use one of your recovery codes instead.',
+    recovery: 'Enter one of the recovery codes you saved when you turned on two-step login. Each one works once.',
+  },
+}

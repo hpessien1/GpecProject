@@ -19,6 +19,9 @@ export const noBreaches: BreachedPasswordCheck = { isBreached: async () => false
 // mailer: a RecordingMailer to check emails; null (the default) means email is off.
 // imageStore: a MemoryImageStore to turn photo uploads on; null (the default) means uploads are off.
 // paystack: a FakePaystack to turn payments on (with TEST_PAYMENTS); null (the default) means off.
+// A plainly fake key (all sevens), so authenticator apps are on in tests.
+export const TEST_TWO_FACTOR_KEY = Buffer.alloc(32, 7)
+
 export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | null = null, breachCheck: BreachedPasswordCheck = noBreaches, imageStore: ImageStore | null = null, paystack: PaystackClient | null = null) {
   return createApp({
     isProduction: false,
@@ -32,6 +35,7 @@ export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | nul
     email: null,
     imageStorage: null,
     payments: null,
+    twoFactorKey: TEST_TWO_FACTOR_KEY,
     ...overrides,
   }, mailer, breachCheck, imageStore, paystack)
 }

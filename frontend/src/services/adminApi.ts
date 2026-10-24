@@ -1,5 +1,5 @@
 import { requestJson } from './apiClient'
-import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary } from '../types'
+import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -18,8 +18,48 @@ export function getAdminSession() {
   return requestJson<AdminSessionInfo>('/admin/session', 'Unable to check your login.', admin)
 }
 
+// A session, or, for an admin with two-step login, a request for the code (then submitLoginCode).
 export function logIn(email: string, password: string) {
-  return requestJson<AdminSessionInfo>('/admin/session', 'Unable to log in. Please try again.', { ...admin, method: 'POST', payload: { email, password } })
+  return requestJson<AdminSessionInfo | LoginChallenge>('/admin/session', 'Unable to log in. Please try again.', { ...admin, method: 'POST', payload: { email, password } })
+}
+
+export function submitLoginCode(step: SecondStep) {
+  return requestJson<AdminSessionInfo>('/admin/session/two-factor', 'Unable to check the code. Please try again.', { ...admin, method: 'POST', payload: step })
+}
+
+export function resendLoginCode() {
+  return requestJson<{ message: string }>('/admin/session/two-factor/email-code', 'Unable to send a new code. Please try again.', { ...admin, method: 'POST' })
+}
+
+// Closes the "turn on two-step login" banner until the next login.
+export function dismissTwoFactorPrompt() {
+  return requestJson<void>('/admin/session/two-factor-prompt/dismiss', 'Unable to close the message.', { ...admin, method: 'POST' })
+}
+
+export function getTwoFactorStatus() {
+  return requestJson<TwoFactorStatus>('/admin/account/two-factor', 'Unable to load your two-step login settings.', admin)
+}
+
+// The QR code's link and the key to type into an authenticator app.
+export function startAppSetup() {
+  return requestJson<{ secret: string, uri: string }>('/admin/account/two-factor/app', 'Unable to start setting up the app.', { ...admin, method: 'POST' })
+}
+
+// Emails a code to the logged-in admin (to set up email codes, or to confirm a change).
+export function sendAccountCode() {
+  return requestJson<{ message: string }>('/admin/account/two-factor/email-code', 'Unable to send a code. Please try again.', { ...admin, method: 'POST' })
+}
+
+export function enableTwoFactor(method: TwoFactorMethod, code: string) {
+  return requestJson<TwoFactorStatus & { recoveryCodes: string[] }>('/admin/account/two-factor/enable', 'Unable to turn on two-step login.', { ...admin, method: 'POST', payload: { method, code } })
+}
+
+export function disableTwoFactor(password: string, step: SecondStep) {
+  return requestJson<TwoFactorStatus>('/admin/account/two-factor/disable', 'Unable to turn off two-step login.', { ...admin, method: 'POST', payload: { password, ...step } })
+}
+
+export function regenerateRecoveryCodes(password: string, step: SecondStep) {
+  return requestJson<TwoFactorStatus & { recoveryCodes: string[] }>('/admin/account/two-factor/recovery-codes', 'Unable to make new recovery codes.', { ...admin, method: 'POST', payload: { password, ...step } })
 }
 
 export function logOut() {

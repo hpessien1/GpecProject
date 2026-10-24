@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage } from '../../src/types'
+import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -31,6 +31,11 @@ export const BREACHED_PASSWORD = 'password password password'
 // The one reset-link token the sample server accepts (43 characters, like the real ones).
 export const RESET_TOKEN = 'r'.repeat(43)
 export const RESET_REQUESTED_MESSAGE = 'If this email address belongs to a GPEC admin account, a link to reset the password is on its way. It works for 30 minutes. Check the spam folder if it does not arrive.'
+// Two-step login: the one code the sample server accepts (from the app or the email), and its
+// recovery codes (each works once).
+export const SAMPLE_CODE = '123456'
+export const SAMPLE_RECOVERY_CODES = Array.from({ length: 10 }, (_, index) => `abcd${index}-efgh${index}`)
+export const SAMPLE_APP_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
 const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
 
 // Short sample versions of the staff-edited pages (the real starting text is in the backend's
@@ -123,6 +128,13 @@ export interface ApiState {
   emailOn: boolean
   formsFail: boolean
   loggedIn: boolean
+  // Two-step login: the admin's method (null: off), unused recovery codes, which methods the "server"
+  // offers, whether the banner was closed this login, and a login waiting for its code.
+  twoFactorMethod: TwoFactorMethod | null
+  recoveryCodes: string[]
+  twoFactorAvailable: { app: boolean, email: boolean }
+  promptDismissed: boolean
+  pendingLogin: boolean
   // The FAQ, refunds policy, and privacy notice, their change histories, and making them fail to load.
   siteContent: Record<SiteContentKey, SiteContentPage>
   siteContentHistory: Record<SiteContentKey, SiteContentHistoryEntry[]>
@@ -178,6 +190,11 @@ function initialState(): ApiState {
     emailOn: true,
     formsFail: false,
     loggedIn: false,
+    twoFactorMethod: null,
+    recoveryCodes: [],
+    twoFactorAvailable: { app: true, email: true },
+    promptDismissed: false,
+    pendingLogin: false,
     requests: [],
   }
 }
@@ -306,7 +323,12 @@ function reply(state: ApiState, request: Request): Reply {
   const path = url.pathname
   const method = request.method()
   const body = jsonBody(request) ?? {}
-  const session: AdminSessionInfo = { admin: { name: ADMIN.name, email: ADMIN.email }, currency: state.currency, imageUploads: state.imageUploads }
+  const session = (): AdminSessionInfo => ({ admin: { name: ADMIN.name, email: ADMIN.email }, currency: state.currency, imageUploads: state.imageUploads, twoFactor: { enabled: state.twoFactorMethod !== null, prompt: state.twoFactorMethod === null && !state.promptDismissed } })
+  const twoFactorStatus = () => ({ method: state.twoFactorMethod, enabledAt: state.twoFactorMethod ? now : null, recoveryCodesLeft: state.recoveryCodes.length, available: state.twoFactorAvailable })
+  // A code or recovery code sent with a request; a used recovery code is removed.
+  const secondStepPasses = () => typeof body.recoveryCode === 'string'
+    ? state.recoveryCodes.includes(body.recoveryCode) && (state.recoveryCodes = state.recoveryCodes.filter((code) => code !== body.recoveryCode), true)
+    : body.code === SAMPLE_CODE
 
   // Like the real API: prices only while a currency is configured.
   if (path === '/api/products') return state.products === 'error' ? [500, { message: 'Something went wrong on our side. Please try again.' }] : [200, { products: state.currency ? state.products : state.products.map(({ price: _price, ...product }) => product), currency: state.currency }]
@@ -321,8 +343,49 @@ function reply(state: ApiState, request: Request): Reply {
 
   if (path === '/api/admin/session' && method === 'POST') {
     if (body.email !== ADMIN.email || body.password !== ADMIN.password) return [401, { message: 'Email or password is incorrect.', code: 'INVALID_CREDENTIALS' }]
+    if (state.twoFactorMethod) {
+      state.pendingLogin = true
+      return [200, { twoFactorRequired: true, method: state.twoFactorMethod, emailHint: state.twoFactorMethod === 'email' ? 'a•••@example.com' : null, emailAvailable: state.twoFactorAvailable.email }]
+    }
     state.loggedIn = true
-    return [200, session]
+    state.promptDismissed = false
+    return [200, session()]
+  }
+  if (path === '/api/admin/session/two-factor') {
+    if (!state.pendingLogin) return [401, { message: 'Your login has timed out. Enter your email and password again.', code: 'LOGIN_EXPIRED' }]
+    if (!secondStepPasses()) {
+      const field = typeof body.recoveryCode === 'string' ? 'recoveryCode' : 'code'
+      return [400, { message: 'That code is not right. Check it and try again. 4 tries left.', code: 'WRONG_CODE', errors: { [field]: 'That code is not right. Check it and try again.' } }]
+    }
+    state.pendingLogin = false
+    state.loggedIn = true
+    state.promptDismissed = false
+    return [200, session()]
+  }
+  if (path === '/api/admin/session/two-factor/email-code') return [202, { message: 'A new code is on its way.' }]
+  if (path === '/api/admin/session/two-factor-prompt/dismiss') {
+    state.promptDismissed = true
+    return [204, null]
+  }
+  if (path === '/api/admin/account/two-factor') return [200, twoFactorStatus()]
+  if (path === '/api/admin/account/two-factor/app') return [200, { secret: SAMPLE_APP_SECRET, uri: `otpauth://totp/GPEC%20Admin%3A${encodeURIComponent(ADMIN.email)}?secret=${SAMPLE_APP_SECRET}&issuer=GPEC+Admin&algorithm=SHA1&digits=6&period=30` }]
+  if (path === '/api/admin/account/two-factor/email-code') return [202, { message: `A code is on its way to ${ADMIN.email}. It works for 10 minutes.` }]
+  if (path === '/api/admin/account/two-factor/enable') {
+    if (body.code !== SAMPLE_CODE) return [400, { message: 'That code is not right, or has already been used.', code: 'WRONG_CODE', errors: { code: 'That code is not right, or has already been used.' } }]
+    state.twoFactorMethod = body.method as TwoFactorMethod
+    state.recoveryCodes = [...SAMPLE_RECOVERY_CODES]
+    return [200, { recoveryCodes: state.recoveryCodes, ...twoFactorStatus() }]
+  }
+  if (path === '/api/admin/account/two-factor/disable' || path === '/api/admin/account/two-factor/recovery-codes') {
+    if (body.password !== ADMIN.password) return [400, { message: 'Your password is incorrect.', code: 'WRONG_PASSWORD', errors: { password: 'Your password is incorrect.' } }]
+    if (!secondStepPasses()) return [400, { message: 'That code is not right, or has already been used.', code: 'WRONG_CODE', errors: { code: 'That code is not right, or has already been used.' } }]
+    if (path.endsWith('/disable')) {
+      state.twoFactorMethod = null
+      state.recoveryCodes = []
+      return [200, twoFactorStatus()]
+    }
+    state.recoveryCodes = SAMPLE_RECOVERY_CODES.map((code) => code.replace('abcd', 'wxyz'))
+    return [200, { recoveryCodes: state.recoveryCodes, ...twoFactorStatus() }]
   }
   if (path === '/api/admin/session' && method === 'DELETE') {
     state.loggedIn = false
@@ -339,7 +402,7 @@ function reply(state: ApiState, request: Request): Reply {
     return [204, null]
   }
   if (!state.loggedIn) return [401, { message: 'Please log in to continue.', code: 'ADMIN_AUTH_REQUIRED' }]
-  if (path === '/api/admin/session') return [200, session]
+  if (path === '/api/admin/session') return [200, session()]
   if (path === '/api/admin/session/password') {
     if (body.newPassword === BREACHED_PASSWORD) return [400, { message: BREACHED_MESSAGE, code: 'PASSWORD_BREACHED', errors: { newPassword: BREACHED_MESSAGE } }]
     if (body.currentPassword !== ADMIN.password) return [400, { message: 'Your current password is incorrect.', code: 'WRONG_PASSWORD', errors: { currentPassword: 'Your current password is incorrect.' } }]

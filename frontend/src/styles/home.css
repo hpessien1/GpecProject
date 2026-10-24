@@ -1,14 +1,6 @@
 /* Home page (#home): the page sections, in page order. Copy is in data/landingContent.ts.
 
-   Shared by several sections: section spacing, section headings, and the outline button. */
-.button-outline {
-  border: 1px solid var(--line);
-  color: var(--ink);
-}
-.button-outline:hover {
-  background: var(--ink);
-  color: var(--cream);
-}
+   Shared by several sections: section spacing and section headings. */
 .section {
   padding: 8.5rem 9vw;
 }
@@ -262,7 +254,7 @@
   align-items: end;
   inset: auto 5vw 30px;
   color: rgba(255, 255, 255, 0.56);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.09em;
   animation: hero-footer-reveal 1s 0.35s ease both;
@@ -475,7 +467,7 @@
 .about-values-title {
   margin: 2.2rem 0 0;
   color: var(--ink);
-  font: 500 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -552,7 +544,7 @@
 }
 .panel-capability-card > span {
   color: var(--lime);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.09em;
   position: absolute;
   top: 1.45rem;
@@ -572,7 +564,7 @@
 }
 .panel-capability-card a {
   color: var(--lime);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -587,7 +579,7 @@
 .panel-detail-row > article span,
 .component-list > span {
   color: var(--forest);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
@@ -996,7 +988,7 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  font: 500 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
@@ -1033,7 +1025,7 @@
   align-items: center;
   gap: 0.4rem;
   color: #fff;
-  font: 700 0.72rem var(--mono);
+  font: 700 0.8rem var(--label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1153,7 +1145,7 @@
   padding: 0.25rem 0.5rem;
   background: rgba(6, 23, 71, 0.85);
   color: #fff;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1343,7 +1335,7 @@
 .product-category-number {
   margin-bottom: 1rem;
   color: #ff8420;
-  font: 500 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.06em;
 }
 .product-category strong {
@@ -1436,7 +1428,7 @@
   overflow: hidden;
 }
 .work-card-copy p {
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1535,7 +1527,7 @@
   padding: 0.3rem 0.5rem;
   background: rgba(6, 23, 71, 0.85);
   color: #fff;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1731,7 +1723,7 @@
     box-shadow 0.25s ease;
 }
 .steps li > span {
-  font: 800 clamp(2.6rem, 4vw, 4.2rem) / 1 var(--mono);
+  font: 800 clamp(2.6rem, 4vw, 4.2rem) / 1 var(--label);
   padding: 0;
   color: var(--lime);
 }
@@ -1909,7 +1901,7 @@
   right: 1.25rem;
   transform: translateY(-50%);
   color: var(--forest);
-  font: 500 1.4rem var(--mono);
+  font: 500 1.4rem var(--label);
 }
 .faq-item[open] summary::after {
   content: "\2013";
@@ -1952,13 +1944,14 @@
 }
 .quote-form label {
   display: grid;
-  font-family: var(--mono);
+  font-family: var(--label);
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   gap: 0.6rem;
   margin-bottom: 1.2rem;
   color: var(--ink);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 .quote-form input,
 .quote-form select,

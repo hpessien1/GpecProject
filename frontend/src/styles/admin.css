@@ -98,7 +98,7 @@
   display: grid;
   gap: 0.5rem;
   color: var(--ink);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -110,7 +110,8 @@
 .admin-new-password {
   display: contents;
 }
-.admin-form input:not([type="checkbox"]),
+/* Text boxes only: checkboxes and radio buttons keep their own look. */
+.admin-form input:not([type="checkbox"], [type="radio"]),
 .admin-form select,
 .admin-form textarea {
   width: 100%;
@@ -183,7 +184,7 @@
   outline-offset: 2px;
 }
 .admin-field .admin-password-count {
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.03em;
 }
 .admin-field .admin-password-count-ok {
@@ -212,7 +213,7 @@
   display: grid;
   place-items: center;
   color: var(--ink);
-  font: 0.7rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -329,7 +330,7 @@
   color: var(--cream);
 }
 .admin-filters button span {
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
 }
 /* Product list (components/admin/AdminProductList.tsx) */
 .admin-product-list {
@@ -352,7 +353,7 @@
   min-width: 0;
 }
 .admin-product-main span {
-  font: 0.72rem var(--mono);
+  font: 0.85rem var(--mono);
   letter-spacing: 0.04em;
   overflow-wrap: anywhere;
 }
@@ -365,7 +366,7 @@
   margin-right: 0.35rem;
   padding: 0.2rem 0.45rem;
   border: 1px solid var(--ink);
-  font: 0.7rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -406,7 +407,7 @@
 }
 .admin-history-meta {
   margin: 0 0 0.4rem;
-  font: 0.75rem/1.5 var(--mono);
+  font: 600 0.8rem/1.5 var(--label);
   letter-spacing: 0.03em;
 }
 .admin-history ul {
@@ -430,7 +431,7 @@
   background: #fff;
   color: var(--ink);
   cursor: pointer;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -445,8 +446,10 @@
   font-size: 0.78rem;
 }
 @media (max-width: 980px) {
+  /* minmax(0, …): wide content such as the order's items table scrolls inside its own box
+     (.admin-table-wrap) instead of making the page wider than a small phone. */
   .admin-editor-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 /* Contact requests and orders: status labels, lists, and detail pages */
@@ -456,7 +459,7 @@
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--ink);
   color: var(--ink);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
@@ -535,7 +538,7 @@
   overflow-wrap: anywhere;
 }
 .admin-request-main small {
-  font: 0.72rem var(--mono);
+  font: 0.85rem var(--mono);
   letter-spacing: 0.03em;
 }
 .admin-request-detail h2,
@@ -563,7 +566,7 @@
   font-size: 0.9rem;
 }
 .admin-request-detail dt {
-  font: 0.75rem/1.6 var(--mono);
+  font: 600 0.8rem/1.6 var(--label);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -656,7 +659,7 @@
   white-space: nowrap;
 }
 .admin-order-items thead th {
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -670,7 +673,7 @@
 }
 .admin-order-items small {
   display: block;
-  font: 0.72rem var(--mono);
+  font: 0.85rem var(--mono);
   font-weight: 400;
 }
 .admin-order-items td:last-child,
@@ -697,7 +700,7 @@
   font-weight: 700;
 }
 .admin-mono {
-  font: 0.8rem var(--mono);
+  font: 0.88rem var(--mono);
 }
 @media (max-width: 650px) {
   .admin-order-list li {
@@ -721,7 +724,7 @@
 }
 .admin-content-updated {
   color: var(--ink);
-  font: 0.75rem var(--mono);
+  font: 600 0.8rem var(--label);
 }
 /* Back to the list of pages, from inside the eyebrow above the page title. */
 .admin-heading .eyebrow a {
@@ -751,7 +754,7 @@
   margin-bottom: 0.6rem;
   padding: 0;
   color: var(--ink);
-  font: 700 0.75rem var(--mono);
+  font: 700 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -767,7 +770,7 @@
 .admin-content-section > legend {
   padding: 0 0.4rem;
   color: var(--ink);
-  font: 0.75rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -809,4 +812,174 @@
 .admin-content-diff p {
   margin: 0.4rem 0 0;
   white-space: pre-line;
+}
+/* Two-step login (components/admin/AdminSecurity.tsx, AdminLoginCode.tsx, TwoFactorBanner.tsx,
+   RecoveryCodes.tsx, QrCode.tsx) */
+/* A button that reads as a link: "Use a recovery code instead", "Send a new code". */
+.admin-link-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--forest);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.admin-link-button:hover {
+  color: var(--deep);
+}
+.admin-link-button:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+.admin-two-factor-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin: 0 0 2rem;
+  padding: 1.1rem 1.25rem;
+  border-left: 6px solid var(--lime);
+  background: var(--sand);
+  color: var(--ink);
+}
+.admin-two-factor-banner h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+}
+.admin-two-factor-banner p {
+  max-width: 640px;
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.admin-two-factor-banner-actions,
+.admin-security-buttons,
+.admin-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+.admin-security {
+  max-width: 720px;
+  color: var(--ink);
+}
+.admin-security-step h2,
+.admin-recovery h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  font-size: 1.4rem;
+  letter-spacing: -0.04em;
+}
+.admin-security-step p,
+.admin-recovery p {
+  line-height: 1.6;
+}
+.admin-security-methods {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.admin-security-methods legend {
+  margin-bottom: 0.7rem;
+  padding: 0;
+  font-weight: 700;
+}
+.admin-security-method {
+  display: flex;
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
+  cursor: pointer;
+}
+.admin-security-method:has(input:checked) {
+  border-color: var(--forest);
+  box-shadow: inset 3px 0 0 var(--forest);
+}
+.admin-security-method.is-unavailable {
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.admin-security-method input {
+  flex: 0 0 auto;
+  margin: 0.2rem 0 0;
+  accent-color: var(--forest);
+}
+.admin-security-method small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.admin-security-steps {
+  padding-left: 1.2rem;
+  line-height: 1.6;
+}
+.admin-qr-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+/* Large enough to scan from a phone held at arm's length; never wider than a phone screen. */
+.admin-qr {
+  width: min(220px, 100%);
+  height: auto;
+  border: 1px solid var(--line);
+}
+.admin-security-key-label {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.admin-security-key {
+  margin: 0.3rem 0 0.8rem;
+  font: 600 1rem/1.5 var(--mono);
+  letter-spacing: 0.05em;
+  overflow-wrap: anywhere;
+}
+.admin-recovery {
+  max-width: 640px;
+}
+.admin-recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1.5rem;
+  margin: 1.2rem 0;
+  padding: 1rem 1.2rem 1rem 2.4rem;
+  border: 1px dashed var(--ink);
+  background: #fff;
+  font: 1rem var(--mono);
+}
+.admin-recovery-copied {
+  min-height: 1.4em;
+  margin: 0.6rem 0;
+  font-size: 0.85rem;
+}
+@media (max-width: 540px) {
+  .admin-recovery-codes {
+    grid-template-columns: 1fr;
+  }
+}
+/* Room between the last control and what follows it. */
+.admin-recovery .admin-checkbox {
+  margin: 1.2rem 0;
+}
+.admin-security-step .admin-security-buttons + .admin-help {
+  margin-top: 0.9rem;
 }

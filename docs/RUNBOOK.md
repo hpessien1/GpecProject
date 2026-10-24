@@ -344,6 +344,24 @@ Until these are set, checkout shows the order and says online payment is not ava
    *Live*, set the live webhook URL to the same address, replace `PAYSTACK_SECRET_KEY` with the
    `sk_live_…` key, and redeploy. The "Test mode" notice disappears.
 
+### 1.9 Two-step login
+
+Admins can turn on two-step login for their own account (admin panel, **Two-step login** in the
+header): a code from an authenticator app, or an emailed code (needs email, Section 1.6).
+
+1. **Authenticator apps need a key.** On your own computer run `openssl rand -base64 32` and copy the
+   result. In Coolify, open `gpec-api`, **Environment Variables**, add `TWO_FACTOR_ENCRYPTION_KEY`
+   with that value (runtime only: *Available at Buildtime* unticked), save, and redeploy. Use a
+   different value from the one in your local `backend/.env`. The API's log no longer says
+   "Authenticator apps for two-step login are off".
+2. **Never change or delete this key** while admins use an authenticator app: their codes would stop
+   working (they could still log in with a recovery code, then set the app up again). If it ever
+   leaks, ask every admin to turn two-step login off and on again after you replace it.
+3. **Someone lost their phone and their recovery codes:** check it really is them (in person or by
+   phone), then in the `gpec-api` terminal run
+   `node dist/scripts/createAdmin.js --production --email person@example.com --disable-2fa`. They log
+   in with their password and turn it on again.
+
 ## 2. Deploying
 
 1. Check that GitHub Actions CI is green for the `main` commit you are shipping.

@@ -37,7 +37,10 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
 - Admin "forgot password" (no login): `POST /api/admin/session/password-reset`,
   `POST /api/admin/session/password-reset/confirm`
 - Admin (login required; see below): `POST`, `GET`, `DELETE /api/admin/session`;
-  `POST /api/admin/session/password`;
+  `POST /api/admin/session/two-factor`, `POST /api/admin/session/two-factor/email-code` (the code step
+  of a login, with its challenge cookie); `POST /api/admin/session/two-factor-prompt/dismiss`;
+  `GET /api/admin/account/two-factor`, `POST …/app`, `…/email-code`, `…/enable`, `…/disable`,
+  `…/recovery-codes`; `POST /api/admin/session/password`;
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
   `GET /api/admin/products/:id/history`; `GET /api/admin/contact-requests`, `GET`,
   `PATCH /api/admin/contact-requests/:reference`, `GET`, `POST /api/admin/contact-requests/:reference/notes`,
@@ -134,8 +137,22 @@ All admin responses are sent with `Cache-Control: no-store`.
 - `POST /api/admin/session` with `{ email, password }` logs in and sets the `gpec_admin_session`
   cookie (httpOnly, SameSite=Strict, Secure in production, 8 hours). Wrong email and wrong password
   both return `401 INVALID_CREDENTIALS`. Failed attempts are limited per IP (5 per 15 minutes in
-  production). `GET` returns the logged-in admin and the configured currency
-  (`{ code, minorUnitDigits }` or `null`); `DELETE` logs out.
+  production). `GET` returns the logged-in admin, the configured currency (`{ code, minorUnitDigits }`
+  or `null`), and `twoFactor: { enabled, prompt }`; `DELETE` logs out.
+- **Two-step login.** For an admin who has it on, the right password answers `{ twoFactorRequired:
+  true, method: 'app' | 'email', emailHint, emailAvailable }` and sets the `gpec_admin_login` cookie
+  (10 minutes) instead of a session; for email, the code is emailed after answering. `POST
+  /api/admin/session/two-factor` with `{ code }` (6 digits) or `{ recoveryCode }` completes the login:
+  `400 WRONG_CODE` with tries left, `401 LOGIN_EXPIRED` after five wrong codes or 10 minutes, `409
+  APP_CODES_UNAVAILABLE` without the encryption key. `…/two-factor/email-code` sends a new email code
+  (`429 CODE_TOO_SOON` within a minute, `CODE_LIMIT` after five). `…/two-factor-prompt/dismiss` closes
+  the banner until the next login.
+- `/api/admin/account/two-factor` (logged in, own account only): `GET` → `{ method, enabledAt,
+  recoveryCodesLeft, available: { app, email } }`; `POST /app` → `{ secret, uri }` (Base32 key and
+  `otpauth://` link, 15 minutes to confirm); `POST /email-code` emails a code; `POST /enable` with
+  `{ method, code }` → the status plus `recoveryCodes` (shown once; ends other sessions); `POST
+  /disable` and `POST /recovery-codes` with `{ password, code | recoveryCode }` (`400 WRONG_PASSWORD`
+  / `WRONG_CODE`, both counted per IP).
 - `POST /api/admin/session/password` with `{ currentPassword, newPassword }` changes the logged-in
   admin's password (new one at least 15 characters, different from the current one) and ends their
   other sessions. A wrong current password gets `400 WRONG_PASSWORD` and counts toward the

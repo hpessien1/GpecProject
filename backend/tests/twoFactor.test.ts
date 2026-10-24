@@ -1,0 +1,397 @@
+import request from 'supertest'
+import type TestAgent from 'supertest/lib/agent.js'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { loadConfig } from '../src/config.js'
+import AdminLoginChallenge from '../src/models/AdminLoginChallenge.js'
+import AdminUser from '../src/models/AdminUser.js'
+import { open, seal } from '../src/services/secretBox.js'
+import { currentStep, matchTotp, toBase32, totpCode } from '../src/services/totp.js'
+import { RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, TEST_TWO_FACTOR_KEY, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
+
+useTestDatabase()
+
+const ORIGIN = 'http://localhost:5173'
+const ACCOUNT = '/api/admin/account/two-factor'
+const LOGIN = '/api/admin/session'
+
+let mailer: RecordingMailer
+let app: ReturnType<typeof testApp>
+let agent: TestAgent
+
+beforeEach(async () => {
+  mailer = new RecordingMailer()
+  app = testApp({ email: TEST_EMAIL_SETTINGS }, mailer)
+  await createTestAdmin()
+  agent = await loggedInAgent(app)
+})
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
+const post = (client: TestAgent, path: string, body: object = {}) => client.post(path).set('Origin', ORIGIN).send(body)
+// The 6-digit code in the last email sent.
+const lastEmailedCode = () => /\n(\d{6})\n/.exec(mailer.sent.at(-1)?.text ?? '')?.[1] ?? ''
+
+async function appSecret() {
+  const admin = await AdminUser.findOne({ email: TEST_ADMIN.email }).lean()
+  const sealed = admin?.twoFactorSecret ?? admin?.pendingTwoFactorSecret
+  return open(sealed ?? '', TEST_TWO_FACTOR_KEY) as Buffer
+}
+
+// Turns on the authenticator app for the logged-in admin and returns its recovery codes. The first
+// code is the current step's, so later logins use the next step's (a code cannot be used twice).
+async function turnOnApp() {
+  await post(agent, `${ACCOUNT}/app`).expect(200)
+  const res = await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: totpCode(await appSecret(), currentStep()) })
+  expect(res.status).toBe(200)
+  return res.body.recoveryCodes as string[]
+}
+
+async function turnOnEmail() {
+  await post(agent, `${ACCOUNT}/email-code`).expect(202)
+  await settle()
+  const res = await post(agent, `${ACCOUNT}/enable`, { method: 'email', code: lastEmailedCode() })
+  expect(res.status).toBe(200)
+  return res.body.recoveryCodes as string[]
+}
+
+// Password step of a login; the returned agent holds the challenge cookie.
+async function startLogin() {
+  const client = request.agent(app)
+  const res = await post(client, LOGIN, { email: TEST_ADMIN.email, password: TEST_ADMIN.password })
+  return { client, res }
+}
+
+describe('one-time codes (RFC 6238) and the key format (RFC 4648)', () => {
+  // RFC 6238 Appendix B, SHA-1 secret "12345678901234567890"; the last six of its eight digits.
+  const secret = Buffer.from('12345678901234567890')
+  it.each([[59, '287082'], [1111111109, '081804'], [1111111111, '050471'], [1234567890, '005924'], [2000000000, '279037']])('matches the published code at %i seconds', (seconds, code) => {
+    expect(totpCode(secret, Math.floor(seconds / 30))).toBe(code)
+  })
+
+  it('writes keys in Base32 as authenticator apps expect', () => {
+    expect(toBase32(Buffer.from('foobar'))).toBe('MZXW6YTBOI')
+    expect(toBase32(Buffer.from('f'))).toBe('MY')
+  })
+
+  it('accepts the code one step either side of now, no further, and never a step already used', () => {
+    const now = 1_000_000_000_000
+    const step = currentStep(now)
+    for (const offset of [-1, 0, 1]) expect(matchTotp(secret, totpCode(secret, step + offset), null, now)).toBe(step + offset)
+    for (const offset of [-2, 2]) expect(matchTotp(secret, totpCode(secret, step + offset), null, now)).toBeNull()
+    expect(matchTotp(secret, totpCode(secret, step), step, now)).toBeNull()
+    expect(matchTotp(secret, 'abcdef', null, now)).toBeNull()
+  })
+})
+
+describe('encrypted secrets', () => {
+  it('opens with the same key only, and refuses anything changed', () => {
+    const sealed = seal(Buffer.from('a secret'), TEST_TWO_FACTOR_KEY)
+    expect(open(sealed, TEST_TWO_FACTOR_KEY)?.toString()).toBe('a secret')
+    expect(open(sealed, Buffer.alloc(32, 8))).toBeNull()
+    const parts = sealed.split('.')
+    parts[3] = Buffer.from('another secret').toString('base64url')
+    expect(open(parts.join('.'), TEST_TWO_FACTOR_KEY)).toBeNull()
+    expect(open('nonsense', TEST_TWO_FACTOR_KEY)).toBeNull()
+  })
+
+  it('takes TWO_FACTOR_ENCRYPTION_KEY only as 32 bytes of base64', () => {
+    expect(loadConfig({ TWO_FACTOR_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64') }).twoFactorKey).toEqual(Buffer.alloc(32, 1))
+    expect(loadConfig({}).twoFactorKey).toBeNull()
+    expect(() => loadConfig({ TWO_FACTOR_ENCRYPTION_KEY: Buffer.alloc(16, 1).toString('base64') })).toThrow(/TWO_FACTOR_ENCRYPTION_KEY must be 32 random bytes/)
+    expect(() => loadConfig({ TWO_FACTOR_ENCRYPTION_KEY: 'not a key' })).toThrow(/TWO_FACTOR_ENCRYPTION_KEY/)
+  })
+})
+
+describe('the banner suggesting two-step login', () => {
+  it('shows until closed, stays closed for this login, and comes back at the next login', async () => {
+    expect((await agent.get(LOGIN)).body.twoFactor).toEqual({ enabled: false, prompt: true })
+    await post(agent, `${LOGIN}/two-factor-prompt/dismiss`).expect(204)
+    expect((await agent.get(LOGIN)).body.twoFactor).toEqual({ enabled: false, prompt: false })
+    const nextLogin = await loggedInAgent(app)
+    expect((await nextLogin.get(LOGIN)).body.twoFactor).toEqual({ enabled: false, prompt: true })
+  })
+
+  it('is not shown once two-step login is on', async () => {
+    await turnOnApp()
+    expect((await agent.get(LOGIN)).body.twoFactor).toEqual({ enabled: true, prompt: false })
+  })
+
+  it('can be closed only by a logged-in admin', async () => {
+    expect((await request(app).post(`${LOGIN}/two-factor-prompt/dismiss`).set('Origin', ORIGIN)).status).toBe(401)
+  })
+})
+
+describe('setting up an authenticator app', () => {
+  it('shows the key and QR link, turns on with a first code, gives ten recovery codes, and ends other sessions', async () => {
+    const otherBrowser = await loggedInAgent(app)
+    expect((await agent.get(ACCOUNT)).body).toEqual({ method: null, enabledAt: null, recoveryCodesLeft: 0, available: { app: true, email: true } })
+    const setup = await post(agent, `${ACCOUNT}/app`)
+    expect(setup.body.secret).toMatch(/^[A-Z2-7]{32}$/)
+    expect(setup.body.uri).toBe(`otpauth://totp/GPEC%20Admin%3A${encodeURIComponent(TEST_ADMIN.email)}?secret=${setup.body.secret}&issuer=GPEC+Admin&algorithm=SHA1&digits=6&period=30`)
+
+    // A wrong code changes nothing.
+    const wrong = await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: '000000' === totpCode(await appSecret(), currentStep()) ? '111111' : '000000' })
+    expect(wrong.status).toBe(400)
+    expect(wrong.body.code).toBe('WRONG_CODE')
+    expect((await agent.get(ACCOUNT)).body.method).toBeNull()
+
+    const res = await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: totpCode(await appSecret(), currentStep()) })
+    expect(res.status).toBe(200)
+    expect(res.body.recoveryCodes).toHaveLength(10)
+    expect(new Set(res.body.recoveryCodes).size).toBe(10)
+    for (const code of res.body.recoveryCodes) expect(code).toMatch(/^[a-z2-9]{5}-[a-z2-9]{5}$/)
+    expect(res.body).toMatchObject({ method: 'app', recoveryCodesLeft: 10 })
+
+    // This browser stays logged in; others, logged in with the password alone, are logged out.
+    expect((await agent.get(LOGIN)).status).toBe(200)
+    expect((await otherBrowser.get(LOGIN)).status).toBe(401)
+    await settle()
+    expect(mailer.sent.at(-1)).toMatchObject({ to: [TEST_ADMIN.email], subject: 'Two-step login is on for your GPEC admin account' })
+  })
+
+  it('stores the secret encrypted and the recovery codes hashed', async () => {
+    const codes = await turnOnApp()
+    const stored = await AdminUser.findOne({ email: TEST_ADMIN.email }).lean()
+    expect(stored?.twoFactorSecret).toMatch(/^v1\./)
+    expect(stored?.twoFactorSecret).not.toContain(toBase32(await appSecret()))
+    expect(stored?.recoveryCodeHashes).toHaveLength(10)
+    expect(JSON.stringify(stored)).not.toContain(codes[0])
+  })
+
+  it('is unavailable without the encryption key, and refused once it is already on', async () => {
+    const noKey = testApp({ email: TEST_EMAIL_SETTINGS, twoFactorKey: null }, mailer)
+    const noKeyAgent = await loggedInAgent(noKey)
+    expect((await noKeyAgent.get(ACCOUNT)).body.available).toEqual({ app: false, email: true })
+    expect((await post(noKeyAgent, `${ACCOUNT}/app`)).body.code).toBe('APP_CODES_UNAVAILABLE')
+    await turnOnApp()
+    expect((await post(agent, `${ACCOUNT}/app`)).body.code).toBe('TWO_FACTOR_ALREADY_ON')
+  })
+
+  it('needs a setup started first', async () => {
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: '123456' })).body.code).toBe('SETUP_NOT_STARTED')
+  })
+})
+
+describe('logging in with an authenticator app', () => {
+  it('asks for the code after the password, and logs in only once it is right', async () => {
+    const codes = await turnOnApp()
+    expect(codes).toHaveLength(10)
+    const { client, res } = await startLogin()
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ twoFactorRequired: true, method: 'app', emailHint: null, emailAvailable: true })
+    // Not logged in yet: only the challenge cookie, for the login routes alone.
+    expect(String(res.headers['set-cookie'])).toMatch(/gpec_admin_login=[\w-]{43}; Max-Age=600; Path=\/api\/admin\/session; .*HttpOnly; SameSite=Strict/)
+    expect(String(res.headers['set-cookie'])).not.toContain('gpec_admin_session')
+    expect((await client.get(LOGIN)).status).toBe(401)
+
+    const wrong = await post(client, `${LOGIN}/two-factor`, { code: '000000' === totpCode(await appSecret(), currentStep() + 1) ? '111111' : '000000' })
+    expect(wrong.status).toBe(400)
+    expect(wrong.body.message).toMatch(/4 tries left/)
+
+    const right = await post(client, `${LOGIN}/two-factor`, { code: totpCode(await appSecret(), currentStep() + 1) })
+    expect(right.status).toBe(200)
+    expect(right.body).toMatchObject({ admin: { email: TEST_ADMIN.email }, twoFactor: { enabled: true, prompt: false } })
+    expect((await client.get(LOGIN)).status).toBe(200)
+    // The challenge is used up.
+    expect(await AdminLoginChallenge.countDocuments()).toBe(0)
+  })
+
+  it('never accepts the same code twice', async () => {
+    await turnOnApp()
+    const code = totpCode(await appSecret(), currentStep() + 1)
+    const first = await startLogin()
+    expect((await post(first.client, `${LOGIN}/two-factor`, { code })).status).toBe(200)
+    const second = await startLogin()
+    expect((await post(second.client, `${LOGIN}/two-factor`, { code })).status).toBe(400)
+  })
+
+  it('lets one code complete only one of two logins sent at the same moment', async () => {
+    await turnOnApp()
+    const code = totpCode(await appSecret(), currentStep() + 1)
+    const [first, second] = await Promise.all([startLogin(), startLogin()])
+    const statuses = await Promise.all([first, second].map(({ client }) => post(client, `${LOGIN}/two-factor`, { code }).then((res) => res.status)))
+    expect(statuses.sort()).toEqual([200, 400])
+  })
+
+  it('allows five wrong codes for one login, then the password must be entered again', async () => {
+    await turnOnApp()
+    const wrongCode = '000000' === totpCode(await appSecret(), currentStep() + 1) ? '111111' : '000000'
+    const { client } = await startLogin()
+    for (let attempt = 1; attempt <= 4; attempt++) expect((await post(client, `${LOGIN}/two-factor`, { code: wrongCode })).status).toBe(400)
+    const fifth = await post(client, `${LOGIN}/two-factor`, { code: wrongCode })
+    expect(fifth.status).toBe(401)
+    expect(fifth.body.code).toBe('LOGIN_EXPIRED')
+    expect((await post(client, `${LOGIN}/two-factor`, { code: totpCode(await appSecret(), currentStep() + 1) })).status).toBe(401)
+  })
+
+  it('refuses a login that has timed out, a missing cookie, and an admin deactivated meanwhile', async () => {
+    await turnOnApp()
+    const code = totpCode(await appSecret(), currentStep() + 1)
+    const timedOut = await startLogin()
+    await AdminLoginChallenge.updateMany({}, { expiresAt: new Date(Date.now() - 1000) })
+    expect((await post(timedOut.client, `${LOGIN}/two-factor`, { code })).body.code).toBe('LOGIN_EXPIRED')
+    expect((await post(request.agent(app), `${LOGIN}/two-factor`, { code })).body.code).toBe('LOGIN_EXPIRED')
+    const deactivated = await startLogin()
+    await AdminUser.updateOne({ email: TEST_ADMIN.email }, { isActive: false })
+    expect((await post(deactivated.client, `${LOGIN}/two-factor`, { code })).body.code).toBe('LOGIN_EXPIRED')
+  })
+
+  it('logs in with a recovery code once, emailing how many are left', async () => {
+    const [first] = await turnOnApp()
+    const one = await startLogin()
+    const res = await post(one.client, `${LOGIN}/two-factor`, { recoveryCode: first.toUpperCase().replace('-', ' ') })
+    expect(res.status).toBe(200)
+    await settle()
+    expect(mailer.sent.at(-1)).toMatchObject({ subject: 'A recovery code was used for your GPEC admin account' })
+    expect(mailer.sent.at(-1)?.text).toContain('you have 9 left')
+    const again = await startLogin()
+    expect((await post(again.client, `${LOGIN}/two-factor`, { recoveryCode: first })).status).toBe(400)
+  })
+
+  it('without the encryption key, says app codes cannot be checked; a recovery code still works', async () => {
+    const [first] = await turnOnApp()
+    app = testApp({ email: TEST_EMAIL_SETTINGS, twoFactorKey: null }, mailer)
+    const { client } = await startLogin()
+    const res = await post(client, `${LOGIN}/two-factor`, { code: '123456' })
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('APP_CODES_UNAVAILABLE')
+    expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: first })).status).toBe(200)
+  })
+})
+
+describe('email codes', () => {
+  it('are set up with an emailed code, then emailed at each login', async () => {
+    await turnOnEmail()
+    expect((await agent.get(ACCOUNT)).body.method).toBe('email')
+    const { client, res } = await startLogin()
+    expect(res.body).toEqual({ twoFactorRequired: true, method: 'email', emailHint: 'a•••@example.test', emailAvailable: true })
+    await settle()
+    expect(mailer.sent.at(-1)).toMatchObject({ to: [TEST_ADMIN.email], subject: 'Your GPEC admin login code' })
+    expect((await post(client, `${LOGIN}/two-factor`, { code: lastEmailedCode() })).status).toBe(200)
+  })
+
+  it('can be sent again after a minute, and only a few times for one login', async () => {
+    await turnOnEmail()
+    const { client } = await startLogin()
+    expect((await post(client, `${LOGIN}/two-factor/email-code`)).body.code).toBe('CODE_TOO_SOON')
+    await AdminLoginChallenge.updateMany({}, { emailCodeSentAt: new Date(Date.now() - 61_000) })
+    expect((await post(client, `${LOGIN}/two-factor/email-code`)).status).toBe(202)
+    await settle()
+    // Only the newest code works.
+    expect((await post(client, `${LOGIN}/two-factor`, { code: lastEmailedCode() })).status).toBe(200)
+    const another = await startLogin()
+    await AdminLoginChallenge.updateMany({}, { emailCodesSent: 5, emailCodeSentAt: new Date(Date.now() - 61_000) })
+    expect((await post(another.client, `${LOGIN}/two-factor/email-code`)).body.code).toBe('CODE_LIMIT')
+  })
+
+  it('do not work once expired', async () => {
+    await turnOnEmail()
+    const { client } = await startLogin()
+    await settle()
+    const code = lastEmailedCode()
+    await AdminLoginChallenge.updateMany({}, { emailCodeSentAt: new Date(Date.now() - 11 * 60_000) })
+    expect((await post(client, `${LOGIN}/two-factor`, { code })).status).toBe(400)
+  })
+
+  it('cannot be chosen while email is off; an admin using them is told to use a recovery code', async () => {
+    const [first] = await turnOnEmail()
+    app = testApp({}, null)
+    const { client, res } = await startLogin()
+    expect(res.body.emailAvailable).toBe(false)
+    expect((await post(client, `${LOGIN}/two-factor/email-code`)).body.code).toBe('EMAIL_UNAVAILABLE')
+    expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: first })).status).toBe(200)
+    await createTestAdmin({ email: 'second@example.test', name: 'Second Admin' })
+    const offAgent = await loggedInAgent(testApp({}, null), 'second@example.test')
+    expect((await offAgent.get(ACCOUNT)).body.available.email).toBe(false)
+  })
+})
+
+describe('turning it off and new recovery codes', () => {
+  it('needs the password and a current code; then logging in needs only the password', async () => {
+    const [first] = await turnOnApp()
+    const wrongPassword = await post(agent, `${ACCOUNT}/disable`, { password: 'not the password at all', recoveryCode: first })
+    expect(wrongPassword.body.code).toBe('WRONG_PASSWORD')
+    const wrongCode = await post(agent, `${ACCOUNT}/disable`, { password: TEST_ADMIN.password, recoveryCode: 'aaaaa-aaaaa' })
+    expect(wrongCode.body.code).toBe('WRONG_CODE')
+    const res = await post(agent, `${ACCOUNT}/disable`, { password: TEST_ADMIN.password, code: totpCode(await appSecret(), currentStep() + 1) })
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ method: null, recoveryCodesLeft: 0 })
+    await settle()
+    expect(mailer.sent.at(-1)).toMatchObject({ subject: 'Two-step login was turned off for your GPEC admin account' })
+    const { res: login } = await startLogin()
+    expect(login.body.admin.email).toBe(TEST_ADMIN.email)
+    expect((await post(agent, `${ACCOUNT}/disable`, { password: TEST_ADMIN.password, recoveryCode: first })).body.code).toBe('TWO_FACTOR_OFF')
+  })
+
+  it('with email codes, uses a code emailed for the purpose', async () => {
+    await turnOnEmail()
+    await AdminUser.updateOne({ email: TEST_ADMIN.email }, { accountCodeSentAt: new Date(Date.now() - 61_000) })
+    await post(agent, `${ACCOUNT}/email-code`).expect(202)
+    await settle()
+    expect(mailer.sent.at(-1)?.subject).toBe('Your GPEC admin security code')
+    expect((await post(agent, `${ACCOUNT}/disable`, { password: TEST_ADMIN.password, code: lastEmailedCode() })).status).toBe(200)
+  })
+
+  it('makes ten new recovery codes; the old ones stop working', async () => {
+    const [oldCode, secondOld] = await turnOnApp()
+    const res = await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, recoveryCode: oldCode })
+    expect(res.status).toBe(200)
+    expect(res.body.recoveryCodes).toHaveLength(10)
+    expect(res.body.recoveryCodes).not.toContain(secondOld)
+    const { client } = await startLogin()
+    expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: secondOld })).status).toBe(400)
+    expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: res.body.recoveryCodes[0] })).status).toBe(200)
+  })
+})
+
+describe('admin accounts created before two-step login existed', () => {
+  // Stored without any of the two-step login fields, as on databases from before it was added.
+  async function makeLegacy() {
+    await AdminUser.collection.updateOne({ email: TEST_ADMIN.email }, { $unset: { twoFactorMethod: '', twoFactorSecret: '', twoFactorEnabledAt: '', lastTotpStep: '', recoveryCodeHashes: '', pendingTwoFactorSecret: '', pendingTwoFactorExpiresAt: '', accountCodeHash: '', accountCodeExpiresAt: '', accountCodeAttempts: '', accountCodeSentAt: '' } })
+    const stored = await AdminUser.collection.findOne({ email: TEST_ADMIN.email })
+    expect(stored).not.toHaveProperty('recoveryCodeHashes')
+  }
+
+  it('show the status, log in, and can turn on an authenticator app', async () => {
+    await makeLegacy()
+    expect((await agent.get(ACCOUNT)).body).toMatchObject({ method: null, enabledAt: null, recoveryCodesLeft: 0 })
+    expect((await agent.get(LOGIN)).body.twoFactor).toEqual({ enabled: false, prompt: true })
+    expect((await startLogin()).res.body.admin.email).toBe(TEST_ADMIN.email)
+    const codes = await turnOnApp()
+    expect(codes).toHaveLength(10)
+    const { client } = await startLogin()
+    expect((await post(client, `${LOGIN}/two-factor`, { code: totpCode(await appSecret(), currentStep() + 1) })).status).toBe(200)
+  })
+
+  it('can turn on email codes', async () => {
+    await makeLegacy()
+    expect(await turnOnEmail()).toHaveLength(10)
+  })
+})
+
+describe('access and validation', () => {
+  it('account security is for logged-in admins only, and changes must come from the GPEC site', async () => {
+    expect((await request(app).get(ACCOUNT)).status).toBe(401)
+    expect((await request(app).post(`${ACCOUNT}/app`).set('Origin', ORIGIN)).status).toBe(401)
+    expect((await agent.post(`${ACCOUNT}/app`).set('Origin', 'https://evil.example')).status).toBe(403)
+  })
+
+  it.each([
+    ['an unknown field', { code: '123456', trustDevice: true }, 'trustDevice'],
+    ['a code with letters', { code: '12345a' }, 'code'],
+    ['a code too short', { code: '12345' }, 'code'],
+    ['a code that is not text', { code: 123456 }, 'code'],
+    ['both a code and a recovery code', { code: '123456', recoveryCode: 'abcde-fghij' }, 'code'],
+    ['neither', {}, 'code'],
+    ['a recovery code that is an object', { recoveryCode: { $ne: '' } }, 'recoveryCode'],
+  ])('refuses %s at the login code step', async (_name, body, field) => {
+    await turnOnApp()
+    const { client } = await startLogin()
+    const res = await post(client, `${LOGIN}/two-factor`, body)
+    expect(res.status).toBe(400)
+    expect(res.body.errors).toHaveProperty([field])
+  })
+
+  it('refuses a method that does not exist', async () => {
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'sms', code: '123456' })).body.errors).toHaveProperty(['method'])
+  })
+})

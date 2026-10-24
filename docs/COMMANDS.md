@@ -106,7 +106,14 @@ cd backend && npm run admin:create -- --email person@example.com --name "Full Na
 
 # Forgotten password: prints a new one and logs that person out everywhere.
 cd backend && npm run admin:create -- --email person@example.com --reset
+
+# Lost phone and lost recovery codes: turns two-step login off and logs them out everywhere. Only
+# after checking it really is that person (in person or by phone).
+cd backend && npm run admin:create -- --email person@example.com --disable-2fa
 ```
+
+Two-step login with an authenticator app needs `TWO_FACTOR_ENCRYPTION_KEY` in `backend/.env`: make
+one with `openssl rand -base64 32`, add it, and restart the backend.
 
 Each person gets their **own** account, never a shared one: the change history records who changed
 each price. After logging in with the printed password, each person sets their own under

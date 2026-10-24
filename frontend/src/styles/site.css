@@ -71,7 +71,7 @@
     color: #fff;
     border: 0;
     background: transparent;
-    font: 600 0.72rem var(--mono);
+    font: 600 0.8rem var(--label);
     text-transform: uppercase;
     letter-spacing: 0.09em;
   }
@@ -158,7 +158,7 @@
 .footer-note {
   display: flex;
   justify-content: space-between;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   grid-column: 1;

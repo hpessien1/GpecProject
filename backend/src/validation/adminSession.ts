@@ -13,7 +13,8 @@ export function validateLogin(body: unknown) {
   return { errors, value: { email, password } }
 }
 
-// NIST SP 800-63B: at least 15 characters when the password is the only login factor (no 2FA here),
+// NIST SP 800-63B: at least 15 characters when the password is the only login factor (two-step login
+// is optional, so it may be),
 // and no composition rules such as "must include a symbol".
 export const MIN_PASSWORD_LENGTH = 15
 const MAX_PASSWORD_LENGTH = 200

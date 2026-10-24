@@ -16,15 +16,17 @@ import AdminRequestDetail from '../components/admin/AdminRequestDetail'
 import AdminRequestList from '../components/admin/AdminRequestList'
 import AdminResetPassword from '../components/admin/AdminResetPassword'
 import AdminSectionNav from '../components/admin/AdminSectionNav'
+import AdminSecurity from '../components/admin/AdminSecurity'
+import TwoFactorBanner from '../components/admin/TwoFactorBanner'
 import AdminSiteContentEditor from '../components/admin/AdminSiteContentEditor'
 import AdminSiteContentList from '../components/admin/AdminSiteContentList'
 import { ApiError } from '../services/apiClient'
-import { getAdminSession, logOut } from '../services/adminApi'
+import { dismissTwoFactorPrompt, getAdminSession, logOut } from '../services/adminApi'
 import { forgetRememberedState } from '../utils/rememberedState'
 import type { AdminRequestKind, AdminSessionInfo, SiteContentKey } from '../types'
 
 interface AdminPageProps {
-  // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/orders[/<reference>],
+  // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/security, #admin/orders[/<reference>],
   // #admin/delivery[/<id>], #admin/bank-transfer, #admin/content[/privacy|refunds|faq],
   // #admin/contact-requests[/<reference>], or (without logging in) #admin/forgot-password and
   // #admin/reset-password/<token>
@@ -38,6 +40,7 @@ type AdminView =
   | { kind: 'new' }
   | { kind: 'edit', productId: string }
   | { kind: 'password' }
+  | { kind: 'security' }
   | { kind: 'orders' }
   | { kind: 'order', reference: string }
   | { kind: 'delivery' }
@@ -54,6 +57,7 @@ function parseView(route: string): AdminView {
   if (reset) return { kind: 'reset', token: reset[1] ?? '' }
   if (route === '#admin/new') return { kind: 'new' }
   if (route === '#admin/password') return { kind: 'password' }
+  if (route === '#admin/security') return { kind: 'security' }
   if (route === '#admin/orders') return { kind: 'orders' }
   const order = /^#admin\/orders\/([^/]+)$/.exec(route)
   if (order) return { kind: 'order', reference: decodeURIComponent(order[1]) }
@@ -80,7 +84,7 @@ function sectionOf(view: AdminView) {
   if (view.kind === 'delivery' || view.kind === 'deliveryArea') return 'delivery'
   if (view.kind === 'bankTransfer') return 'bank-transfer'
   if (view.kind === 'content' || view.kind === 'contentPage') return 'content'
-  return view.kind === 'password' ? null : 'products'
+  return view.kind === 'password' || view.kind === 'security' ? null : 'products'
 }
 
 // Staff-only area. The browser only shows these screens; every admin request is checked by the server.
@@ -105,8 +109,10 @@ export default function AdminPage({ route }: AdminPageProps) {
       .finally(() => setIsCheckingSession(false))
   }, [])
 
-  // Move focus to the new screen's heading, as a full page load would.
-  useEffect(() => { if (!isCheckingSession) document.querySelector<HTMLElement>('#admin-main h1')?.focus() }, [route, session, isCheckingSession])
+  // Move focus to the new screen's heading, as a full page load would: on a new route, and on logging in
+  // or out. Not when the session's details change (two-step login turned on), which is not a new screen.
+  const isLoggedIn = session !== null
+  useEffect(() => { if (!isCheckingSession) document.querySelector<HTMLElement>('#admin-main h1')?.focus() }, [route, isLoggedIn, isCheckingSession])
 
   // Stable, because child screens list it in their effect dependencies.
   const handleSessionEnded = useCallback(() => {
@@ -141,6 +147,14 @@ export default function AdminPage({ route }: AdminPageProps) {
     window.location.hash = '#admin'
   }
 
+  // Hidden at once; the server remembers it until the next login. If saving that fails, the banner
+  // simply shows again on the next page load.
+  function handleDismissTwoFactorPrompt() {
+    setSession((current) => current && { ...current, twoFactor: { ...current.twoFactor, prompt: false } })
+    dismissTwoFactorPrompt().catch((error: unknown) => { if (error instanceof ApiError && error.status === 401) handleSessionEnded() })
+    document.getElementById('admin-main')?.focus()
+  }
+
   function handleCreated(productId: string) {
     const productRoute = `#admin/products/${encodeURIComponent(productId)}`
     setFlash({ route: productRoute, message: 'Product created.' })
@@ -157,9 +171,11 @@ export default function AdminPage({ route }: AdminPageProps) {
         : isCheckingSession ? <p className="admin-loading" role="status">Checking your login…</p>
         : !session ? <AdminLogin notice={notice} onLoggedIn={handleLoggedIn} />
         : <>
+        {session.twoFactor.prompt && view.kind !== 'security' && <TwoFactorBanner onDismiss={handleDismissTwoFactorPrompt} />}
         <AdminSectionNav current={sectionOf(view)} />
         {view.kind === 'list' ? <AdminProductList currency={session.currency} onSessionEnded={handleSessionEnded} />
         : view.kind === 'password' ? <AdminPasswordForm onSessionEnded={handleSessionEnded} />
+        : view.kind === 'security' ? <AdminSecurity email={session.admin.email} onSessionEnded={handleSessionEnded} onChanged={(enabled) => setSession((current) => current && { ...current, twoFactor: { enabled, prompt: false } })} />
         : view.kind === 'orders' ? <AdminOrders onSessionEnded={handleSessionEnded} />
         : view.kind === 'order' ? <AdminOrderDetail key={route} reference={view.reference} onSessionEnded={handleSessionEnded} />
         : view.kind === 'bankTransfer' ? <AdminBankTransfer currency={session.currency} onSessionEnded={handleSessionEnded} />

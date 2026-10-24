@@ -1,6 +1,6 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
-import { adminPasswordChangedEmail, adminPasswordResetEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerTransferOrderEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
+import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerTransferOrderEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
 import type { AdminEmailData, ContactEmailData, OrderEmailData } from './emailTemplates.js'
 
 const HOUR = 60 * 60 * 1000
@@ -22,6 +22,11 @@ export interface Notifier {
   // token: for the link only; it is never logged.
   passwordResetRequested(admin: AdminEmailData, token: string, minutes: number): Promise<void>
   passwordChanged(admin: AdminEmailData): Promise<void>
+  // Two-step login: codes (never logged) and notices of changes to it.
+  loginCode(admin: AdminEmailData, code: string, minutes: number): Promise<void>
+  accountCode(admin: AdminEmailData, code: string, minutes: number): Promise<void>
+  twoFactorChanged(admin: AdminEmailData, change: { on: true, method: 'app' | 'email' } | { on: false }): Promise<void>
+  recoveryCodeUsed(admin: AdminEmailData, left: number): Promise<void>
 }
 
 // Sends staff notifications and customer confirmations after a request is saved. Never throws: a
@@ -87,6 +92,22 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     async passwordChanged(admin) {
       if (!mailer || !settings) return
       await deliver('an admin password change', [{ to: [admin.email], ...adminPasswordChangedEmail(admin, settings.siteUrl) }])
+    },
+    async loginCode(admin, code, minutes) {
+      if (!mailer || !settings) return
+      await deliver('an admin login code', [{ to: [admin.email], ...adminLoginCodeEmail(admin, code, minutes) }])
+    },
+    async accountCode(admin, code, minutes) {
+      if (!mailer || !settings) return
+      await deliver('an admin security code', [{ to: [admin.email], ...adminAccountCodeEmail(admin, code, minutes) }])
+    },
+    async twoFactorChanged(admin, change) {
+      if (!mailer || !settings) return
+      await deliver('a two-step login change', [{ to: [admin.email], ...adminTwoFactorChangedEmail(admin, change, settings.siteUrl) }])
+    },
+    async recoveryCodeUsed(admin, left) {
+      if (!mailer || !settings) return
+      await deliver('a recovery code login', [{ to: [admin.email], ...adminRecoveryCodeUsedEmail(admin, left, settings.siteUrl) }])
     },
   }
 }

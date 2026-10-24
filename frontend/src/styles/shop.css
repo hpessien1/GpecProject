@@ -33,7 +33,7 @@
 }
 .shop-brand small {
   color: rgba(255, 255, 255, 0.8);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
@@ -203,7 +203,7 @@
   padding: 0.45rem 0.6rem;
   background: rgba(6, 29, 99, 0.88);
   color: #fff;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
@@ -216,7 +216,7 @@
 .shop-product-copy > p:first-child {
   margin: 0 0 0.8rem;
   color: var(--forest);
-  font: 0.72rem var(--mono);
+  font: 0.85rem var(--mono);
   letter-spacing: 0.08em;
 }
 .shop-product-copy h2 {
@@ -293,7 +293,7 @@
   background: #fff;
   color: var(--ink);
   cursor: pointer;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -311,7 +311,7 @@
 .shop-pagination-gap {
   padding: 0 0.15rem;
   color: var(--ink);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
 }
 /* Cart (components/shop/Cart.tsx) */
 .shop-cart {
@@ -375,7 +375,7 @@
 }
 .shop-cart-list span {
   color: rgba(255, 255, 255, 0.62);
-  font: 0.72rem var(--mono);
+  font: 0.85rem var(--mono);
   letter-spacing: 0.05em;
 }
 .shop-cart-list strong {
@@ -412,7 +412,7 @@
   background: transparent;
   color: var(--lime);
   cursor: pointer;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -521,7 +521,7 @@
 .shop-order-count {
   margin: 0;
   color: var(--lime);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
@@ -576,7 +576,7 @@
 .shop-field label,
 .shop-fulfilment legend {
   color: var(--ink);
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -663,7 +663,7 @@
   border: 2px dashed var(--ink);
   background: var(--sand);
   color: var(--ink);
-  font: 700 0.75rem/1.5 var(--mono);
+  font: 700 0.8rem/1.5 var(--label);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -722,7 +722,7 @@
   padding: 0.2rem 0.45rem;
   border: 1px solid rgba(255, 255, 255, 0.6);
   color: #fff;
-  font: 700 0.72rem/1.4 var(--mono);
+  font: 700 0.8rem/1.4 var(--label);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -739,7 +739,7 @@
   color: var(--ink);
 }
 .shop-transfer-details dt {
-  font: 0.72rem/1.9 var(--mono);
+  font: 600 0.8rem/1.9 var(--label);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -750,7 +750,7 @@
 }
 /* Typed into a banking app, so easy to read digit by digit. */
 .shop-transfer-details .shop-transfer-number {
-  font: 700 1.05rem var(--mono);
+  font: 600 1.05rem var(--mono);
   letter-spacing: 0.06em;
 }
 .shop-payment-actions {
@@ -824,7 +824,7 @@
 .shop-lightbox-reference {
   margin: 0 0 0.75rem;
   color: var(--forest);
-  font: 0.72rem var(--mono);
+  font: 0.85rem var(--mono);
   letter-spacing: 0.08em;
 }
 .shop-lightbox-details h2 {
@@ -844,7 +844,7 @@
 }
 .shop-lightbox-details h3 {
   margin: 2rem 0 0.8rem;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   color: var(--ink);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -872,7 +872,7 @@
   background: var(--deep);
   color: #fff;
   cursor: pointer;
-  font: 0.72rem var(--mono);
+  font: 600 0.8rem var(--label);
   text-transform: uppercase;
 }
 @media (max-width: 650px) {
@@ -922,7 +922,7 @@
   padding-left: 0.45rem;
   border-left: 2px solid var(--lime);
   color: var(--muted);
-  font: 0.72rem/1.4 var(--mono);
+  font: 600 0.8rem/1.4 var(--label);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -933,7 +933,7 @@
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--ink);
   color: var(--ink);
-  font: 700 0.72rem/1.4 var(--mono);
+  font: 700 0.8rem/1.4 var(--label);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -965,7 +965,7 @@
 }
 .shop-price-pending {
   color: var(--muted);
-  font: 0.72rem/1.4 var(--mono);
+  font: 600 0.8rem/1.4 var(--label);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -976,7 +976,7 @@
 }
 .shop-line-price.shop-price-pending {
   color: rgba(255, 255, 255, 0.82);
-  font: 0.72rem/1.4 var(--mono);
+  font: 600 0.8rem/1.4 var(--label);
 }
 .shop-order-summary .shop-line-price {
   margin: 0.28rem 0 0;

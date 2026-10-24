@@ -3,6 +3,8 @@ import AdminPasswordReset from '../models/AdminPasswordReset.js'
 import AdminSession from '../models/AdminSession.js'
 import AdminUser from '../models/AdminUser.js'
 import { getDecoyHash, hashPassword, verifyPassword } from './passwords.js'
+import { startLoginChallenge } from './twoFactor.js'
+import type { TwoFactorMethod } from './twoFactor.js'
 
 export const SESSION_COOKIE = 'gpec_admin_session'
 export const SESSION_DURATION_MS = 8 * 60 * 60 * 1000
@@ -19,18 +21,43 @@ function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
 
-// Returns a new session token for valid, active credentials; null otherwise (never says which part
-// was wrong).
-export async function logIn(email: string, password: string) {
+export type LoginResult =
+  | { kind: 'session', token: string, admin: AdminIdentity }
+  // Two-step login is on: the code is still needed (services/twoFactor.ts). emailCode: to send now.
+  | { kind: 'challenge', token: string, method: TwoFactorMethod, emailCode: string | null, admin: AdminIdentity }
+
+// Starts a session for valid, active credentials, or for an admin with two-step login a challenge for
+// the code; null otherwise (never says which part was wrong).
+export async function logIn(email: string, password: string): Promise<LoginResult | null> {
   const admin = await AdminUser.findOne({ email: email.toLowerCase() })
   const passwordMatches = await verifyPassword(password, admin?.passwordHash ?? await getDecoyHash())
   if (!admin || !admin.isActive || !passwordMatches) return null
+  const identity = { id: admin.id, email: admin.email, name: admin.name }
+  if (admin.twoFactorMethod === 'app' || admin.twoFactorMethod === 'email') {
+    const { token, emailCode } = await startLoginChallenge(admin)
+    return { kind: 'challenge', token, method: admin.twoFactorMethod, emailCode, admin: identity }
+  }
+  return { kind: 'session', token: await startSession(admin._id), admin: identity }
+}
 
+// A new 8-hour session; the cookie gets the token. Also records the login time.
+export async function startSession(adminId: unknown) {
   const token = randomBytes(32).toString('base64url')
-  await AdminSession.create({ tokenHash: hashToken(token), admin: admin._id, expiresAt: new Date(Date.now() + SESSION_DURATION_MS) })
-  admin.lastLoginAt = new Date()
-  await admin.save()
-  return { token, admin: { id: admin.id, email: admin.email, name: admin.name } }
+  await AdminSession.create({ tokenHash: hashToken(token), admin: adminId, expiresAt: new Date(Date.now() + SESSION_DURATION_MS) })
+  await AdminUser.updateOne({ _id: adminId }, { lastLoginAt: new Date() })
+  return token
+}
+
+// What the admin screens need about two-step login for this session: whether it is on, and whether to
+// show the banner suggesting it (off, and not closed since this login).
+export async function sessionTwoFactor(token: string, adminId: string) {
+  const [session, admin] = await Promise.all([AdminSession.findOne({ tokenHash: hashToken(token) }).lean(), AdminUser.findById(adminId).lean()])
+  const enabled = Boolean(admin?.twoFactorMethod)
+  return { enabled, prompt: !enabled && !session?.twoFactorPromptDismissed }
+}
+
+export async function dismissTwoFactorPrompt(token: string) {
+  await AdminSession.updateOne({ tokenHash: hashToken(token) }, { twoFactorPromptDismissed: true })
 }
 
 // The admin behind a session token, or null if the session is unknown, expired, or the account has

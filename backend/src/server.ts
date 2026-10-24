@@ -20,6 +20,7 @@ const app = createApp(config)
 if (!config.email) console.info('Email notifications are off: Amazon SES is not configured (docs/RUNBOOK.md, "Email").')
 if (!config.payments) console.info('Online payment is off: Paystack is not configured (docs/RUNBOOK.md, "Payments").')
 else if (config.payments.testMode) console.info('Paystack is in test mode: no real money moves.')
+if (!config.twoFactorKey) console.info('Authenticator apps for two-step login are off: TWO_FACTOR_ENCRYPTION_KEY is not set (docs/RUNBOOK.md, "Two-step login").')
 if (!config.imageStorage) console.info('Product photo uploads are off: Amazon S3 is not configured (docs/RUNBOOK.md, "Product photos").')
 
 try {

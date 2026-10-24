@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { ContrastAudit, EXEMPT } from './support/contrast'
-import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, logInAsAdmin, mockApi, sampleProducts } from './support/sampleApi'
+import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, SAMPLE_CODE, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, logInAsAdmin, mockApi, sampleProducts } from './support/sampleApi'
 import type { ApiState } from './support/sampleApi'
 
 // Every page and state of the site must meet WCAG AA text contrast at phone and desktop width,
@@ -77,6 +77,46 @@ const parts: [string, (part: Part) => Promise<void>][] = [
 
     await open('#privacy', '.policy-section')
     await audit.page(page, `${label} privacy notice`)
+  }],
+  ['two-step login', async ({ page, api, audit, label, hovering, open }) => {
+    await logInAsAdmin(page)
+    await audit.page(page, `${label} admin with the two-step login banner`)
+    if (hovering) await audit.hover(page, `${label} admin with the two-step login banner`)
+    api.twoFactorAvailable = { app: true, email: false }
+    await open('#admin/security', '.admin-security-method')
+    await audit.page(page, `${label} two-step login off, email unavailable`)
+    if (hovering) await audit.hover(page, `${label} two-step login off, email unavailable`)
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.locator('.admin-qr').waitFor()
+    await page.getByLabel('6-digit code from the app').fill('000000')
+    await page.getByRole('button', { name: 'Turn on two-step login' }).click()
+    await page.locator('.admin-field-error').waitFor()
+    await audit.page(page, `${label} authenticator setup with a wrong code`)
+    if (hovering) await audit.hover(page, `${label} authenticator setup with a wrong code`)
+    await page.getByLabel('6-digit code from the app').fill(SAMPLE_CODE)
+    await page.getByRole('button', { name: 'Turn on two-step login' }).click()
+    await page.locator('.admin-recovery-codes').waitFor()
+    await audit.page(page, `${label} recovery codes`)
+    if (hovering) await audit.hover(page, `${label} recovery codes`)
+    api.recoveryCodes = api.recoveryCodes.slice(0, 2)
+    await open('#admin/security', '.admin-security-buttons')
+    await audit.page(page, `${label} two-step login on, few recovery codes`)
+    await page.getByRole('button', { name: 'Turn off two-step login' }).click()
+    await page.getByLabel('Password', { exact: true }).fill('wrong password')
+    await page.getByLabel('6-digit code from your app').fill(SAMPLE_CODE)
+    await page.locator('form').getByRole('button', { name: 'Turn off two-step login' }).click()
+    await page.locator('#security-password-error').waitFor()
+    await audit.page(page, `${label} turning off, wrong password`)
+    await page.getByRole('button', { name: 'Log out' }).click()
+    await open('#admin', '#login-password')
+    await page.getByLabel('Email address').fill(ADMIN.email)
+    await page.getByLabel('Password', { exact: true }).fill(ADMIN.password)
+    await page.getByRole('button', { name: 'Log in' }).click()
+    await page.getByLabel('6-digit code').fill('000000')
+    await page.getByRole('button', { name: 'Log in' }).click()
+    await page.locator('.form-error').waitFor()
+    await audit.page(page, `${label} login code step with a wrong code`)
+    if (hovering) await audit.hover(page, `${label} login code step with a wrong code`)
   }],
   ['refunds policy, FAQ, and site content admin', async ({ page, api, audit, label, hovering, open }) => {
     await open('#refunds', '.policy-section')

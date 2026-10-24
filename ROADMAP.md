@@ -170,7 +170,11 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
       the privacy notice in the admin panel (Site content), without a developer. Saved changes are
       live at once and recorded; each page shows "Draft for GPEC's review" until staff mark it approved.
       The policy and FAQ wording is the developer's proposal, for GPEC to review.
-- [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
+- [x] Two-step login for admins (2026-10-24, user's request): optional, each admin turns it on or off
+      at *Two-step login*; an authenticator app (QR code) or emailed codes, ten recovery codes, a
+      banner suggesting it until it is on, and a command for a lost phone. Needs
+      `TWO_FACTOR_ENCRYPTION_KEY` in Coolify for authenticator apps (RUNBOOK 1.9).
+- [ ] Before launch: every admin turns on two-step login; admin account management screen (optional).
 - [x] Product photo uploads from the admin's own device (laptop, phone, or tablet), with a preview:
       checked, resized, and stored in a private Amazon S3 bucket (2026-10-22). Off until GPEC's
       bucket exists.

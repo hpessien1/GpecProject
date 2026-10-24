@@ -76,6 +76,9 @@ export interface Config {
   imageStorage: ImageStorageSettings | null
   // null: online payment is off (checkout says so; everything else works).
   payments: PaymentSettings | null
+  // 32 bytes that encrypt each admin's authenticator-app secret in the database. null: admins cannot
+  // set up an authenticator app (email codes still work, if email is on).
+  twoFactorKey: Buffer | null
 }
 
 const EMAIL_PATTERN = /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/
@@ -119,6 +122,8 @@ const envSchema = z.object({
   PAYSTACK_FEE_FLAT: minorUnits.optional(),
   PAYSTACK_FEE_FLAT_WAIVED_BELOW: minorUnits.optional(),
   PAYSTACK_FEE_CAP: minorUnits.refine((cap) => cap > 0, 'must be more than 0').optional(),
+  // 32 random bytes, base64 (`openssl rand -base64 32`).
+  TWO_FACTOR_ENCRYPTION_KEY: z.string().trim().refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value) && Buffer.from(value, 'base64').length === 32, 'must be 32 random bytes in base64, made with: openssl rand -base64 32').optional(),
 }).superRefine((env, ctx) => {
   // All or nothing, so a half-finished setup fails at startup instead of silently sending nothing.
   const setEmailSettings = EMAIL_SETTINGS.filter((name) => env[name] !== undefined)
@@ -221,5 +226,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           siteUrl: parsed.FRONTEND_URL.replace(/\/$/, ''),
         }
       : null,
+    twoFactorKey: parsed.TWO_FACTOR_ENCRYPTION_KEY ? Buffer.from(parsed.TWO_FACTOR_ENCRYPTION_KEY, 'base64') : null,
   }
 }

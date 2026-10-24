@@ -35,7 +35,7 @@
 .policy-updated {
   margin: 0 0 2.5rem;
   color: var(--ink);
-  font: 0.75rem var(--mono);
+  font: 600 0.8rem var(--label);
 }
 .policy-section h2 {
   margin: 2.2rem 0 0.8rem;
@@ -56,6 +56,12 @@
 @media (max-width: 650px) {
   .policy-hero {
     padding: 130px 1.1rem 3rem;
+  }
+  /* Scales with the screen so the longest word ("CANCELLATIONS,") fits a 320px phone; a word longer
+     than the screen (a title staff type) breaks rather than widening the page. */
+  .policy-hero h1 {
+    font-size: clamp(1.9rem, 8.4vw, 2.6rem);
+    overflow-wrap: break-word;
   }
   .policy-body {
     padding: 3rem 1.1rem;

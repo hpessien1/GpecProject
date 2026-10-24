@@ -236,8 +236,26 @@ add a frontend gate, confirm the backend enforces the same condition.
   and 3 emails per address per hour; refused links per IP (both reuse `adminLoginRateLimit`'s
   numbers). With email off the request gets `503 PASSWORD_RESET_UNAVAILABLE`; `admin:create --reset`
   still works.
-- Admins cannot demote, deactivate, or delete themselves. **No 2FA yet** (the user chose to leave
-  it out for now, 2026-10-21); reconsider before real prices go live.
+- Admins cannot demote, deactivate, or delete themselves.
+- **Two-step login** (built 2026-10-24, user's request; `services/twoFactor.ts`): **optional**, each
+  admin turns it on or off for their own account at `#admin/security`. After the password, a 6-digit
+  code from an **authenticator app** (RFC 6238, `services/totp.ts`, Node's crypto only) or **emailed**
+  (10 minutes, one a minute, five per login), or one of **10 single-use recovery codes** (SHA-256
+  stored). The app's secret is encrypted with AES-256-GCM using `TWO_FACTOR_ENCRYPTION_KEY`
+  (`services/secretBox.ts`); without the key the app option is off, and admins already using it log
+  in with a recovery code. Never change or remove the key while admins use an app.
+  - A correct password for such an admin starts an `AdminLoginChallenge` (own httpOnly cookie
+    `gpec_admin_login`, path `/api/admin/session`, 10 minutes), not a session. Five wrong codes end
+    it; wrong codes also count toward the failed-login limit. An app code's time step is recorded in
+    the same conditional update that accepts it, so a code works once even if sent twice at once.
+  - Turning it on needs a first code from the chosen method, ends the admin's other sessions, and
+    shows the recovery codes once. Turning it off and new recovery codes need the password **and** a
+    current code (wrong ones count toward a per-IP limit). Each change, and each recovery-code login,
+    is emailed to the admin. A password reset does not skip it.
+  - Not mandatory (user's choice): admins without it see a banner suggesting it, closed with "Not
+    now" until their next login (`AdminSession.twoFactorPromptDismissed`).
+  - Last resort for a lost phone and lost codes: `admin:create -- --email … --disable-2fa`, only
+    after checking the person's identity in person or by phone.
 
 ### 4.6 Audit trail for admin changes
 
@@ -361,8 +379,14 @@ name), and logs which database it found. The guard only works if production sets
   `npm run seed:products` (Section 11).
 
 - **AdminUser** — `email` (unique), `name`, `passwordHash`, `role` (`admin`), `isActive`,
-  `lastLoginAt`, `passwordChangedAt`. **AdminSession** — `tokenHash`, `admin`, `expiresAt` (TTL
-  index deletes expired sessions). **AdminPasswordReset** — the same shape for "forgot password"
+  `lastLoginAt`, `passwordChangedAt`; two-step login: `twoFactorMethod` (`app` | `email` | null),
+  `twoFactorSecret` (encrypted), `twoFactorEnabledAt`, `lastTotpStep`, `recoveryCodeHashes`, and a
+  setup or emailed code in progress (`pendingTwoFactor*`, `accountCode*`). Accounts created before
+  2026-10-24 have none of these stored: code reading them with `.lean()` must allow for missing
+  fields. **AdminSession** — `tokenHash`, `admin`, `expiresAt` (TTL
+  index deletes expired sessions), `twoFactorPromptDismissed`. **AdminLoginChallenge** — a login
+  waiting for its code: `tokenHash`, `admin`, `attempts`, the emailed code's hash and send count,
+  `expiresAt` (TTL). **AdminPasswordReset** — the same shape for "forgot password"
   links: `tokenHash` (unique), `admin`, `expiresAt` (TTL); deleted when used or replaced.
   **AuditRecord** — `action`, `targetType`, `targetId`, `actor { adminId, email, name }`
   (copied at the time; `null` only for `product.sale`, which has `orderReference` instead),
@@ -575,7 +599,8 @@ mongosh "<MONGODB_URI>" --eval 'db.contactrequests.find().sort({createdAt:-1}).l
   `STAFF_NOTIFICATION_EMAILS` (all or none), and the photo storage settings `S3_REGION`,
   `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (all or none), and the Paystack settings `PAYSTACK_SECRET_KEY`,
   `PAYSTACK_FEE_PERCENT`, `PAYSTACK_FEE_FLAT`, `PAYSTACK_FEE_FLAT_WAIVED_BELOW`, `PAYSTACK_FEE_CAP`
-  (all or none; they also need `CURRENCY` and `FRONTEND_URL`; amounts in kobo).
+  (all or none; they also need `CURRENCY` and `FRONTEND_URL`; amounts in kobo), and
+  `TWO_FACTOR_ENCRYPTION_KEY` (32 random bytes in base64; authenticator apps are off without it).
 - `frontend/.env.example`: `VITE_API_BASE_URL`. Anything prefixed `VITE_` is public; never put a
   secret there.
 - `MONGODB_URI` points to MongoDB Atlas. The database name is the path segment before `?`:
@@ -669,6 +694,8 @@ database outage the proxy may then stop sending traffic to the API, so the site'
   limit.
 - **The refunds policy, the FAQ, and the privacy notice approved** by GPEC (Site content: every
   [bracket] filled in, "Approved" ticked), the policies checked by its legal adviser.
+- **`TWO_FACTOR_ENCRYPTION_KEY` set in Coolify** (its own value, not the development one), and
+  every GPEC admin has turned on two-step login.
 - **Real bank details entered** in the admin panel (*Bank details*): the sample ones ("Sample Bank
   (not real)", `0000000000`) replaced, or bank transfer switched off.
 - **Demo data removed from the live `gpec` database** (`node dist/scripts/seedDemoData.js
@@ -844,8 +871,14 @@ links for admins only, never store a raw public URL on the record, and update th
   semicolons).
 - Brand colours and fonts are CSS custom properties on `:root` in `base.css` (`--ink`, `--forest`,
   `--deep`, `--lime`, `--lime-soft`, `--cream`, `--sand`, `--muted`, `--placeholder`, `--line`,
-  `--mono`, `--sans`, `--serif`). **New code uses these variables**, not new hex values. Existing
-  hex values are white and one-off shades in gradients (see Known Gaps).
+  `--mono`, `--label`, `--sans`, `--serif`). **New code uses these variables**, not new hex values.
+  Existing hex values are white and one-off shades in gradients (see Known Gaps).
+- **Fonts** (user's choice, 2026-10-24; all self-hosted from `src/fonts/` with their licences, no
+  Google Fonts calls): Manrope for text (`--sans`) and for small capital **labels** (`--label`:
+  eyebrows, tabs, form labels, badges, link buttons; semibold, letter-spaced); IBM Plex Mono
+  (`--mono`) only for **codes** where characters must line up and be told apart (product and order
+  references, account numbers, the two-step login key, recovery codes); Playfair Display italic in
+  headings. DM Mono was dropped (the user disliked it). A new label uses `--label`, a new code `--mono`.
 - **Text contrast (WCAG AA): 4.5:1 for normal text, 3:1 for large text (24px+, or 18.66px+ bold),
   in every state: hover, focus, error, disabled, and phone width.** Audited on 2026-10-21 across all
   pages; keep it that way:
@@ -862,9 +895,11 @@ links for admins only, never store a raw public URL on the record, and update th
     opacity).
   - Text that is part of a decorative illustration (inside a `role="img"` element, such as the
     hero's "GPEC / SYSTEM READY") is exempt.
-  - **Text is at least about `.7rem`** (owner, 2026-10-22: 9–10px labels were too small to read;
-    every label in the admin and on the public pages was raised to about `.72rem`; small monospaced
-    capitals read smaller than their size). The only exception is the decorative "GPEC / SYSTEM
+  - **Labels are `.8rem` and codes `.85rem` or more** (raised from `.72rem` on 2026-10-24 at the
+    user's request, who found them too small; before that, 2026-10-22, the owner had 9–10px labels
+    raised to `.72rem`). Other small text (button text, form hints) is about `.72`–`.78rem`; the
+    decorative "GPEC / SYSTEM READY" label inside the hero illustration (`.panel-label`,
+    `role="img"`) is the only text smaller. The only exception is the decorative "GPEC / SYSTEM
     READY" label inside the hero illustration (`.panel-label`, `role="img"`).
   - **Run `cd frontend && npm run check:contrast` after any change to colours, styles, or layout**
     (CI runs it too). It checks every page and state at both widths, including hover, against the
@@ -1066,8 +1101,8 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - Bank transfer shows the sample bank details until GPEC's staff enter real ones. Staff confirm each
   transfer by hand, so there is no automatic match with the bank statement, and stock is
   not held while a transfer is awaited. Unpaid transfer orders are closed by hand (owner's choice).
-  An admin's login can now confirm payments and change the bank account: another reason to decide
-  on admin 2FA before launch.
+  An admin's login can confirm payments and change the bank account: every admin should turn on
+  two-step login before launch.
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23): GPEC's team uses it to see how everything behaves, so new features come with demo data
   there too, rather than staying off.
@@ -1094,8 +1129,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   site does not record replies, only the notes staff add. Request search is a case-insensitive
   substring match with no index, which is fine for GPEC's volume; revisit (text index) if the
   lists reach tens of thousands of requests.
-- No admin 2FA, no admin account management in the panel (create and deactivate are by command or
-  database only; each admin can change their own password or reset it by email).
+- Two-step login is optional, not enforced (user's choice, 2026-10-24); no admin account management
+  in the panel (create and deactivate are by command or database only; each admin can change their
+  own password or reset it by email).
 - Product photo uploads are **on** in production since 2026-10-23 (bucket `gpec-product-images`,
   eu-north-1); the first live upload worked the same day.
 - Email notifications are **on** in production since 2026-10-23, but SES is still in the sandbox

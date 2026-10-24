@@ -78,6 +78,80 @@ export function adminPasswordChangedEmail(admin: AdminEmailData, siteUrl: string
   }
 }
 
+// The code itself is in the body only; the subject is fixed, so it never shows on a lock screen.
+export function adminLoginCodeEmail(admin: AdminEmailData, code: string, minutes: number) {
+  return {
+    subject: 'Your GPEC admin login code',
+    text: [
+      `Hello ${admin.name},`,
+      '',
+      'Your code to finish logging in to the GPEC website admin panel:',
+      '',
+      code,
+      '',
+      `It works once, for ${minutes} minutes.`,
+      '',
+      'If you are not logging in right now, someone else has your password: change it straight away and tell the site administrator.',
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
+// For setting up email codes, or confirming two-step login being turned off or new recovery codes.
+export function adminAccountCodeEmail(admin: AdminEmailData, code: string, minutes: number) {
+  return {
+    subject: 'Your GPEC admin security code',
+    text: [
+      `Hello ${admin.name},`,
+      '',
+      'Your code to confirm a change to two-step login on your GPEC website admin account:',
+      '',
+      code,
+      '',
+      `It works once, for ${minutes} minutes.`,
+      '',
+      'If you did not ask for this, someone may be using your logged-in account: change your password and tell the site administrator.',
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
+const METHOD_NAMES = { app: 'an authenticator app', email: 'a code by email' }
+
+export function adminTwoFactorChangedEmail(admin: AdminEmailData, change: { on: true, method: 'app' | 'email' } | { on: false }, siteUrl: string) {
+  return {
+    subject: change.on ? 'Two-step login is on for your GPEC admin account' : 'Two-step login was turned off for your GPEC admin account',
+    text: [
+      `Hello ${admin.name},`,
+      '',
+      change.on
+        ? `Two-step login was just turned on for your GPEC website admin account, with ${METHOD_NAMES[change.method]}. From now on, logging in needs your password and a code. Keep your recovery codes somewhere safe: each one gets you in once if you cannot get a code.`
+        : 'Two-step login was just turned off for your GPEC website admin account. Logging in now needs only your password.',
+      '',
+      `If this was you, there is nothing to do. If it was not, change your password at ${siteUrl}/#admin/password straight away and tell the site administrator.`,
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
+export function adminRecoveryCodeUsedEmail(admin: AdminEmailData, left: number, siteUrl: string) {
+  return {
+    subject: 'A recovery code was used for your GPEC admin account',
+    text: [
+      `Hello ${admin.name},`,
+      '',
+      `A recovery code was just used to log in to your GPEC website admin account. It cannot be used again; you have ${left} left.`,
+      '',
+      `If you are running low, make new ones at ${siteUrl}/#admin/security. If this was not you, change your password straight away and tell the site administrator.`,
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
 export function customerContactEmail(request: ContactEmailData, siteUrl: string) {
   return {
     subject: `We have your message (${request.reference})`,

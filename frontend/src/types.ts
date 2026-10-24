@@ -162,6 +162,31 @@ export interface AdminSessionInfo {
   currency: CurrencyInfo | null
   // Whether photo uploads are set up (the server's S3 settings); until then admins pick site images.
   imageUploads: boolean
+  // Two-step login for this admin: whether it is on, and whether to show the banner suggesting it.
+  twoFactor: { enabled: boolean, prompt: boolean }
+}
+
+export type TwoFactorMethod = 'app' | 'email'
+
+// The password was right; two-step login needs the code next (backend routes/adminSession.ts).
+export interface LoginChallenge {
+  twoFactorRequired: true
+  method: TwoFactorMethod
+  // "k•••@gmail.com" for email codes.
+  emailHint: string | null
+  // false: email is off on the server, so only a recovery code works.
+  emailAvailable: boolean
+}
+
+// A 6-digit code, or one of the recovery codes instead.
+export type SecondStep = { code: string } | { recoveryCode: string }
+
+export interface TwoFactorStatus {
+  method: TwoFactorMethod | null
+  enabledAt: string | null
+  recoveryCodesLeft: number
+  // Which methods this website can offer (the encryption key, and email).
+  available: { app: boolean, email: boolean }
 }
 
 export type ProductStatus = 'active' | 'archived'
