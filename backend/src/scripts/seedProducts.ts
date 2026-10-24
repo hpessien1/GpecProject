@@ -18,8 +18,8 @@ try {
   if (databaseName === PRODUCTION_DATABASE && !process.argv.includes('--production')) {
     throw new Error(`Refusing to seed the production "${PRODUCTION_DATABASE}" database without --production.`)
   }
-  const { added, alreadyPresent } = await seedSampleProducts()
-  console.log(`Database "${databaseName}": added ${added} sample products; ${alreadyPresent} were already present and left unchanged.`)
+  const { added, alreadyPresent, categorised } = await seedSampleProducts()
+  console.log(`Database "${databaseName}": added ${added} sample products; ${alreadyPresent} were already present and left unchanged${categorised > 0 ? `, except that ${categorised} without a category got their sample category` : ''}.`)
   await mongoose.disconnect()
 } catch (error) {
   console.error(error instanceof Error ? error.message : error)

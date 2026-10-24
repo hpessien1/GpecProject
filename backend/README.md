@@ -57,7 +57,8 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
 - Public product photos: `GET /api/product-images/:hash.webp`
 
 `GET /api/products` returns `{ products: [...], currency }`: every active product in display order,
-with `id`, `name`, `reference`, `description`, `specs`, `image`, `alt`, `isPlaceholder` (true for
+with `id`, `name`, `reference`, `description`, `specs`, `image`, `alt`, `category` (`electrical`,
+`solar`, `electronics`, `industrial`, or `null` until staff choose one), `isPlaceholder` (true for
 sample data not supplied by GPEC), `inStock` (false when staff marked it out of stock or its counted
 stock is 0; the count itself is never returned), `deliveryAvailable` (false for pickup-only
 products), and `price` (in the currency's smallest unit, e.g.
@@ -199,7 +200,7 @@ All admin responses are sent with `Cache-Control: no-store`.
 - `GET /api/admin/products?page=N` lists all products, archived ones included, with `price` in the
   smallest currency unit.
 - `POST` creates a product (`id`, `name`, `reference`, `description`, `image`, `alt` required; `specs`,
-  `price`, `isPlaceholder`, `outOfStock` (true/false), `stockQuantity` (`null` = not counted, or a
+  `category` (one of the four, or `null`), `price`, `isPlaceholder`, `outOfStock` (true/false), `stockQuantity` (`null` = not counted, or a
   whole number from 0), `status`, `sortOrder` optional). `PATCH /:id` changes any of those
   except `id`. Unknown fields and wrong types get `400`; a duplicate `id` or `reference` gets
   `409 PRODUCT_CONFLICT`; a price while `CURRENCY` is unset gets `409 CURRENCY_NOT_CONFIGURED`.

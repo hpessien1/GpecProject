@@ -87,8 +87,8 @@ at 320px. Lessons are in CLAUDE.md Section 15.
   `services/checkout.ts`, Paystack only in `services/paystack.ts`, site content in
   `services/siteContent.ts` (starting text `data/siteContentDefaults.ts`), two-step login in
   `services/twoFactor.ts`, `totp.ts`, `secretBox.ts`.
-- **Tests:** 520 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 305 behaviour tests at desktop and phone (plus 3 skipped: the 2 from before
+- **Tests:** 529 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 315 behaviour tests at desktop and phone (plus 3 skipped: the 2 from before
   and the attach button's keyboard check, desktop only) and 20
   contrast tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with
   the API).
@@ -117,6 +117,13 @@ at 320px. Lessons are in CLAUDE.md Section 15.
 - **Temporary test scripts** never stay in `frontend/e2e/`; use the scratchpad.
 
 ## Open items for the next session
+
+- **Product categories** (built 2026-10-24, not yet deployed): the home page's four Products cards
+  (all with GPEC's own photos now) open the shop filtered; staff set each product's category. After
+  deploying, give the live sample products their categories with
+  `node dist/scripts/seedProducts.js --production` in the `gpec-api` terminal (it only fills in
+  missing categories on samples; needs the owner's go-ahead, CLAUDE.md Section 11). The same locally:
+  `npm run seed:products`.
 
 - **Order update emails** (built 2026-10-24, not yet deployed): ready for pickup, out for delivery,
   cancelled, and "payment not received" email the customer unless staff untick "Tell the customer by

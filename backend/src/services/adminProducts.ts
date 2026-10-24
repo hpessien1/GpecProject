@@ -8,7 +8,7 @@ import type { Cursor } from '../utils/paging.js'
 import type { AdminIdentity } from './adminAuth.js'
 import { historyPage } from './auditHistory.js'
 
-const AUDITED_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
+const AUDITED_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'category', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
 // Products saved before a field existed have no value for it; read them as the schema's default.
 const MISSING_FIELD_DEFAULTS: Record<string, unknown> = { outOfStock: false, deliveryAvailable: true }
 

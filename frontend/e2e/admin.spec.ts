@@ -87,6 +87,24 @@ test.describe('products and prices', () => {
     await expect(page.locator('.admin-history li').first()).toContainText('Price: ₦1,500.50 → ₦2,750.00')
   })
 
+  test('shows which products need a category, and sets one, recorded in the history', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    const row = page.locator('.admin-product-list li', { hasText: 'Terminal block set' })
+    await expect(row).toContainText('No category')
+    await expect(row.locator('.admin-tag', { hasText: 'Needs a category' })).toBeVisible()
+    await expect(page.locator('.admin-product-list li', { hasText: 'Custom control panel' })).toContainText('GPEC-CP-001 · panel-001 · Electrical')
+    await page.getByRole('link', { name: 'Edit Terminal block set' }).click()
+    const category = page.getByLabel('Category')
+    await expect(category).toHaveValue('')
+    await expect(category.locator('option')).toHaveText(['No category yet', 'Electrical', 'Solar', 'Electronics', 'Industrial'])
+    await category.selectOption('electrical')
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Changes saved.')
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ category: 'electrical' })
+    await expect(page.locator('.admin-history li').first()).toContainText('Category: (empty) → Electrical')
+  })
+
   test('rejects a badly typed price before sending anything', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)

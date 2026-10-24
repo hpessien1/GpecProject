@@ -51,6 +51,12 @@ The shop is for buying: there are no "order enquiries" about price or availabili
   - "Out of stock" when GPEC cannot supply it for now (see Stock)
 - Prices shown must come from GPEC's current price data. Never display invented or estimated prices.
 
+#### Categories
+
+- Four categories, the same as the home page's Products cards: **Electrical, Solar, Electronics, Industrial** (accessories under their main group). Staff choose one per product in the admin panel (recorded like any change).
+- The shop shows filters (All and the four, each with its number of products); each has its own address (`#shop/category/solar`), and the home page's cards open the shop on their category. A product without a category is listed only under All.
+- A category with nothing listed says so and offers the contact form: GPEC can source products it does not list.
+
 #### Stock
 
 - Availability is managed by GPEC staff in the admin panel, not asked about by customers.

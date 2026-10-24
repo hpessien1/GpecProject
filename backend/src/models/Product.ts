@@ -1,6 +1,10 @@
 import mongoose from 'mongoose'
 
 export const PRODUCT_STATUSES = ['active', 'archived'] as const
+// The shop's filters, the same four groups as the home page's Products section (frontend
+// data/landingContent.ts, productGroups). Accessories belong to their parent group.
+export const PRODUCT_CATEGORIES = ['electrical', 'solar', 'electronics', 'industrial'] as const
+export type ProductCategory = typeof PRODUCT_CATEGORIES[number]
 export const MAX_STOCK_QUANTITY = 1_000_000
 
 // Whether customers can buy the product now. The shop shows only this, never the stock count.
@@ -18,6 +22,9 @@ const productSchema = new mongoose.Schema({
   specs: { type: [{ type: String, trim: true, maxlength: 80 }], default: [] },
   image: { type: String, required: true, trim: true, maxlength: 300 },
   alt: { type: String, required: true, trim: true, maxlength: 300 },
+  // One of PRODUCT_CATEGORIES, chosen by staff; null (and absent on products saved before 2026-10-24)
+  // until chosen, and then the product is listed only under "All" in the shop.
+  category: { type: String, enum: [...PRODUCT_CATEGORIES, null], default: null },
   // Integer in the currency's smallest unit (kobo if the currency is confirmed as NGN). Null until
   // GPEC sets a price; never shown or charged until then.
   price: { type: Number, default: null, min: 0, validate: { validator: (value: number | null) => value === null || Number.isInteger(value), message: 'price must be a whole number of the smallest currency unit.' } },

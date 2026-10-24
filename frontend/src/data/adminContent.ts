@@ -9,6 +9,7 @@ export const productFieldLabels: Record<keyof EditableProductFields | 'id', stri
   specs: 'Specifications',
   image: 'Image',
   alt: 'Image description',
+  category: 'Category',
   price: 'Price',
   isPlaceholder: 'Sample listing',
   outOfStock: 'Out of stock',

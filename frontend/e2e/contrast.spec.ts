@@ -65,6 +65,16 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.locator('.shop-lightbox').waitFor()
     await audit.page(page, `${label} product window`, '.shop-lightbox-content')
     await page.keyboard.press('Escape')
+    // One category chosen (its filter link filled), then one with nothing listed yet.
+    await open('#shop/category/electrical', '.shop-product-card')
+    await audit.page(page, `${label} shop, one category`)
+    if (hovering) await audit.hover(page, `${label} shop, one category`)
+    const listed = api.products
+    api.products = sampleProducts().filter((product) => product.category !== 'electronics')
+    await open('#shop/category/electronics', '.shop-category-empty')
+    await audit.page(page, `${label} shop, empty category`)
+    api.products = listed
+    await open('#shop', '.shop-product-card')
     await page.locator('.shop-add-button').first().click()
     await audit.page(page, `${label} shop with cart`)
     await page.evaluate(() => localStorage.setItem('gpec-order-cart', JSON.stringify([{ id: 'panel-001', quantity: 1 }, { id: 'solar-001', quantity: 1 }])))

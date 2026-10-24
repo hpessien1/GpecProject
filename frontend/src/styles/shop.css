@@ -150,10 +150,58 @@
 .shop-section-heading .eyebrow {
   margin: 0;
 }
-.shop-section-heading > p:last-child {
+/* "Showing 1–6 of 7 products" (left out for an empty category, so not :last-child). */
+.shop-section-heading > p:not(.eyebrow) {
   margin: 0;
   color: var(--muted);
   font-size: 0.75rem;
+}
+/* Category filter (components/shop/CategoryFilter.tsx): links, the current one filled. */
+.shop-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1.6rem;
+}
+.shop-categories a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  font: 700 0.8rem var(--sans);
+  text-decoration: none;
+}
+.shop-categories a:hover {
+  background: rgba(6, 23, 71, 0.08);
+}
+.shop-categories a[aria-current="page"] {
+  background: var(--ink);
+  color: var(--cream);
+}
+.shop-categories a:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+.shop-categories span {
+  font: 600 0.8rem var(--label);
+}
+/* A category with nothing listed yet: GPEC can still source it. */
+.shop-category-empty {
+  padding: clamp(1.5rem, 4vw, 2.4rem);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.shop-category-empty h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1.5rem;
+  letter-spacing: -0.04em;
+}
+.shop-category-empty p {
+  margin: 0 0 1.3rem;
+  color: var(--muted);
+  line-height: 1.6;
 }
 .shop-product-grid {
   display: grid;

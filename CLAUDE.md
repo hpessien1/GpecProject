@@ -364,7 +364,8 @@ name), and logs which database it found. The guard only works if production sets
   short internal key (e.g. `panel-001`, lowercase letters, digits, hyphens), used in carts and
   orders; `reference` (unique, e.g. `GPEC-CP-001`) is the customer-facing product code. Do
   not confuse them. Also `name`, `description`, `specs`, `image` (a site file, `/assets/…`, or an
-  uploaded photo, `product-images/<sha256>.webp`, served by the API; Section 8), `alt`, `price` (integer in the
+  uploaded photo, `product-images/<sha256>.webp`, served by the API; Section 8), `alt`, `category`
+  (`electrical` | `solar` | `electronics` | `industrial` | `null`, the shop's filters; Section 11), `price` (integer in the
   currency's smallest unit, `null` until GPEC sets it), `isPlaceholder` (sample data, labelled in
   the shop), `outOfStock` (staff's switch) and `stockQuantity` (optional count; `null` = not
   counted), `status` (`active` | `archived`), `sortOrder`, timestamps. **Stock:** a product is out
@@ -490,7 +491,7 @@ name), and logs which database it found. The guard only works if production sets
     ├── public/assets/        # Images and videos served at /assets/...
     └── src/
         ├── main.tsx          # Entry point
-        ├── App.tsx           # Hash router: #shop, #shop/order, #shop/payment/<ref>, #privacy, #refunds, #admin… (lazy-loaded), else landing
+        ├── App.tsx           # Hash router: #shop, #shop/category/<category>, #shop/order, #shop/payment/<ref>, #privacy, #refunds, #admin… (lazy-loaded), else landing
         ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, contact and admin API
         ├── pages/            # LandingPage.tsx, StorePage.tsx, PolicyPage.tsx (#privacy, #refunds), AdminPage.tsx
         ├── components/       # Header, Footer, ServiceShowcase, SpamTrapField, PlaceholderText, …; shop/, admin/
@@ -1032,12 +1033,18 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
 ### Changing the product catalogue
 1. Products live in MongoDB and are edited in the admin panel (`#admin`), which records every
    change. The seed script only **adds** missing sample products
-   (`cd backend && npm run seed:products`); it never changes or removes existing ones.
-2. Real GPEC products are entered with "Sample listing" unticked (`isPlaceholder: false`). Use only
+   (`cd backend && npm run seed:products`); it never changes or removes existing ones, except that a
+   sample product (`isPlaceholder`) with no category gets its sample category (the user's choice,
+   2026-10-24). Real products and categories staff chose are never touched.
+2. Every product gets a **category** (electrical, solar, electronics, industrial: the home page's four
+   Products cards and the shop's filters, `#shop/category/<category>`). One per product; accessories
+   go under their main group. Without one it is listed only under "All", and the admin list tags it
+   "Needs a category".
+3. Real GPEC products are entered with "Sample listing" unticked (`isPlaceholder: false`). Use only
    GPEC-supplied data; anything else stays marked as a sample.
-3. Remove a product by setting `status: 'archived'`, not by deleting it — orders will refer to it.
+4. Remove a product by setting `status: 'archived'`, not by deleting it — orders will refer to it.
    If GPEC only cannot supply it for now, mark it out of stock instead (it stays in the shop).
-4. The seed script refuses the production `gpec` database unless run with `--production`; that
+5. The seed script refuses the production `gpec` database unless run with `--production`; that
    needs the project owner's go-ahead (runbook).
 
 ### Adding a new frontend page

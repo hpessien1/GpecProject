@@ -12,6 +12,47 @@ test.describe('shop catalogue', () => {
     await expect(page.getByText('Showing 7–7 of 7 products')).toBeVisible()
   })
 
+  test('filters by category, each with its own address, starting each at page 1', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#shop')
+    const categories = page.getByRole('navigation', { name: 'Product categories' })
+    await expect(categories.getByRole('link')).toHaveText(['All 7', 'Electrical 3', 'Solar 1', 'Electronics 1', 'Industrial 1'])
+    await expect(categories.getByRole('link', { name: /^All/ })).toHaveAttribute('aria-current', 'page')
+    await page.getByRole('navigation', { name: 'Product catalogue pages' }).getByRole('button', { name: 'Next' }).click()
+    await expect(page.getByText('Showing 7–7 of 7 products')).toBeVisible()
+
+    await categories.getByRole('link', { name: /^Electrical/ }).click()
+    await expect(page).toHaveURL(/#shop\/category\/electrical$/)
+    await expect(categories.getByRole('link', { name: /^Electrical/ })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByText('Electrical products', { exact: true })).toBeVisible()
+    await expect(page.getByText('Showing 1–3 of 3 products')).toBeVisible()
+    await expect(page.locator('.shop-product-card h2')).toHaveText(['Custom control panel', 'Panel accessories', 'Main isolator switch'])
+
+    // A product without a category is listed only under All.
+    await page.goBack()
+    await expect(page).toHaveURL(/#shop$/)
+    await expect(page.locator('.shop-product-card h2', { hasText: 'Terminal block set' })).toHaveCount(1)
+    for (const group of ['solar', 'electronics', 'industrial']) {
+      await page.goto(`/#shop/category/${group}`)
+      await expect(page.locator('.shop-product-card h2', { hasText: 'Terminal block set' })).toHaveCount(0)
+    }
+  })
+
+  test('says a category has nothing listed yet, and offers to source it', async ({ page }) => {
+    await mockApi(page, { products: sampleProducts().filter((product) => product.category !== 'electronics') })
+    await page.goto('/#shop/category/electronics')
+    await expect(page.getByRole('navigation', { name: 'Product categories' }).getByRole('link', { name: /^Electronics/ })).toHaveText('Electronics 0')
+    await expect(page.getByRole('heading', { name: 'No electronics products are listed yet.' })).toBeVisible()
+    await expect(page.locator('.shop-category-empty').getByRole('link', { name: 'Ask GPEC' })).toHaveAttribute('href', '#contact')
+    await expect(page.getByRole('navigation', { name: 'Product catalogue pages' })).toHaveCount(0)
+  })
+
+  test('an unknown category address shows the home page, not an empty shop', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#shop/category/toys')
+    await expect(page.locator('.hero')).toBeVisible()
+  })
+
   test('explains a loading failure and recovers with Try again', async ({ page }) => {
     const api = await mockApi(page, { products: 'error' })
     await page.goto('/#shop')

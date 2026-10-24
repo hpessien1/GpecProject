@@ -81,6 +81,22 @@ test.describe('home page sections', () => {
     await expect(page.getByRole('heading', { name: 'Work in progress.' })).toHaveCount(0)
   })
 
+  test('the four product cards open the shop on their category, each over one of GPEC\'s own photos', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#products')
+    const cards = page.getByRole('navigation', { name: 'Product categories' }).getByRole('link')
+    await expect(cards).toHaveCount(4)
+    for (const [index, group] of ['electrical', 'solar', 'electronics', 'industrial'].entries()) {
+      await expect(cards.nth(index)).toHaveAttribute('href', `#shop/category/${group}`)
+      await expect(cards.nth(index).locator('img')).toHaveAttribute('src', /^\/assets\/gpec-/)
+      await expect.poll(() => cards.nth(index).locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+    }
+    await expect(page.locator('#products').getByRole('link', { name: 'Send us the part number or specification' })).toHaveAttribute('href', '#contact')
+    await page.getByRole('link', { name: 'Shop solar products' }).click()
+    await expect(page).toHaveURL(/#shop\/category\/solar$/)
+    await expect(page.locator('.shop-product-card h2')).toHaveText(['Solar power package'])
+  })
+
   test('the workmanship cards show GPEC\'s own photos, with no "illustrative" label', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#projects')

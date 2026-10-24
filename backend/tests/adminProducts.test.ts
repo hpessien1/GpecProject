@@ -202,6 +202,31 @@ describe('PATCH /api/admin/products/:id', () => {
     expect((await patch('panel-001', { deliveryAvailable: 'no' })).status).toBe(400)
   })
 
+  it('changes the category, shows it in the shop, records it, and can clear it', async () => {
+    const res = await patch('metering-001', { category: 'industrial' })
+    expect(res.body.product.category).toBe('industrial')
+    const shop = await request(app).get('/api/products')
+    expect(shop.body.products.find((product: { id: string }) => product.id === 'metering-001').category).toBe('industrial')
+    await patch('metering-001', { category: null })
+    const records = await AuditRecord.find({ targetId: 'metering-001' }).sort({ createdAt: 1, _id: 1 }).lean()
+    expect(records.map((record) => record.changes)).toEqual([[{ field: 'category', from: 'electronics', to: 'industrial' }], [{ field: 'category', from: 'industrial', to: null }]])
+  })
+
+  it.each([['toys'], [''], ['Solar'], [{ $ne: null }], [3]])('refuses category %j', async (category) => {
+    const res = await patch('panel-001', { category })
+    expect(res.status).toBe(400)
+    expect(res.body.errors.category).toBe('category must be empty or one of: electrical, solar, electronics, industrial.')
+    expect(await AuditRecord.countDocuments()).toBe(0)
+  })
+
+  it('reads a product saved before categories existed as having none', async () => {
+    await Product.collection.updateOne({ _id: 'solar-001' as never }, { $unset: { category: '' } })
+    expect((await agent.get('/api/admin/products/solar-001')).body.product.category).toBeNull()
+    expect((await request(app).get('/api/products')).body.products.find((product: { id: string }) => product.id === 'solar-001').category).toBeNull()
+    await patch('solar-001', { category: null })
+    expect(await AuditRecord.countDocuments({ targetId: 'solar-001' })).toBe(0)
+  })
+
   it('hides an archived product from the public shop', async () => {
     await patch('solar-001', { status: 'archived' })
     const res = await request(app).get('/api/products')

@@ -3,6 +3,7 @@ import type { ReactNode, SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import ProductImageField from './ProductImageField'
 import { productFieldLabels, productStatusLabels } from '../../data/adminContent'
+import { productGroups } from '../../data/landingContent'
 import { inputToMinorUnits, minorUnitsToInput } from '../../utils/money'
 import type { AdminProduct, CurrencyInfo, EditableProductFields } from '../../types'
 
@@ -75,6 +76,7 @@ export default function AdminProductForm({ product, currency, imageUploads, isSa
       specs: field('specs').split('\n').map((spec) => spec.trim()).filter(Boolean),
       image: field('image'),
       alt: field('alt'),
+      category: productGroups.find((group) => group.category === field('category'))?.category ?? null,
       price,
       isPlaceholder: formData.get('isPlaceholder') === 'on',
       outOfStock: formData.get('outOfStock') === 'on',
@@ -95,6 +97,12 @@ export default function AdminProductForm({ product, currency, imageUploads, isSa
       <input id="product-reference" name="reference" required maxLength={40} defaultValue={product?.reference} aria-describedby={describedBy('reference', errors, true)} />
     </Field>
     <Field name="description" errors={errors}><textarea id="product-description" name="description" required maxLength={1000} rows={4} defaultValue={product?.description} aria-describedby={describedBy('description', errors, false)} /></Field>
+    <Field name="category" errors={errors} hint="The shop’s filter it appears under, and the home page’s product card that leads there. Accessories go under their main group. Without one, it is listed only under “All”.">
+      <select id="product-category" name="category" defaultValue={product?.category ?? ''} aria-describedby={describedBy('category', errors, true)}>
+        <option value="">No category yet</option>
+        {productGroups.map((group) => <option key={group.category} value={group.category}>{group.title}</option>)}
+      </select>
+    </Field>
     <Field name="specs" errors={errors} hint="One per line, up to 10.">
       <textarea id="product-specs" name="specs" rows={4} defaultValue={product?.specs.join('\n')} aria-describedby={describedBy('specs', errors, true)} />
     </Field>

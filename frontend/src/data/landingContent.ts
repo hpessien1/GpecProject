@@ -1,3 +1,5 @@
+import type { ProductCategory } from '../types'
+
 // GPEC's twelve business areas, in the brief's order (README.md, "GPEC's Areas of Work"); each text is
 // condensed from the brief and GPEC's company profile. Keep all twelve (AGENTS.md). Clicking an area
 // on the home page features it in the large panel.
@@ -42,11 +44,22 @@ export const panelCapabilities: [number: string, title: string, text: string][] 
 
 export const panelComponents = ['Motor starters', 'Contactors', 'Relays', 'Variable speed drives', 'Programmable controllers', 'Meters', 'Switches', 'Breakers', 'Isolators', 'Busbars']
 
-export const productGroups: [title: string, description: string][] = [
-  ['Electrical', 'Panels, protection, cables, switches, and installation materials'],
-  ['Solar', 'Modules, batteries, inverters, controllers, and system accessories'],
-  ['Electronics', 'Sensors, meters, power supplies, and control devices'],
-  ['Industrial', 'Equipment, controls, accessories, and replacement parts'],
+// The four product groups: the home page's Products cards, and the shop's category filters (the
+// backend's PRODUCT_CATEGORIES, models/Product.ts, in the same order). Each card opens the shop on its
+// category. The photos are GPEC's own, the same ones as the matching sales areas in `services` above;
+// faded behind each card's text, they are decorative (no alt text).
+export const productCategoryLabels: Record<ProductCategory, string> = {
+  electrical: 'Electrical',
+  solar: 'Solar',
+  electronics: 'Electronics',
+  industrial: 'Industrial',
+}
+
+export const productGroups: { category: ProductCategory, title: string, description: string, image: string }[] = [
+  { category: 'electrical', title: productCategoryLabels.electrical, description: 'Panels, protection, cables, switches, and installation materials', image: '/assets/gpec-socket-distribution-enclosure.jpg' },
+  { category: 'solar', title: productCategoryLabels.solar, description: 'Modules, batteries, inverters, controllers, and system accessories', image: '/assets/gpec-solar-street-light.jpg' },
+  { category: 'electronics', title: productCategoryLabels.electronics, description: 'Sensors, meters, power supplies, and control devices', image: '/assets/gpec-variable-speed-drive.jpg' },
+  { category: 'industrial', title: productCategoryLabels.industrial, description: 'Equipment, controls, accessories, and replacement parts', image: '/assets/gpec-boxed-drive-stock.jpg' },
 ]
 
 // Must match contactSubjects in backend/src/validation/contactRequest.ts, which rejects anything else.

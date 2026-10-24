@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { productFieldLabels, productStatusLabels } from '../../data/adminContent'
+import { productGroups } from '../../data/landingContent'
 import AdminOlderEntries from './AdminOlderEntries'
 import { ApiError } from '../../services/apiClient'
 import { getProductHistory } from '../../services/adminApi'
@@ -17,6 +18,7 @@ function describeValue(field: ProductHistoryEntry['changes'][number]['field'], v
   if (value === null || value === undefined || value === '') return '(empty)'
   if (field === 'price' && typeof value === 'number') return currency ? formatPrice(value, currency) : `${value} (smallest unit)`
   if (field === 'status' && (value === 'active' || value === 'archived')) return productStatusLabels[value]
+  if (field === 'category') return productGroups.find((group) => group.category === value)?.title ?? String(value)
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (Array.isArray(value)) return value.length ? value.join(', ') : '(none)'
   return String(value)

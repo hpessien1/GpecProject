@@ -1,4 +1,5 @@
-import { MAX_STOCK_QUANTITY, PRODUCT_STATUSES } from '../models/Product.js'
+import { MAX_STOCK_QUANTITY, PRODUCT_CATEGORIES, PRODUCT_STATUSES } from '../models/Product.js'
+import type { ProductCategory } from '../models/Product.js'
 import { PRODUCT_IMAGE_KEY_PATTERN } from '../services/productImages.js'
 import { asFields, text } from './fields.js'
 import type { Fields, ValidationErrors } from './fields.js'
@@ -11,7 +12,7 @@ const SITE_IMAGE_PATTERN = /^\/assets\/[A-Za-z0-9._-]+\.(png|jpe?g|webp)$/
 // In the smallest currency unit: 10^12 kobo is 10 billion naira, far above any real product.
 const MAX_PRICE = 1_000_000_000_000
 
-const EDITABLE_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
+const EDITABLE_FIELDS = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'category', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
 const REQUIRED_ON_CREATE = ['id', 'name', 'reference', 'description', 'image', 'alt'] as const
 
 export interface ProductChanges {
@@ -21,6 +22,7 @@ export interface ProductChanges {
   specs?: string[]
   image?: string
   alt?: string
+  category?: ProductCategory | null
   price?: number | null
   isPlaceholder?: boolean
   outOfStock?: boolean
@@ -46,6 +48,12 @@ function readEditableFields(source: Fields, errors: ValidationErrors): ProductCh
   if (has('image')) {
     value.image = text(source.image, 300, 'image', errors, true)
     if (value.image && !SITE_IMAGE_PATTERN.test(value.image) && !PRODUCT_IMAGE_KEY_PATTERN.test(value.image)) errors.image = 'image must be an uploaded photo or a file in /assets/, such as /assets/product.png.'
+  }
+  if (has('category')) {
+    // null: no category yet (the product is listed only under "All").
+    const category = source.category === null ? null : PRODUCT_CATEGORIES.find((option) => option === source.category)
+    if (category !== undefined) value.category = category
+    else errors.category = `category must be empty or one of: ${PRODUCT_CATEGORIES.join(', ')}.`
   }
   if (has('specs')) {
     const specs = Array.isArray(source.specs) ? source.specs : null

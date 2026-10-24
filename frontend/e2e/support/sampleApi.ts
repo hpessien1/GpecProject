@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
+import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -66,20 +66,22 @@ function sampleSiteContent(): Record<SiteContentKey, SiteContentPage> {
   }
 }
 
-function sampleProduct(id: string, name: string, reference: string, image: string, price: number | null = null): Product {
-  return { id, name, reference, description: `${name}: sample description for testing.`, specs: ['Spec one', 'Spec two'], image, alt: `${name} photo`, isPlaceholder: true, inStock: true, deliveryAvailable: true, price }
+function sampleProduct(id: string, name: string, reference: string, image: string, category: ProductCategory | null, price: number | null = null): Product {
+  return { id, name, reference, description: `${name}: sample description for testing.`, specs: ['Spec one', 'Spec two'], image, alt: `${name} photo`, category, isPlaceholder: true, inStock: true, deliveryAvailable: true, price }
 }
 
+// Three electrical products, one each of solar, industrial, and electronics, and one without a
+// category (listed only under "All").
 export function sampleProducts(): Product[] {
   return [
     // The only priced product (₦1,500.50), as in the admin products below.
-    sampleProduct('panel-001', 'Custom control panel', 'GPEC-CP-001', '/assets/electrical-panels-product.png', 150050),
-    sampleProduct('solar-001', 'Solar power package', 'GPEC-SOL-020', '/assets/portfolio-solar-array.jpg'),
-    sampleProduct('components-001', 'Industrial electrical components', 'GPEC-IEC-033', '/assets/portfolio-electrical-components-poster.jpg'),
-    sampleProduct('accessories-001', 'Panel accessories', 'GPEC-PA-042', '/assets/product-lineup.png'),
-    sampleProduct('metering-001', 'Power metering kit', 'GPEC-PMK-051', '/assets/control-panel-annotated-clean.png'),
-    sampleProduct('isolation-001', 'Main isolator switch', 'GPEC-MIS-062', '/assets/electrical-panels-product.png'),
-    sampleProduct('terminal-001', 'Terminal block set', 'GPEC-TB-074', '/assets/product-lineup.png'),
+    sampleProduct('panel-001', 'Custom control panel', 'GPEC-CP-001', '/assets/electrical-panels-product.png', 'electrical', 150050),
+    sampleProduct('solar-001', 'Solar power package', 'GPEC-SOL-020', '/assets/portfolio-solar-array.jpg', 'solar'),
+    sampleProduct('components-001', 'Industrial electrical components', 'GPEC-IEC-033', '/assets/portfolio-electrical-components-poster.jpg', 'industrial'),
+    sampleProduct('accessories-001', 'Panel accessories', 'GPEC-PA-042', '/assets/product-lineup.png', 'electrical'),
+    sampleProduct('metering-001', 'Power metering kit', 'GPEC-PMK-051', '/assets/control-panel-annotated-clean.png', 'electronics'),
+    sampleProduct('isolation-001', 'Main isolator switch', 'GPEC-MIS-062', '/assets/electrical-panels-product.png', 'electrical'),
+    sampleProduct('terminal-001', 'Terminal block set', 'GPEC-TB-074', '/assets/product-lineup.png', null),
   ]
 }
 

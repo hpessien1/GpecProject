@@ -30,6 +30,7 @@ describe('GET /api/products', () => {
       specs: sampleProducts[0].specs,
       image: sampleProducts[0].image,
       alt: sampleProducts[0].alt,
+      category: 'electrical',
       isPlaceholder: true,
       inStock: true,
       deliveryAvailable: true,
@@ -66,10 +67,10 @@ describe('GET /api/products', () => {
 
 describe('seedSampleProducts', () => {
   it('adds every sample product once and leaves existing products unchanged on a second run', async () => {
-    expect(await seedSampleProducts()).toEqual({ added: sampleProducts.length, alreadyPresent: 0 })
+    expect(await seedSampleProducts()).toEqual({ added: sampleProducts.length, alreadyPresent: 0, categorised: 0 })
     await Product.updateOne({ _id: 'panel-001' }, { name: 'Edited by GPEC', price: 250000 })
 
-    expect(await seedSampleProducts()).toEqual({ added: 0, alreadyPresent: sampleProducts.length })
+    expect(await seedSampleProducts()).toEqual({ added: 0, alreadyPresent: sampleProducts.length, categorised: 0 })
     const edited = await Product.findById('panel-001').lean()
     expect(edited).toMatchObject({ name: 'Edited by GPEC', price: 250000 })
     expect(await Product.countDocuments()).toBe(sampleProducts.length)
@@ -78,7 +79,27 @@ describe('seedSampleProducts', () => {
   it('restores only the products that are missing', async () => {
     await seedSampleProducts()
     await Product.deleteOne({ _id: 'cable-001' })
-    expect(await seedSampleProducts()).toEqual({ added: 1, alreadyPresent: sampleProducts.length - 1 })
+    expect(await seedSampleProducts()).toEqual({ added: 1, alreadyPresent: sampleProducts.length - 1, categorised: 0 })
+  })
+
+  it('gives a sample category only to sample products that have none, never to real ones or over a staff choice', async () => {
+    await seedSampleProducts()
+    // As stored before categories existed (no field), cleared by staff, chosen by staff, and real.
+    await Product.collection.updateOne({ _id: 'solar-001' as never }, { $unset: { category: '' } })
+    await Product.updateOne({ _id: 'panel-001' }, { category: null })
+    await Product.updateOne({ _id: 'metering-001' }, { category: 'industrial' })
+    await Product.updateOne({ _id: 'cable-001' }, { category: null, isPlaceholder: false })
+    expect((await seedSampleProducts()).categorised).toBe(2)
+    const category = async (id: string) => (await Product.findById(id).lean())?.category
+    expect(await category('solar-001')).toBe('solar')
+    expect(await category('panel-001')).toBe('electrical')
+    expect(await category('metering-001')).toBe('industrial')
+    expect(await category('cable-001')).toBeNull()
+    expect((await seedSampleProducts()).categorised).toBe(0)
+  })
+
+  it('gives every sample product one of the four categories, each used', () => {
+    expect(new Set(sampleProducts.map((product) => product.category))).toEqual(new Set(['electrical', 'solar', 'electronics', 'industrial']))
   })
 })
 
@@ -90,14 +111,16 @@ describe('Product model', () => {
     expect(product.price).toBeNull()
     expect(product.status).toBe('active')
     expect(product.isPlaceholder).toBe(false)
+    expect(product.category).toBeNull()
   })
 
   it.each([12.5, -1])('rejects price %s (must be a whole number of the smallest unit, not negative)', async (price) => {
     await expect(Product.create({ ...valid, price })).rejects.toThrow(/price/)
   })
 
-  it('rejects an unknown status and unknown fields', async () => {
+  it('rejects an unknown status, category, and unknown fields', async () => {
     await expect(Product.create({ ...valid, status: 'deleted' })).rejects.toThrow(/status/)
+    await expect(Product.create({ ...valid, category: 'toys' })).rejects.toThrow(/category/)
     await expect(Product.create({ ...valid, discount: 10 })).rejects.toThrow(/discount/)
   })
 

@@ -7,15 +7,20 @@ import PaymentResult from '../components/shop/PaymentResult'
 import ProductModal from '../components/shop/ProductModal'
 import CatalogueStatus from '../components/shop/CatalogueStatus'
 import Pagination from '../components/Pagination'
+import Arrow from '../components/Arrow'
+import CategoryFilter from '../components/shop/CategoryFilter'
+import { productCategoryLabels } from '../data/landingContent'
 import { readStoredCart, storeCart } from '../services/cartStorage'
 import { fetchProducts } from '../services/productApi'
 import { showingRange } from '../utils/paging'
-import type { CartEntry, CartLine, CurrencyInfo, Product, StoreMode } from '../types'
+import type { CartEntry, CartLine, CurrencyInfo, Product, ProductCategory, StoreMode } from '../types'
 
 const PRODUCTS_PER_PAGE = 6
 
 interface StorePageProps {
   mode: StoreMode
+  // In catalogue mode: the product group shown (#shop/category/<category>), or null for all.
+  category: ProductCategory | null
   // In payment mode: the order's Paystack reference.
   paymentReference: string | null
   goHome: () => void
@@ -23,7 +28,7 @@ interface StorePageProps {
   goToOrder: () => void
 }
 
-export default function StorePage({ mode, paymentReference, goHome, goToCatalogue, goToOrder }: StorePageProps) {
+export default function StorePage({ mode, category, paymentReference, goHome, goToCatalogue, goToOrder }: StorePageProps) {
   const [cart, setCart] = useState<CartEntry[]>(readStoredCart)
   // null while loading. The catalogue comes from the API; nothing about products is hard-coded here.
   const [products, setProducts] = useState<Product[] | null>(null)
@@ -32,13 +37,18 @@ export default function StorePage({ mode, paymentReference, goHome, goToCatalogu
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [activeProduct, setActiveProduct] = useState<Product | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
+  // The page number belongs to the group it was chosen in: switching group starts at page 1.
+  const [pageChoice, setPageChoice] = useState<{ category: ProductCategory | null, page: number }>({ category, page: 1 })
+  const currentPage = pageChoice.category === category ? pageChoice.page : 1
   const catalogue = products ?? []
   const cartItems = cart.map((item) => ({ ...item, product: catalogue.find((product) => product.id === item.id) })).filter((item): item is CartLine => item.product !== undefined)
   // Until the catalogue loads, count the stored cart so the header does not briefly show zero.
   const itemCount = (products ? cartItems : cart).reduce((total, item) => total + item.quantity, 0)
-  const totalPages = Math.ceil(catalogue.length / PRODUCTS_PER_PAGE)
-  const pageProducts = catalogue.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE)
+  // Products without a category are listed only under "All".
+  const shown = category ? catalogue.filter((product) => product.category === category) : catalogue
+  const totalPages = Math.ceil(shown.length / PRODUCTS_PER_PAGE)
+  const pageProducts = shown.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE)
+  const groupName = category ? productCategoryLabels[category] : null
   const catalogueState = loadError ? 'error' : products === null ? 'loading' : products.length === 0 ? 'empty' : 'ready'
 
   useEffect(() => {
@@ -95,7 +105,7 @@ export default function StorePage({ mode, paymentReference, goHome, goToCatalogu
 
   function showCart() { document.getElementById('shop-cart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
   function selectPage(page: number) {
-    setCurrentPage(page)
+    setPageChoice({ category, page })
     document.getElementById('catalogue-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -106,7 +116,7 @@ export default function StorePage({ mode, paymentReference, goHome, goToCatalogu
     <main id="shop-main" tabIndex={-1}>
       {mode === 'catalogue' && <>
         <section className="shop-hero"><div><p className="eyebrow"><span /> GPEC product catalogue</p><h1>Source what<br /><em>your work needs.</em></h1></div><p>Browse GPEC’s electrical, solar, and industrial products and add what you need to your cart. Questions about a product? <a href="#contact">Ask GPEC</a>.</p></section>
-        {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products"><div className="shop-section-heading"><p className="eyebrow"><span /> Available products</p><p>{showingRange(currentPage, PRODUCTS_PER_PAGE, pageProducts.length, catalogue.length, { one: 'product', many: 'products' })}</p></div><div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} currency={currency} onOpen={setActiveProduct} onAdd={addToCart} />)}</div><Pagination label="Product catalogue pages" page={currentPage} totalPages={totalPages} onSelect={selectPage} /></div><Cart cartItems={cartItems} currency={currency} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} /></section>}
+        {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products"><CategoryFilter current={category} products={catalogue} /><div className="shop-section-heading"><p className="eyebrow"><span /> {groupName ? `${groupName} products` : 'Available products'}</p>{shown.length > 0 && <p>{showingRange(currentPage, PRODUCTS_PER_PAGE, pageProducts.length, shown.length, { one: 'product', many: 'products' })}</p>}</div>{shown.length === 0 ? <div className="shop-category-empty" role="status"><h2>No {groupName?.toLowerCase()} products are listed yet.</h2><p>GPEC can source them for you. Send us the part number, specification, or what it is for.</p><a className="button button-primary" href="#contact">Ask GPEC <Arrow /></a></div> : <div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} currency={currency} onOpen={setActiveProduct} onAdd={addToCart} />)}</div>}{shown.length > 0 && <Pagination label="Product catalogue pages" page={currentPage} totalPages={totalPages} onSelect={selectPage} />}</div><Cart cartItems={cartItems} currency={currency} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} /></section>}
       </>}
       {mode === 'order' && products === null && <section className="shop-order-page"><CatalogueStatus state={loadError ? 'error' : 'loading'} errorMessage={loadError} onRetry={retryLoading} /></section>}
       {mode === 'order' && products !== null && <section className="shop-order-page"><Checkout cartItems={cartItems} currency={currency} itemCount={itemCount} onGoToCatalogue={goToCatalogue} onTransferOrderPlaced={placedTransferOrder} /></section>}

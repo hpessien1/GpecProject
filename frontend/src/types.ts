@@ -1,3 +1,7 @@
+// The shop's four filter groups, the same as the home page's Products section (backend
+// models/Product.ts, PRODUCT_CATEGORIES).
+export type ProductCategory = 'electrical' | 'solar' | 'electronics' | 'industrial'
+
 export interface Product {
   id: string
   name: string
@@ -6,6 +10,8 @@ export interface Product {
   specs: string[]
   image: string
   alt: string
+  // null until staff choose one; the product is then listed only under "All".
+  category: ProductCategory | null
   // Sample data not supplied by GPEC; the shop labels it.
   isPlaceholder: boolean
   // False when out of stock: shown and labelled, but cannot be added to the cart.
@@ -204,6 +210,7 @@ export interface EditableProductFields {
   specs: string[]
   image: string
   alt: string
+  category: ProductCategory | null
   price: number | null
   isPlaceholder: boolean
   // Staff's out-of-stock switch, and an optional stock count (null: not counted; 0: out of stock).

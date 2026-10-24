@@ -20,7 +20,7 @@ interface AdminProductEditorProps {
 // Only the fields that differ are sent, so the change history lists exactly what the admin changed.
 function changedFields(product: AdminProduct, values: ProductFormValues) {
   const changes: Partial<EditableProductFields> = {}
-  const fields = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
+  const fields = ['name', 'reference', 'description', 'specs', 'image', 'alt', 'category', 'price', 'isPlaceholder', 'outOfStock', 'stockQuantity', 'deliveryAvailable', 'status', 'sortOrder'] as const
   for (const field of fields) {
     if (JSON.stringify(values[field]) !== JSON.stringify(product[field])) Object.assign(changes, { [field]: values[field] })
   }

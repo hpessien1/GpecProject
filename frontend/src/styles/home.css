@@ -1209,7 +1209,8 @@
     grid-column: auto;
   }
 }
-/* Products (#products): heading and the four category links. */
+/* Products (#products): heading, the four category links (each opens the shop on its group, over a
+   faded photo of GPEC's own), and the line about sourcing on request. */
 .products.section {
   display: block;
   position: relative;
@@ -1267,15 +1268,17 @@
   min-width: 0;
   min-height: 145px;
   position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 1.15rem 1.35rem 1.2rem;
+  padding: calc(1.15rem - 2px) 1.35rem 1.2rem;
+  border-top: 3px solid transparent;
   border-right: 1px solid rgba(196, 215, 255, 0.24);
   border-bottom: 0;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease;
+  background: linear-gradient(145deg, #0b48bb, #0a358f);
+  transition: border-color 0.2s ease;
 }
 .product-category:nth-child(4) {
   border-right: 0;
@@ -1283,14 +1286,8 @@
 .product-category:nth-child(n + 3) {
   border-bottom: 0;
 }
-.product-category.is-featured {
-  isolation: isolate;
-  overflow: hidden;
-  border-top: 3px solid var(--lime);
-  padding-top: calc(1.15rem - 2px);
-  background: linear-gradient(145deg, #0b48bb, #0a358f);
-}
-.product-category.is-featured::after {
+/* Darkens the photo enough for white text over its brightest part. */
+.product-category::after {
   content: "";
   position: absolute;
   z-index: 1;
@@ -1301,6 +1298,7 @@
     rgba(6, 29, 99, 0.7) 0%,
     rgba(6, 29, 99, 0.92) 100%
   );
+  transition: opacity 0.2s ease;
 }
 .product-category-image {
   position: absolute;
@@ -1314,27 +1312,28 @@
   mix-blend-mode: screen;
   filter: saturate(0.82) contrast(1.05);
 }
-.product-category.is-featured > :not(.product-category-image) {
+.product-category > :not(.product-category-image) {
   position: relative;
   z-index: 2;
 }
+/* Hover and focus: the orange top line, and the photo a little clearer. */
 .product-category:hover,
 .product-category:focus-visible {
-  background-color: rgba(28, 76, 167, 0.55);
+  border-top-color: var(--lime);
 }
-.product-category.is-featured .product-category-number,
-.product-category:hover .product-category-number,
-.product-category:focus-visible .product-category-number {
-  color: var(--lime-soft);
+.product-category:hover::after,
+.product-category:focus-visible::after {
+  opacity: 0.88;
 }
 .product-category:focus-visible {
   z-index: 1;
   outline: 2px solid #ff9b48;
   outline-offset: -3px;
 }
+/* --lime-soft: plain orange is too dim over the photos. */
 .product-category-number {
   margin-bottom: 1rem;
-  color: #ff8420;
+  color: var(--lime-soft);
   font: 600 0.8rem var(--label);
   letter-spacing: 0.06em;
 }
@@ -1352,6 +1351,19 @@
   color: rgba(224, 234, 255, 0.76);
   font-size: 0.73rem;
   line-height: 1.55;
+}
+.products-sourcing {
+  width: min(100%, 1880px);
+  margin: 0 auto;
+  padding: 1.4rem 0 clamp(3rem, 4vw, 4.2rem);
+  color: rgba(229, 237, 255, 0.86);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.products-sourcing a {
+  color: var(--lime);
+  font-weight: 700;
+  text-decoration: underline;
 }
 @media (max-width: 900px) {
   .products.section {
