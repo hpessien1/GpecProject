@@ -7,7 +7,7 @@ export const draftNotice = 'Draft for GPEC’s review: not yet in effect. Highli
 export const siteContentPages: Record<SiteContentKey, { href: string, eyebrow: string }> = {
   privacy: { href: '#privacy', eyebrow: 'Your information' },
   refunds: { href: '#refunds', eyebrow: 'Buying from GPEC' },
-  faq: { href: '#faq', eyebrow: 'Questions' },
+  faq: { href: '#faq', eyebrow: 'FAQ' },
 }
 
 export const siteContentStates = {

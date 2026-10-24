@@ -950,9 +950,11 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
     `e2e/support/contrast.ts`, each with a reason.
 - **Navigation:** the menu items live in `data/landingContent.ts` (`navigationLinks`), in the brief's
   order, with Shop as the highlighted button. Above 1100px the full menu sits in the header; at
-  1100px and below it collapses into the hamburger ("Menu") button, because the seven items no
-  longer fit (there were eight until Current Work was removed, 2026-10-24). Adding an item means
-  checking the 1101–1440px header still fits on one line.
+  1100px and below it collapses into the hamburger ("Menu") button, because the eight items no
+  longer fit (Current Work was removed 2026-10-24; FAQ added 2026-10-25). Adding an item means
+  checking the 1101–1440px header still fits on one line. Each home page section the menu leads to
+  has the menu's word as its small (eyebrow) label; the big heading stays a slogan. The footer
+  repeats the menu (except Home), then Shop and the two policies.
 - The existing CSS is desktop-first (`max-width` media queries). Reuse the existing breakpoints
   (1100, 820, 540px are the main ones) rather than inventing new ones.
 - No inline styles except genuinely dynamic values. Respect the existing

@@ -81,7 +81,7 @@ upgrade the AWS plan for it now (it is on the launch checklist anyway).
   `services/requestFiles.ts` (photo re-saving shared in `services/photos.ts`), reply-to in
   `services/customerEmail.ts`, all emails in `services/notifications.ts` and `emailTemplates.ts`.
 - **Tests:** 529 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 317 behaviour tests at desktop and phone (plus 3 skipped: 2 from before and
+  with sample API data: 319 behaviour tests at desktop and phone (plus 3 skipped: 2 from before and
   the attach button's keyboard check, desktop only) and 20 contrast tests (10 parts at 2 widths)
   (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
@@ -125,6 +125,11 @@ upgrade the AWS plan for it now (it is on the launch checklist anyway).
    the phone footer's copyright line, which was 0.48rem (about 8px), fixed on the way. The larger
    text made the "Typical components" names overlap (the user spotted it on desktop), so that list
    now has as many columns as fit (symbol beside name on phones), with a browser test at nine widths.
+   Then (2026-10-25, the user's request): FAQ added to the menu (Home · About · Services · Products ·
+   Projects · FAQ · Contact, plus Shop; README and AGENTS updated); each section's small label now
+   matches its menu word (About, Services, Products, Projects, FAQ, Contact; the big slogans stay);
+   and the Control & distribution panels section moved to directly after Services. **Deploy
+   `gpec-web` only** for these and the text sizes (the API did not change).
 4. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner:
    `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for the privacy
    notice); SES production access (requested 2026-10-23); AWS paid plan before 2027-04-22; 2FA on

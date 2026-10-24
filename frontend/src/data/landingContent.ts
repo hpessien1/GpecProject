@@ -79,13 +79,14 @@ export const navigationLinks: [href: string, label: string][] = [
   ['#services', 'Services'],
   ['#products', 'Products'],
   ['#projects', 'Projects'],
+  ['#faq', 'FAQ'],
   ['#contact', 'Contact'],
 ]
 
 // From GPEC's company profile (2026-10-23), with light grammar corrections GPEC approved; the meaning
 // is unchanged. Keep README.md ("Company Profile") in step.
 export const aboutContent = {
-  eyebrow: 'About GPEC',
+  eyebrow: 'About',
   title: 'Engineering, energy, and supply.',
   // Shown under the heading, in the left column.
   lead: 'GPEC Engineering is an engineering service provider in Port Harcourt, Nigeria, focused on delivering practical, reliable, and efficient power, control, and electrical solutions, including Power as a Service (PaaS).',

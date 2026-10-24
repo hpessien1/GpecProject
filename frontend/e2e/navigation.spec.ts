@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { logInAsAdmin, mockApi } from './support/sampleApi'
 
-// The brief's menu (README.md): Home · About · Services · Products · Projects · Contact, plus the Shop
-// button (Current Work was removed on 2026-10-24). Full menu on desktop; a hamburger menu where it does
-// not fit (1100px and below).
-const MENU = ['Home', 'About', 'Services', 'Products', 'Projects', 'Contact', 'Shop']
+// The brief's menu (README.md): Home · About · Services · Products · Projects · FAQ · Contact, plus the
+// Shop button (Current Work was removed on 2026-10-24, FAQ added on 2026-10-25). Full menu on desktop;
+// a hamburger menu where it does not fit (1100px and below).
+const MENU = ['Home', 'About', 'Services', 'Products', 'Projects', 'FAQ', 'Contact', 'Shop']
 
 test.describe('main menu', () => {
   test('shows the brief\'s items in order, as a full menu on desktop or behind the hamburger on phones', async ({ page }, testInfo) => {
@@ -26,7 +26,7 @@ test.describe('main menu', () => {
   test('each menu link goes to its section, and the hamburger menu closes after choosing', async ({ page }, testInfo) => {
     await mockApi(page)
     await page.goto('/')
-    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Projects', 'projects'], ['Contact', 'contact']]) {
+    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Contact', 'contact']]) {
       if (testInfo.project.name === 'phone') await page.getByRole('button', { name: 'Menu' }).click()
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: label, exact: true }).click()
       await expect(page).toHaveURL(new RegExp(`#${id}$`))
@@ -42,6 +42,16 @@ test.describe('main menu', () => {
     if (testInfo.project.name === 'phone') await page.getByRole('button', { name: 'Menu' }).click()
     await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Projects', exact: true }).click()
     await expect(page.locator('#projects')).toBeInViewport()
+  })
+
+  test('each section the menu leads to is labelled with the menu\'s word, and the panels follow Services', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/')
+    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Products', 'products'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Contact', 'contact']]) {
+      await expect(page.locator(`#${id} .eyebrow`).first(), `#${id}`).toHaveText(label)
+    }
+    // The panels are one of GPEC's services, so "Services" leads into them rather than past them.
+    expect(await page.locator('main > section[id]').evaluateAll((sections) => sections.map((section) => section.id))).toEqual(['home', 'about', 'services', 'panels', 'products', 'projects', 'faq', 'contact'])
   })
 
   test('the page never scrolls sideways, from tablet down to the smallest phones', async ({ page }) => {

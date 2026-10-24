@@ -239,3 +239,5 @@ These block launch, and several block steps 4 to 6. Ask early.
       Products cards open the shop filtered; staff choose each product's category.
 - [x] Larger small text (2026-10-24, user's request): button text, form hints, notes, and the footer
       raised to 0.8rem like the labels; the phone footer's copyright line had been about 8px.
+- [x] Home page menu and labels (2026-10-25, user's request): FAQ in the menu; each section's small
+      label matches its menu word; the panels section follows Services.

@@ -19,7 +19,7 @@ Use [`README.md`](README.md) as the source brief for company services, recommend
 ## Website requirements
 
 - Make the site responsive and usable on phones, tablets, and desktop screens.
-- Keep navigation simple: Home, About, Services, Products, Projects, and Contact. (Current Work was removed on 2026-10-24, at the user's request.)
+- Keep navigation simple: Home, About, Services, Products, Projects, FAQ, and Contact. (Current Work was removed on 2026-10-24, and FAQ added on 2026-10-25, at the user's request.)
 - Provide clear contact or quote actions from service, product, and project pages.
 - Keep product details useful for purchasing: category, model, specifications, compatibility, price, availability, and quote path when known.
 - Make quote and checkout forms easy to complete. Request only information GPEC needs to respond or fulfil the order (no delivery address for pickup orders), and include privacy wording for personal data and file uploads.
