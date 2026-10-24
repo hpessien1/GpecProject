@@ -2,7 +2,7 @@
 
 ## Purpose
 
-GPEC Engineering Company Limited ("GPEC Engineering") is an engineering service provider in Port Harcourt, Nigeria, focused on power, control, and electrical solutions: electrical and instrumentation (E&I) engineering, power and control panel building, installation, repairs and maintenance, solar systems, generators, security and smart home systems, and the sale of electrical, solar, electronic, and industrial products. This website will give customers one clear place to understand GPEC's services, view completed and current work, find and buy relevant products, and contact the company.
+GPEC Engineering Company Limited ("GPEC Engineering") is an engineering service provider in Port Harcourt, Nigeria, focused on power, control, and electrical solutions: electrical and instrumentation (E&I) engineering, power and control panel building, installation, repairs and maintenance, solar systems, generators, security and smart home systems, and the sale of electrical, solar, electronic, and industrial products. This website will give customers one clear place to understand GPEC's services, view completed work, find and buy relevant products, and contact the company.
 
 The site should work as both a company profile and a practical sales channel. Someone receiving its link should quickly learn who GPEC is, what GPEC can do, what GPEC has delivered, what GPEC is working on, how to buy products online, and how to request a quote or speak with the team. Content should be understandable to both technical buyers and customers who need help choosing a solution.
 
@@ -156,15 +156,14 @@ GPEC supplies and installs solar-powered and mains-powered CCTV for homes, offic
 
 | Page | What visitors should find |
 | --- | --- |
-| **Home** | Clear GPEC introduction, core services, selected projects, current work, product categories, and prominent contact or quote actions. |
+| **Home** | Clear GPEC introduction, core services, selected projects, product categories, and prominent contact or quote actions. |
 | **About GPEC** | Verified company story, location, team capabilities, approach to quality and safety, and actual credentials. |
 | **Services** | Separate sections for panel engineering and solar energy, with process, applications, deliverables, and inquiry links. |
 | **Products** | Browseable categories for electrical, solar, electronics, industrial equipment, and accessories. Include specifications, GPEC-set prices, add-to-cart, online checkout, and quote actions. |
 | **Projects** | Completed work with real images, project scope, GPEC's role, challenge, solution, and verified result. |
-| **Current Work** | Approved updates on active projects, milestones, and new offerings. Protect client confidentiality. |
 | **Contact / Request a Quote** | Phone, email, business address, map if useful, business hours, contact form, and document-upload option. |
 
-Use a simple navigation menu: **Home · About · Services · Products · Projects · Current Work · Contact**. Visitors should reach a quote or contact action from every major page.
+Use a simple navigation menu: **Home · About · Services · Products · Projects · Contact**. Visitors should reach a quote or contact action from every major page.
 
 ## Homepage Content Direction
 
@@ -209,7 +208,7 @@ Offer phone and email links for immediate contact. Add WhatsApp only if GPEC has
 - **Performance:** Compressed images, responsive image sizes, limited animation, and fast loading on slower connections.
 - **Search visibility:** Descriptive page titles, service-specific text, useful product metadata, business location details, and structured data where appropriate.
 - **Trust:** Real GPEC photos, accurate contact details, dated project updates, verified credentials, and clear policies. Never use stock images to imply they show GPEC work.
-- **Maintainability:** GPEC staff should be able to update projects, current work, products, prices, and contact details without changing site code. Choose a content system that fits GPEC's editing capacity.
+- **Maintainability:** GPEC staff should be able to update projects, products, prices, and contact details without changing site code. Choose a content system that fits GPEC's editing capacity.
 - **Security:** HTTPS, protected admin access with a record of who changed prices, spam protection for forms, software updates, backups, and restricted handling of customer files and orders.
 - **Payments:** Paystack hosted checkout only. No card data on GPEC systems, amounts calculated by the server, and payment confirmed by the server before an order is treated as paid.
 - **Hosting:** Hetzner Cloud server managed with Coolify, database on MongoDB Atlas (a tier with automated backups before launch), deployed by the project owner.
@@ -228,7 +227,6 @@ Received with the company profile (2026-10-23): company name, logo, about text, 
 - Refund, cancellation, and returns policy for paid orders.
 - Staff who receive order notifications and who will manage prices in the admin panel.
 - Project descriptions, dates, and measurable outcomes for the photos already supplied, and customer names only where customers agree.
-- Approved details and images for current work.
 - Verified licenses, certifications, warranties, or partnerships, if any.
 - Privacy notice, contact-form recipients, and staff member responsible for website updates.
 
@@ -242,4 +240,4 @@ Received with the company profile (2026-10-23): company name, logo, about text, 
 6. Switch to Paystack live keys only with GPEC's approval, then place one real low-value order to confirm.
 7. Verify domain, HTTPS, backups, analytics preferences, and who will maintain content and prices after launch.
 
-**Definition of success:** A first-time visitor can understand GPEC's services, see credible examples of completed and current work, find and buy relevant products, and contact GPEC about a specific need without searching elsewhere.
+**Definition of success:** A first-time visitor can understand GPEC's services, see credible examples of completed work, find and buy relevant products, and contact GPEC about a specific need without searching elsewhere.

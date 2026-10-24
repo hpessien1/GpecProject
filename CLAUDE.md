@@ -861,8 +861,9 @@ links for admins only, never store a raw public URL on the record, and update th
     `e2e/support/contrast.ts`, each with a reason.
 - **Navigation:** the menu items live in `data/landingContent.ts` (`navigationLinks`), in the brief's
   order, with Shop as the highlighted button. Above 1100px the full menu sits in the header; at
-  1100px and below it collapses into the hamburger ("Menu") button, because the eight items no
-  longer fit. Adding an item means checking the 1101–1440px header still fits on one line.
+  1100px and below it collapses into the hamburger ("Menu") button, because the seven items no
+  longer fit (there were eight until Current Work was removed, 2026-10-24). Adding an item means
+  checking the 1101–1440px header still fits on one line.
 - The existing CSS is desktop-first (`max-width` media queries). Reuse the existing breakpoints
   (1100, 820, 540px are the main ones) rather than inventing new ones.
 - No inline styles except genuinely dynamic values. Respect the existing
@@ -1021,8 +1022,7 @@ status), or add a new failure path. No update needed for pure refactors or styli
 Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
 **Deployment** (live since 2026-10-22, not announced)
-- **The live site is public with mock Current Work entries**, sample products, and demo orders and
-  requests. Do not share or announce the address until GPEC's real content is in.
+- **The live site is public with sample products and demo orders and requests**. Do not share or announce the address until GPEC's real content is in.
 - **Atlas is not locked down.** Production uses the developer's existing login, which reaches both
   `gpec` and `gpec_dev`, and the access list has not been checked (it may allow `0.0.0.0/0`). The
   developer has no Atlas dashboard access; the Atlas owner must create `gpec-prod` and `gpec-dev`,
@@ -1039,12 +1039,6 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   enclosure"). The shop labels each one "Sample listing · details to be confirmed by GPEC" until
   GPEC's real product list replaces them. No prices exist yet.
 - The client name "Afrizone" is published; permission is unconfirmed.
-- Current Work (home page) contains **mock content**, added at the project owner's request
-  (2026-10-21); GPEC's company profile has no dated updates to replace it. It avoids specific claims
-  (no years, numbers, certifications, client names, or photos). At the owner's request **nothing on
-  the page marks it as mock**; only the code comment in `data/landingContent.ts` does. **Before
-  launch, replace it with GPEC-approved, dated updates.** (About, the footer contacts, the twelve
-  service areas, and the project photos now come from GPEC's profile, 2026-10-23.)
 - The first project video (`portfolio-electrical-components.mp4`) has a sound track and no captions.
   GPEC must confirm whether it contains speech; if so, add captions (a `<track>`), otherwise mute it
   or remove the track. Marked in `LandingPage.tsx` with an `oxlint-disable` comment.

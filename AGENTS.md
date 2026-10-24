@@ -14,13 +14,12 @@ Use [`README.md`](README.md) as the source brief for company services, recommend
 - Do not invent company history, locations, clients, projects, testimonials, credentials, certifications, product brands, stock, prices, warranties, savings, or performance figures. Prices come only from GPEC through the admin panel.
 - Use clearly marked placeholders when GPEC has not supplied required information. Do not present placeholder copy as fact.
 - Publish customer names, project photographs, drawings, and testimonials only when GPEC has permission.
-- Distinguish completed projects from current work and show update dates for active project updates.
 - Explain technical terms in plain language without removing important specifications or safety details.
 
 ## Website requirements
 
 - Make the site responsive and usable on phones, tablets, and desktop screens.
-- Keep navigation simple: Home, About, Services, Products, Projects, Current Work, and Contact.
+- Keep navigation simple: Home, About, Services, Products, Projects, and Contact. (Current Work was removed on 2026-10-24, at the user's request.)
 - Provide clear contact or quote actions from service, product, and project pages.
 - Keep product details useful for purchasing: category, model, specifications, compatibility, price, availability, and quote path when known.
 - Make quote and checkout forms easy to complete. Request only information GPEC needs to respond or fulfil the order (no delivery address for pickup orders), and include privacy wording for personal data and file uploads.

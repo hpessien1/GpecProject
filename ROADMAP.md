@@ -187,8 +187,8 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [x] Currency: NGN, and customers pay the Paystack fee (2026-10-23). Set `CURRENCY=NGN` on the API
       in Coolify so staff can enter prices.
 - [ ] Names and emails of the GPEC staff who need admin accounts.
-- [ ] Approved current-work updates with dates (the profile has none). Unlabelled mock content fills
-      Current Work until then. **Replace before launch** (`frontend/src/data/landingContent.ts`).
+- [x] ~~Approved current-work updates with dates~~: no longer needed; the Current Work section and
+      its mock content were removed from the home page (2026-10-24).
 - [ ] Whether the first project video's sound contains speech (captions needed if so).
 - [ ] Privacy notice details and approval: registration number, registered address if different
       from the service location, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).

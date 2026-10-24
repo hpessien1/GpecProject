@@ -16,7 +16,7 @@ test.describe('services showcase', () => {
     await page.locator('.service-mini-card', { hasText: 'Solar accessories' }).click({ position: { x: 16, y: 16 } })
     await expect(feature(page).locator('h3')).toHaveText('Solar accessories')
     await expect(feature(page)).toContainText('Mounting rails, connectors')
-    await expect(feature(page).locator('img')).toHaveAttribute('alt', /.+/)
+    await expect(feature(page).locator('.service-feature-photo')).toHaveAttribute('alt', /.+/)
     await expect(feature(page).locator('.service-image-note')).toHaveCount(0)
     expect(await slotTitles(page)).toEqual(['Solar energy', 'Electrical sales', 'Solar sales', 'Electrical panels', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Installation & repairs', 'Generators & power', 'Security & smart home'])
     await expect(page.locator('.service-showcase [aria-live]')).toHaveText('Showing Solar accessories')
@@ -26,12 +26,54 @@ test.describe('services showcase', () => {
     await mockApi(page)
     await page.goto('/#services')
     for (let round = 0; round < 12; round++) {
-      const image = feature(page).locator('img')
+      const image = feature(page).locator('.service-feature-photo')
       await expect(image).toHaveAttribute('alt', /.+/)
       await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
       await expect(feature(page).locator('.service-image-note')).toHaveCount(0)
       await page.locator('.service-select').nth(round % 11).click()
     }
+  })
+
+  test('every area\'s photo is shown whole over a blurred copy, the same gap above the text', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#services')
+    // Only the photo is announced; the blurred copy is decoration.
+    await expect(feature(page).getByRole('img')).toHaveCount(1)
+    const gaps = new Set<number>()
+    for (let round = 0; round < 12; round++) {
+      const image = feature(page).locator('.service-feature-photo')
+      await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+      const layout = await image.evaluate((img: HTMLImageElement) => {
+        const box = img.getBoundingClientRect()
+        const scale = Math.min(box.width / img.naturalWidth, box.height / img.naturalHeight)
+        const backdrop = img.parentElement?.querySelector<HTMLImageElement>('.service-feature-backdrop')
+        const backdropBox = backdrop?.getBoundingClientRect()
+        return {
+          fit: getComputedStyle(img).objectFit,
+          gap: Math.round((img.closest('article')?.querySelector('.service-feature-top')?.getBoundingClientRect().top ?? 0) - box.bottom),
+          // How much of the space the whole photo fills across and down (one of them is all of it).
+          filled: Math.max((img.naturalWidth * scale) / box.width, (img.naturalHeight * scale) / box.height),
+          height: box.height,
+          backdrop: backdrop && backdropBox && {
+            sameImage: backdrop.currentSrc === img.currentSrc,
+            alt: backdrop.getAttribute('alt'),
+            behind: backdrop.compareDocumentPosition(img) === Node.DOCUMENT_POSITION_FOLLOWING,
+            covers: backdropBox.left <= box.left && backdropBox.top <= box.top && backdropBox.right >= box.right && backdropBox.bottom >= box.bottom,
+            blur: Number(/blur\(([\d.]+)px\)/.exec(getComputedStyle(backdrop).filter)?.[1] ?? 0),
+          },
+        }
+      })
+      expect(layout.fit).toBe('contain')
+      expect(layout.filled).toBeGreaterThan(0.99)
+      expect(layout.height).toBeGreaterThan(200)
+      // Blurred strongly enough that it reads as colour, not as a second picture.
+      expect(layout.backdrop).toEqual({ sameImage: true, alt: '', behind: true, covers: true, blur: expect.any(Number) })
+      expect(layout.backdrop?.blur).toBeGreaterThanOrEqual(30)
+      gaps.add(layout.gap)
+      await page.locator('.service-select').nth(round % 11).click()
+    }
+    expect([...gaps]).toHaveLength(1)
+    expect([...gaps][0]).toBeGreaterThanOrEqual(16)
   })
 
   test('works from the keyboard, and focus stays where it was', async ({ page }, testInfo) => {

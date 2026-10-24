@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { logInAsAdmin, mockApi } from './support/sampleApi'
 
-// The brief's menu (README.md): Home · About · Services · Products · Projects · Current Work · Contact,
-// plus the Shop button. Full menu on desktop; a hamburger menu where it does not fit (1100px and below).
-const MENU = ['Home', 'About', 'Services', 'Products', 'Projects', 'Current Work', 'Contact', 'Shop']
+// The brief's menu (README.md): Home · About · Services · Products · Projects · Contact, plus the Shop
+// button (Current Work was removed on 2026-10-24). Full menu on desktop; a hamburger menu where it does
+// not fit (1100px and below).
+const MENU = ['Home', 'About', 'Services', 'Products', 'Projects', 'Contact', 'Shop']
 
 test.describe('main menu', () => {
   test('shows the brief\'s items in order, as a full menu on desktop or behind the hamburger on phones', async ({ page }, testInfo) => {
@@ -25,7 +26,7 @@ test.describe('main menu', () => {
   test('each menu link goes to its section, and the hamburger menu closes after choosing', async ({ page }, testInfo) => {
     await mockApi(page)
     await page.goto('/')
-    for (const [label, id] of [['About', 'about'], ['Projects', 'projects'], ['Current Work', 'current-work'], ['Contact', 'contact']]) {
+    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Projects', 'projects'], ['Contact', 'contact']]) {
       if (testInfo.project.name === 'phone') await page.getByRole('button', { name: 'Menu' }).click()
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: label, exact: true }).click()
       await expect(page).toHaveURL(new RegExp(`#${id}$`))
@@ -39,8 +40,8 @@ test.describe('main menu', () => {
     await page.goto('/#privacy')
     await page.getByRole('heading', { name: 'Privacy notice' }).waitFor()
     if (testInfo.project.name === 'phone') await page.getByRole('button', { name: 'Menu' }).click()
-    await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Current Work', exact: true }).click()
-    await expect(page.locator('#current-work')).toBeInViewport()
+    await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Projects', exact: true }).click()
+    await expect(page.locator('#projects')).toBeInViewport()
   })
 
   test('the page never scrolls sideways, from tablet down to the smallest phones', async ({ page }) => {
@@ -62,7 +63,7 @@ test.describe('home page sections', () => {
     await expect(page.locator('.service-select')).toHaveText(['Solar energy', 'Electrical sales', 'Solar sales', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Installation & repairs', 'Generators & power', 'Security & smart home'].map((title) => `Show ${title} in the panel above`))
   })
 
-  test('About shows GPEC\'s profile, vision, mission, and values; Current Work has no "sample" label', async ({ page }) => {
+  test('About shows GPEC\'s profile, vision, mission, and values', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#about')
     await expect(page.locator('#about .about-lead')).toContainText('GPEC Engineering is an engineering service provider in Port Harcourt')
@@ -70,18 +71,14 @@ test.describe('home page sections', () => {
     await expect(page.locator('#about .about-highlights:not(.about-values) strong')).toHaveText(['Our vision', 'Our mission'])
     await expect(page.getByRole('heading', { name: 'Our core values' })).toBeVisible()
     await expect(page.locator('#about .about-values strong')).toHaveText(['Quality', 'Safety', 'Integrity', 'Innovation', 'Reliability', 'Customer satisfaction'])
-    await expect(page.locator('#current-work .current-work-lead')).toBeVisible()
-    await expect(page.locator('.current-work-list li')).toHaveCount(3)
-    await expect(page.getByText(/Sample content/)).toHaveCount(0)
   })
 
-  test('each current-work update shows its stage and last-updated date', async ({ page }) => {
+  test('there is no Current Work section; an old link to it opens the home page', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#current-work')
-    const first = page.locator('.current-work-list li').first()
-    await expect(first.locator('.current-work-status')).not.toBeEmpty()
-    await expect(first.locator('time')).toHaveAttribute('datetime', /^\d{4}-\d{2}-\d{2}$/)
-    await expect(first.locator('time')).toHaveText(/^\d{1,2} [A-Z][a-z]{2} \d{4}$/)
+    await expect(page.locator('#home')).toBeVisible()
+    await expect(page.locator('#current-work')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Work in progress.' })).toHaveCount(0)
   })
 
   test('the workmanship cards show GPEC\'s own photos, with no "illustrative" label', async ({ page }) => {
@@ -94,6 +91,25 @@ test.describe('home page sections', () => {
       await expect(card.locator('img')).toHaveAttribute('src', /^\/assets\/gpec-/)
     }
     await expect(page.locator('#projects').getByText(/illustrative/i)).toHaveCount(0)
+  })
+
+  test('the project clips keep clear space below and beside them, also after scrolling on phones', async ({ page }, testInfo) => {
+    await mockApi(page)
+    await page.goto('/#projects')
+    const gallery = page.locator('.work-video-gallery')
+    // Space between the box's edges and the nearest clip that is mostly in view, in pixels.
+    const space = () => gallery.evaluate((box) => {
+      const outer = box.getBoundingClientRect()
+      const clips = [...box.querySelectorAll('video')].map((clip) => clip.getBoundingClientRect()).filter((clip) => clip.left + clip.width / 2 > outer.left && clip.left + clip.width / 2 < outer.right)
+      return { bottom: Math.round(outer.bottom - Math.max(...clips.map((clip) => clip.bottom))), left: Math.round(Math.min(...clips.map((clip) => clip.left)) - outer.left) }
+    })
+    expect(await space()).toEqual({ bottom: expect.any(Number), left: expect.any(Number) })
+    expect((await space()).bottom).toBeGreaterThanOrEqual(24)
+    expect((await space()).left).toBeGreaterThanOrEqual(20)
+    if (testInfo.project.name === 'phone') {
+      await gallery.evaluate((box) => box.scrollBy({ left: 200, behavior: 'instant' }))
+      await expect.poll(async () => (await space()).left).toBeGreaterThanOrEqual(20)
+    }
   })
 
   test('the footer shows GPEC\'s real contact details, with working email and phone links', async ({ page }) => {

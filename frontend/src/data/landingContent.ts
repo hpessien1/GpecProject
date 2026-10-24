@@ -66,7 +66,6 @@ export const navigationLinks: [href: string, label: string][] = [
   ['#services', 'Services'],
   ['#products', 'Products'],
   ['#projects', 'Projects'],
-  ['#current-work', 'Current Work'],
   ['#contact', 'Contact'],
 ]
 
@@ -96,37 +95,6 @@ export const aboutContent = {
     ['Reliability', 'Providing solutions centered on each client’s particular needs.'],
     ['Customer satisfaction', 'Working toward dependable, satisfying results and lasting relationships built on trusted solutions, with the client at the center.'],
   ] as [title: string, text: string][],
-}
-
-// MOCK CONTENT (2026-10-21, at the project owner's request): placeholder copy so Current Work has
-// something in it while GPEC prepares dated updates (its company profile has none). It makes no
-// specific claims (no client names or photos) and, at the owner's request, is shown without a
-// "sample" label. Replace with GPEC-approved, dated updates before launch (ROADMAP.md, "Needed from
-// GPEC").
-
-export interface CurrentWorkUpdate {
-  title: string
-  // The kind of customer or site only; no names without the customer's permission.
-  site: string
-  status: string
-  // ISO date of the last update, shown on the page.
-  updated: string
-  summary: string
-}
-
-// MOCK: not yet approved by GPEC (see the note above).
-export const currentWorkContent = {
-  eyebrow: 'Current work',
-  title: 'Work in progress.',
-  intro: 'Updates on active GPEC projects, each marked with its current stage and the date it was last updated.',
-  // Shown under the heading, above the project cards.
-  lead: 'From panel upgrades to solar installations, here is what our team is working on right now.',
-  empty: 'No current work has been published yet.',
-  updates: [
-    { title: 'Motor control centre upgrade', site: 'Manufacturing plant', status: 'Installation', updated: '2026-10-14', summary: 'Replacing ageing starters with a new motor control panel, including overload protection and clearer labelling for the maintenance team.' },
-    { title: 'Rooftop solar and battery backup', site: 'Commercial office building', status: 'Design', updated: '2026-10-09', summary: 'Sizing panels, inverter, and batteries from the building’s measured daytime load to reduce generator running hours.' },
-    { title: 'Distribution board replacement', site: 'Warehouse', status: 'Testing', updated: '2026-10-02', summary: 'New distribution board with metering installed; final checks and handover documentation are under way.' },
-  ] as CurrentWorkUpdate[],
 }
 
 // GPEC's contact details, from its company profile (2026-10-23); the city and legal name confirmed by

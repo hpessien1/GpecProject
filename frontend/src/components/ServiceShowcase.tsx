@@ -7,7 +7,7 @@ interface ServiceShowcaseProps {
   onAskAbout: (topic: string) => void
 }
 
-// The twelve business areas: one featured in the large panel, the other eleven as cards. Choosing a card
+// The twelve business areas: one featured in the large panel (photo above, text below), the other eleven as cards. Choosing a card
 // swaps it with the featured area, so the other cards never move. The card's title is the button
 // (stretched over the whole card); "Learn more" stays a separate link to the contact form.
 export default function ServiceShowcase({ onAskAbout }: ServiceShowcaseProps) {
@@ -33,6 +33,14 @@ export default function ServiceShowcase({ onAskAbout }: ServiceShowcaseProps) {
 
   return <div className="service-showcase">
     <article className="service-feature-card" id="service-feature" ref={panelRef}>
+      <div className="service-feature-visual">
+        <div className="service-feature-image">
+          {/* A blurred copy fills the space a wide or tall photo leaves; decorative, so no alt text. */}
+          <img className="service-feature-backdrop" src={area.image} alt="" />
+          <img className="service-feature-photo" src={area.image} alt={area.imageAlt} />
+          {area.illustrative && <span className="service-image-note">Illustrative image</span>}
+        </div>
+      </div>
       <div className="service-feature-copy">
         <div className="service-feature-top"><span>{area.number}</span><span>{area.tag}</span></div>
         <div className="service-feature-body">
@@ -40,12 +48,6 @@ export default function ServiceShowcase({ onAskAbout }: ServiceShowcaseProps) {
           <span className="service-feature-rule" aria-hidden="true" />
           <p>{area.text}</p>
           <a href="#contact" onClick={() => onAskAbout(area.topic)} aria-label={`Ask about ${area.title}`}>Learn more <Arrow /></a>
-        </div>
-      </div>
-      <div className="service-feature-visual">
-        <div className="service-feature-image">
-          <img src={area.image} alt={area.imageAlt} />
-          {area.illustrative && <span className="service-image-note">Illustrative image</span>}
         </div>
       </div>
     </article>

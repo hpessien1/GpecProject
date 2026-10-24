@@ -122,7 +122,7 @@ on transfers, a cut-off admin label, and a number sent as an account number clea
 ## What exists
 
 - **Frontend** (`frontend/`): React 19 + Vite 8, strict TypeScript. Home page (twelve areas, About,
-  Projects, Current Work **still mock**, contact form), shop (`#shop`), checkout (`#shop/order`),
+  Projects, contact form; Current Work removed 2026-10-24), shop (`#shop`), checkout (`#shop/order`),
   payment result (`#shop/payment/<reference>`; Paystack returns to `/shop/payment-complete`, which
   `main.tsx` turns into that route), draft privacy notice (`#privacy`, now covering orders,
   Paystack, and bank transfer), admin (`#admin`).
@@ -177,8 +177,7 @@ on transfers, a cut-off admin label, and a number sent as an account number clea
    (requested; then a `[TEST]` contact request and "forgot password" live); AWS paid plan before
    2027-04-22; 2FA on the Paystack account (its dashboard asks for it).
 4. **From GPEC** (ROADMAP "Needed from GPEC"): real bank details, real delivery areas and fees,
-   collection hours, the Paystack rate on its plan, real products with prices, dated Current Work
-   updates, business hours and social links, registration number, refund policy, whether Afrizone
+   collection hours, the Paystack rate on its plan, real products with prices, business hours and social links, registration number, refund policy, whether Afrizone
    may be named, the first video's sound.
 5. **Before launch** (CLAUDE.md Section 7 checklist): real bank details, demo data removed
    (`seedDemoData.js --production --remove`), samples archived, live Paystack keys only with GPEC's
