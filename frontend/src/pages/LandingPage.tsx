@@ -6,9 +6,10 @@ import Footer from '../components/Footer'
 import PlaceholderText from '../components/PlaceholderText'
 import FaqSection from '../components/FaqSection'
 import ServiceShowcase from '../components/ServiceShowcase'
+import RequestFilesField from '../components/RequestFilesField'
 import SpamTrapField from '../components/SpamTrapField'
 import { aboutContent, contactSubjects, panelCapabilities, panelComponents, productGroups, steps } from '../data/landingContent'
-import { submitContactRequest } from '../services/contactApi'
+import { fetchContactRequestOptions, submitContactRequest } from '../services/contactApi'
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -17,6 +18,9 @@ export default function LandingPage() {
   const [contactError, setContactError] = useState('')
   // Controlled, so a service's "Learn more" can pre-select its topic.
   const [contactSubject, setContactSubject] = useState('')
+  // Optional attachments, offered once the API says GPEC's file storage is set up.
+  const [fileUploads, setFileUploads] = useState(false)
+  const [contactFiles, setContactFiles] = useState<File[]>([])
   const contactResultRef = useRef<HTMLParagraphElement>(null)
   const closeMenu = () => setMenuOpen(false)
 
@@ -26,6 +30,15 @@ export default function LandingPage() {
   // Arriving from another page with a section link (e.g. #about from the shop or privacy notice): the
   // browser looked for the section before this page existed, so scroll to it once it does.
   useEffect(() => { document.getElementById(window.location.hash.slice(1))?.scrollIntoView() }, [])
+
+  useEffect(() => {
+    let isCurrent = true
+    fetchContactRequestOptions()
+      .then((options) => { if (isCurrent) setFileUploads(options.fileUploads) })
+      // Deliberately quiet: the form works without attachments, so it simply does not offer them.
+      .catch(() => {})
+    return () => { isCurrent = false }
+  }, [])
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -44,10 +57,11 @@ export default function LandingPage() {
         subject: field('subject'),
         message: field('message'),
         website: field('website'),
-      })
+      }, fileUploads ? contactFiles : [])
       setContactReference(response.reference)
       form.reset()
       setContactSubject('')
+      setContactFiles([])
     } catch (error) {
       setContactError(error instanceof Error ? error.message : 'Unable to send your inquiry. Please try again.')
     } finally {
@@ -76,7 +90,7 @@ export default function LandingPage() {
 
       <FaqSection />
 
-      <section className="contact section" id="contact"><div className="contact-heading"><p className="eyebrow"><span /> Start the conversation</p><h2>Tell us what<br />you are <em>building.</em></h2><p>Send an inquiry for a service, product, replacement part, or project requirement. A GPEC representative will respond using the contact details you provide.</p></div><form className="quote-form" onSubmit={handleSubmit}><div className="field-row"><label>Full name<input name="name" required placeholder="Your name" /></label><label>Company <input name="company" placeholder="Company name" /></label></div><div className="field-row"><label>Email address<input name="email" type="email" required placeholder="you@company.com" /></label><label>Phone number<input name="phone" type="tel" placeholder="Your phone number" /></label></div><label>What can we help with?<select name="subject" value={contactSubject} onChange={(event) => setContactSubject(event.target.value)}><option value="" disabled>Select a service or product</option>{contactSubjects.map((subject) => <option key={subject}>{subject}</option>)}</select></label><label>Your requirement<textarea name="message" rows={4} required placeholder="Tell us about your project, product specification, quantity, or part number." /></label><SpamTrapField /><div className="form-footer"><p>By submitting, you agree that GPEC may use these details to respond to your inquiry. See our <a href="#privacy" target="_blank" rel="noopener">privacy notice<span className="visually-hidden"> (opens in a new tab)</span></a>.</p><button className="button button-primary" type="submit" disabled={isSending}>{isSending ? 'Sending inquiry…' : <>Send inquiry <Arrow /></>}</button></div>{contactError && <p className="form-error" role="alert" tabIndex={-1} ref={contactResultRef}>{contactError}</p>}{contactReference && <p className="success-message" role="status" tabIndex={-1} ref={contactResultRef}>Thank you. Your inquiry reference is <strong>{contactReference}</strong>. A GPEC representative will respond using the contact details you provided.</p>}</form></section>
+      <section className="contact section" id="contact"><div className="contact-heading"><p className="eyebrow"><span /> Start the conversation</p><h2>Tell us what<br />you are <em>building.</em></h2><p>Send an inquiry for a service, product, replacement part, or project requirement. A GPEC representative will respond using the contact details you provide.</p></div><form className="quote-form" onSubmit={handleSubmit}><div className="field-row"><label>Full name<input name="name" required placeholder="Your name" /></label><label>Company <input name="company" placeholder="Company name" /></label></div><div className="field-row"><label>Email address<input name="email" type="email" required placeholder="you@company.com" /></label><label>Phone number<input name="phone" type="tel" placeholder="Your phone number" /></label></div><label>What can we help with?<select name="subject" value={contactSubject} onChange={(event) => setContactSubject(event.target.value)}><option value="" disabled>Select a service or product</option>{contactSubjects.map((subject) => <option key={subject}>{subject}</option>)}</select></label><label>Your requirement<textarea name="message" rows={4} required placeholder="Tell us about your project, product specification, quantity, or part number." /></label>{fileUploads && <RequestFilesField files={contactFiles} onChange={setContactFiles} disabled={isSending} />}<SpamTrapField /><div className="form-footer"><p>By submitting, you agree that GPEC may use these details to respond to your inquiry. See our <a href="#privacy" target="_blank" rel="noopener">privacy notice<span className="visually-hidden"> (opens in a new tab)</span></a>.</p><button className="button button-primary" type="submit" disabled={isSending}>{isSending ? 'Sending inquiry…' : <>Send inquiry <Arrow /></>}</button></div>{contactError && <p className="form-error" role="alert" tabIndex={-1} ref={contactResultRef}>{contactError}</p>}{contactReference && <p className="success-message" role="status" tabIndex={-1} ref={contactResultRef}>Thank you. Your inquiry reference is <strong>{contactReference}</strong>. A GPEC representative will respond using the contact details you provided.</p>}</form></section>
     </main>
     <Footer />
   </div>

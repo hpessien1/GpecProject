@@ -280,7 +280,8 @@ out. Keep that difference deliberate. Admin login has a stricter budget that cou
 attempts only: 5 per 15 minutes in production, 50 otherwise. Checkout has its own budgets
 (`orderRateLimit` 10, `checkoutReadRateLimit` 120 for quotes and payment checks), and the Paystack
 webhook its own (300). All visitors are anonymous, so key by IP. The in-memory store
-only works with one API instance (Section 6.3).
+only works with one API instance (Section 6.3). `GET /api/contact-requests/options` (read on every
+home page visit) is outside the form's budget.
 
 **Spam trap.** Both public forms include a hidden `website` field (`components/SpamTrapField.tsx`):
 off-screen, skipped by Tab, hidden from screen readers. If it arrives with a value
@@ -312,7 +313,8 @@ Outside production it stays off, so a forged `X-Forwarded-For` header cannot dod
 
 - `helmet()` sets security headers on every API response; JSON bodies are capped at 32kb,
   except the admin site-content routes (256kb, read only after the admin login check: a whole
-  policy is saved at once).
+  policy is saved at once). The contact form with attachments is multipart, capped by multer at 5
+  files of 10 MB and read only after its rate limit (Section 8).
 - **Query-operator injection** (e.g. `{ "fullName": { "$gt": "" } }`) is blocked by the validators,
   not by a sanitising middleware: `validation/fields.ts`'s `text()` keeps only strings, so objects
   become empty values. Every new validator must coerce fields to primitive types this way before
@@ -346,8 +348,9 @@ name), and logs which database it found. The guard only works if production sets
 **Current entities:**
 
 - **ContactRequest** (`backend/src/models/ContactRequest.ts`) — `reference` (unique,
-  `GPEC-C-YYYY-XXXXXXXX`), `fullName`, `company`, `email`, `phone`, `subject`, `message`, `status`,
-  timestamps.
+  `GPEC-C-YYYY-XXXXXXXX`), `fullName`, `company`, `email`, `phone`, `subject`, `message`,
+  `attachments [{ id, name, contentType, size }]` (files the customer chose to attach, Section 8;
+  not stored on requests from before 2026-10-24), `status`, timestamps.
 - **Request status** (contact requests, `models/requestStatus.ts`; same list in the frontend's
   `RequestStatus`): `new` → `in_progress` → `closed`. Every request starts as `new` (never taken
   from the customer); admins may move it to any status, including reopening. Admins read, search,
@@ -469,7 +472,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── routes/           # HTTP wiring: public (products, product images, contact, checkout, Paystack webhook) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord
-│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, productImages
+│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, photos, productImages, requestFiles
 │       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers; paging.ts: admin page size, cursors
 │       └── data/             # sampleProducts.ts (seed products); demoData.ts (demo orders and contact requests)
@@ -812,10 +815,29 @@ takes a site image path (`/assets/…`) and the session reply's `imageUploads` i
 - Photos are never deleted from the bucket: replaced ones, and ones uploaded but never saved, stay
   (a few hundred kB each).
 
-### File uploads on the quote form — planned
-README asks for drawings and photos on quote forms. When built: validate type and size on the
-server, keep files private (a separate private prefix or bucket), generate short-lived download
-links for admins only, never store a raw public URL on the record, and update the privacy notice.
+### Files on the contact form (Amazon S3)
+Built 2026-10-24 (the user's request and choices: photos and PDFs, up to 5 files of 10 MB each, the
+same bucket in its own folder, the `multer` package). **Optional**: the form works the same without
+files. Offered only while the `S3_*` settings are set (`GET /api/contact-requests/options`).
+- The form is sent as multipart form data when files are attached (`routes/contactRequests.ts`;
+  multer, memory storage, limits checked while reading, file names read as UTF-8). The per-IP form
+  budget runs **before** the body is read; the spam trap discards files too; the text fields are
+  validated before any file is processed.
+- `services/requestFiles.ts` checks each file by its content, never its name or declared type:
+  photos are re-encoded as WebP (fit in 2400×2400, upright, camera details dropped;
+  `services/photos.ts`, shared with product photos); PDFs must start with `%PDF-` and end with
+  `%%EOF` and are stored as sent; anything else refuses the whole request, naming the file. Stored
+  under `request-files/<32 random hex>` with only `{ id, name, contentType, size }` on the
+  ContactRequest. Never a public address.
+- Staff open them only through `GET /api/admin/contact-requests/:reference/files/:id` (behind
+  `requireAdmin`; only an id listed on that request), sent with `CSP: default-src 'none'; sandbox`,
+  `nosniff`, `no-store`, and `Cross-Origin-Resource-Policy: same-site`; PDFs always as a download.
+  This replaces the earlier plan of short-lived download links: the admin cookie is sent with the
+  panel's `<img>` and links (the site and API are the same site), so no link works without a login,
+  even briefly.
+- Not done: virus scanning (photos are re-encoded; PDFs are not, which is why they are only ever
+  downloaded, never shown inside the site), and deleting files (the key cannot). The S3 key's
+  policy must include `request-files/*` (RUNBOOK 1.7).
 
 ---
 
@@ -1094,8 +1116,8 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - No business hours or social media links yet (not in GPEC's profile); the footer shows none.
 
 **Functionality**
-- Checkout is built. Paystack (test keys) works once the `PAYSTACK_*` settings are in Coolify
-  (RUNBOOK 1.8); bank transfer, demo delivery areas, and demo prices on the sample products come with
+- Checkout is built and live in test mode (Paystack test keys in Coolify since 2026-10-24,
+  RUNBOOK 1.8); bank transfer, demo delivery areas, and demo prices on the sample products come with
   `seed:demo`. Collection hours are not known: the site says GPEC will contact the customer to agree
   a time.
 - Bank transfer shows the sample bank details until GPEC's staff enter real ones. Staff confirm each
@@ -1138,7 +1160,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   (production access requested 2026-10-23): until approved, only verified addresses receive mail.
   Staff notifications go to the developer's address until GPEC names its staff. No bounce or
   complaint handling beyond SES's account-level suppression list (SES can report these through SNS).
-- No file uploads on the quote form.
+- Contact-form attachments (2026-10-24) need the `request-files/*` line in the live S3 key's policy
+  before they are deployed (RUNBOOK 1.7); without it, requests with files fail and requests without
+  files still work. PDFs are not scanned for viruses (see Section 8).
 - **The refunds policy (`#refunds`) and the FAQ (home page) were written by the developer** at the
   user's request (2026-10-24) as proposals for GPEC to review: every rule in the policy (time limits,
   what can be returned, fees refunded, warranty) is GPEC's decision, with its legal adviser. Both show
@@ -1149,7 +1173,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   legal wording) and approve it. The legal name and contact email were filled in on 2026-10-23
   (GPEC's published email is used as the privacy contact; GPEC may name another). Hosting is filled in
   (2026-10-23: server in Nuremberg, Germany; email from Stockholm, Sweden) except the **Atlas
-  database region**, which only the Atlas owner can see.
+  database region**, which only the Atlas owner can see. The starting text describes contact-form
+  attachments since 2026-10-24; a copy already saved in Site content (live site) does not change by
+  itself, so staff add that wording there.
 
 **Styling**
 - About 68 hex colours remain outside `:root` (2026-10-21; 163 before the cleanup): 45 are white

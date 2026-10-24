@@ -148,6 +148,11 @@ export interface ContactRequestResponse {
   createdAt: string
 }
 
+export interface ContactRequestOptions {
+  // Whether customers may attach photos and PDFs (GPEC's file storage is set up).
+  fileUploads: boolean
+}
+
 // Admin panel
 
 export interface CurrencyInfo {
@@ -273,6 +278,15 @@ export interface AdminRequestDetail {
   customer: { fullName: string, company: string, email: string, phone: string }
   subject: string
   message: string
+  attachments: RequestAttachment[]
+}
+
+// A photo (re-saved as WebP) or PDF the customer attached (backend services/requestFiles.ts).
+export interface RequestAttachment {
+  id: string
+  name: string
+  contentType: 'image/webp' | 'application/pdf'
+  size: number
 }
 
 export interface RequestHistoryEntry {

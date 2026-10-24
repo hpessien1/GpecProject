@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_BANK, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_ATTACHMENTS, SAMPLE_BANK, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -465,6 +465,32 @@ test.describe('contact requests', () => {
     await expect(page.locator('.success-message')).toHaveText('Status changed to In progress.')
     expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ status: 'in_progress' })
     await expect(page.locator('.admin-history li').first()).toContainText('New → In progress')
+  })
+
+  test('shows the files the customer attached: photos open in a new tab, PDFs download', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto(`/#admin/contact-requests/${CONTACT_REF}`)
+    const files = page.getByRole('region', { name: 'Attached files (2)' })
+    const fileUrl = (id: string) => new RegExp(`/api/admin/contact-requests/${CONTACT_REF}/files/${id}$`)
+    const photo = files.getByRole('link', { name: /Starter nameplate\.webp/ })
+    await expect(photo).toContainText('240 kB · opens in a new tab')
+    await expect(photo).toHaveAttribute('target', '_blank')
+    await expect(photo).toHaveAttribute('href', fileUrl(SAMPLE_ATTACHMENTS[0].id))
+    await expect.poll(() => photo.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+    const pdf = files.getByRole('link', { name: /Panel layout\.pdf/ })
+    await expect(pdf).toContainText('1.2 MB · download')
+    await expect(pdf).toHaveAttribute('download', 'Panel layout.pdf')
+    const [download] = await Promise.all([page.waitForEvent('download'), pdf.click()])
+    expect(download.suggestedFilename()).toBe('Panel layout.pdf')
+  })
+
+  test('shows no attachments section for a request without files', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/contact-requests/GPEC-C-2026-0000000B')
+    await expect(page.getByRole('heading', { name: 'Message' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Attached files/ })).toHaveCount(0)
   })
 
   test('searches contact requests, keeps the status filter, and clears the search', async ({ page }) => {

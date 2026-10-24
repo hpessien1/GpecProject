@@ -2,13 +2,16 @@ import { Router } from 'express'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { adminRequests } from '../services/adminRequests.js'
+import type { ImageStore } from '../services/imageStore.js'
+import { REQUEST_FILE_ID_PATTERN, requestFileKey } from '../services/requestFiles.js'
 import { REFERENCE_PATTERNS, validateNote, validateRequestListQuery, validateStatusChange } from '../validation/adminRequest.js'
 import { validateOlderPageQuery } from '../validation/olderPage.js'
 
 // Contact requests (/api/admin/contact-requests) for GPEC staff. Mounted behind requireAdmin in
 // app.ts: customers' personal details never reach an anonymous visitor. Admins can read and search
-// requests, change their status, and add internal notes; they cannot edit or delete requests or notes.
-export default function adminRequestsRouter(kind: keyof typeof adminRequests) {
+// requests, open the files customers attached, change their status, and add internal notes; they
+// cannot edit or delete requests or notes. store: where attached files are kept (null: not set up).
+export default function adminRequestsRouter(kind: keyof typeof adminRequests, store: ImageStore | null) {
   const router = Router()
   const service = adminRequests[kind]
 
@@ -48,6 +51,30 @@ export default function adminRequestsRouter(kind: keyof typeof adminRequests) {
       }
     })
   }
+
+  // A photo or document the customer attached, read from the private bucket for a logged-in admin
+  // only (the session cookie is sent with the admin panel's <img> and links, which are same-site).
+  // Photos may be shown in the panel; PDFs are always downloaded, never opened inside the site, and
+  // the sandbox stops anything in a file running as part of the API's origin.
+  router.get('/:reference/files/:fileId', async (req, res, next) => {
+    try {
+      const reference = referenceParam(req.params.reference)
+      if (!store || !REQUEST_FILE_ID_PATTERN.test(req.params.fileId)) throw new NotFoundError('File not found.')
+      const file = await service.attachment(reference, req.params.fileId)
+      const stored = await store.get(requestFileKey(file.id))
+      if (!stored) throw new NotFoundError('File not found.')
+      res.set({
+        'Content-Type': file.contentType,
+        'Content-Security-Policy': "default-src 'none'; sandbox",
+        // helmet allows same-origin use only; the admin panel is on the site, another origin of the same site.
+        'Cross-Origin-Resource-Policy': 'same-site',
+      })
+      if (file.contentType === 'application/pdf') res.attachment(file.name)
+      return res.send(Buffer.from(stored.body))
+    } catch (error) {
+      return next(error)
+    }
+  })
 
   router.patch('/:reference', async (req, res, next) => {
     try {

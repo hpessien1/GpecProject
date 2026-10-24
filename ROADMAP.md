@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-24 (two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
+- **Last updated:** 2026-10-24 (files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -15,7 +15,7 @@ does. Update this file as steps are completed or the plan changes.
 | 2. Groundwork: CI, hardening, tests | Done (2026-10-21) |
 | 3. Deploy early on Coolify | Live (2026-10-22), not announced — Atlas users and access list still needed |
 | 4. Products in MongoDB | Done (2026-10-21) |
-| 5. Checkout and Paystack (test mode) | Built (2026-10-23) — switched on once the Paystack settings are in Coolify; live keys need GPEC |
+| 5. Checkout and Paystack (test mode) | Built (2026-10-23), deployed in test mode (2026-10-24) — live keys need GPEC |
 | 6. Admin panel | Done for now (2026-10-21; orders and delivery areas 2026-10-22/23; pagination 2026-10-23) |
 
 Already done: TypeScript conversion (frontend and backend), dependency pinning, root `.gitignore`,
@@ -130,8 +130,9 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 - [x] Tests for tampered prices and fees, amount and currency mismatch, replayed webhooks,
       simultaneous confirmations, `charge.failed` after paid, and bad signatures.
 - [ ] Bank transfer: GPEC enters its bank details and switches it on (works without Paystack).
-- [ ] Turn it on: GPEC's fee rate, Paystack test key and webhook URL in Coolify (RUNBOOK 1.8), delivery
-      areas entered, prices entered; then a test-mode order on the live site.
+- [x] Turned on in test mode on the live site (2026-10-24): Paystack test key, fee settings, and
+      webhook URL in Coolify (RUNBOOK 1.8), demo delivery areas and prices, a test-mode order.
+- [ ] GPEC's own fee rate, delivery areas, and prices replace the demo values.
 - [ ] Live keys only with GPEC's approval.
 
 ## 6. Admin panel
@@ -227,4 +228,6 @@ These block launch, and several block steps 4 to 6. Ask early.
 
 ## Later / not yet scheduled
 
-- File uploads on the quote form (drawings, nameplate photos).
+- [x] Files on the contact form (2026-10-24): customers may attach up to 5 photos or PDFs
+      (nameplates, drawings), optional; seen only by staff in the admin panel. Needs the S3 key's
+      policy extended before it is deployed (RUNBOOK 1.7).

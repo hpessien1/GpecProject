@@ -54,6 +54,8 @@ export interface DemoContactRequest {
   message: string
   steps: DemoStatusStep[]
   note?: { text: string, after: number }
+  // Sample attachments, made by the demo command (services/demoData.ts) when file storage is set up.
+  files?: { name: string, kind: 'photo' | 'drawing' }[]
 }
 
 const line = (productId: string, name: string, reference: string, unitPrice: number, quantity: number): DemoOrderLine => ({ productId, name, reference, unitPrice, quantity })
@@ -174,8 +176,9 @@ export const demoContactRequests: DemoContactRequest[] = [
   {
     reference: 'GPEC-C-2026-DE000002', age: 4 * HOUR,
     fullName: 'Kelechi Onyeka', company: 'Onyeka Water Works', email: 'kelechi.onyeka@example.com', phone: '+234 000 000 0202', subject: 'Electrical panels',
-    message: 'We need a control panel for two 15 kW borehole pumps with automatic changeover between them. Can you quote, and how long would it take to build?',
+    message: 'We need a control panel for two 15 kW borehole pumps with automatic changeover between them. Can you quote, and how long would it take to build? Our layout drawing is attached.',
     steps: [],
+    files: [{ name: 'Sample pump layout (demo).pdf', kind: 'drawing' }],
   },
   {
     reference: 'GPEC-C-2026-DE000003', age: 1 * DAY,
@@ -186,8 +189,9 @@ export const demoContactRequests: DemoContactRequest[] = [
   {
     reference: 'GPEC-C-2026-DE000004', age: 2 * DAY,
     fullName: 'Victor Eze', company: 'Eze Plastics Ltd', email: 'victor@example.com', phone: '+234 000 000 0204', subject: 'Industrial products',
-    message: 'The motor starter on our extrusion line keeps tripping. Can someone visit to check the panel and recommend a replacement?',
+    message: 'The motor starter on our extrusion line keeps tripping. Can someone visit to check the panel and recommend a replacement? I have attached photos of the starter and its nameplate.',
     steps: [{ to: 'in_progress', after: 3 * HOUR }],
+    files: [{ name: 'Sample starter photo (demo).jpg', kind: 'photo' }, { name: 'Sample nameplate photo (demo).jpg', kind: 'photo' }],
     note: { text: 'Site visit booked for Thursday at 10am. Bring a spare overload relay.', after: 4 * HOUR },
   },
   {

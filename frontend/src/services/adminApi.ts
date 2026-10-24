@@ -1,4 +1,4 @@
-import { requestJson } from './apiClient'
+import { apiBaseUrl, requestJson } from './apiClient'
 import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
 
 const admin = { withCredentials: true }
@@ -138,6 +138,12 @@ export function addOrderNote(reference: string, text: string) {
 export function listRequests(kind: AdminRequestKind, page: number, status: RequestStatus | null, search: string) {
   const query = new URLSearchParams({ page: String(page), ...(status ? { status } : {}), ...(search ? { q: search } : {}) })
   return requestJson<AdminRequestsPage>(`/admin/${kind}?${query}`, 'Unable to load the list.', admin)
+}
+
+// An attached file's address. The browser sends the admin session cookie with it (same site), and
+// the API serves it to logged-in admins only.
+export function requestFileUrl(kind: AdminRequestKind, reference: string, fileId: string) {
+  return `${apiBaseUrl}/admin/${kind}/${encodeURIComponent(reference)}/files/${encodeURIComponent(fileId)}`
 }
 
 export function getRequest(kind: AdminRequestKind, reference: string) {

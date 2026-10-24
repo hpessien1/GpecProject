@@ -26,6 +26,12 @@ export const SAMPLE_BANK = { bankName: 'Sample Bank', accountName: 'GPEC Enginee
 // What the "server" answers for any photo upload, and the picture it serves for uploaded photos.
 export const UPLOADED_IMAGE = `product-images/${'b'.repeat(64)}.webp`
 const uploadedPhoto = readFileSync(join(process.cwd(), 'public/assets/product-lineup.png'))
+// Files the first sample contact request came with: a photo and a PDF (sizes as shown to staff).
+export const SAMPLE_ATTACHMENTS: AdminRequestDetail['attachments'] = [
+  { id: 'a'.repeat(32), name: 'Starter nameplate.webp', contentType: 'image/webp', size: 245_760 },
+  { id: 'c'.repeat(32), name: 'Panel layout.pdf', contentType: 'application/pdf', size: 1_258_291 },
+]
+const samplePdf = Buffer.from('%PDF-1.4\n%%EOF\n')
 // The server refuses this new password as known from a data breach.
 export const BREACHED_PASSWORD = 'password password password'
 // The one reset-link token the sample server accepts (43 characters, like the real ones).
@@ -120,7 +126,8 @@ export interface ApiState {
   transferReported: boolean
   // Makes adding a note fail.
   notesFail: boolean
-  // Whether photo uploads are set up; and making an upload fail.
+  // Whether photo uploads are set up (product photos, and files on the contact form); and making an
+  // upload fail.
   imageUploads: boolean
   uploadFails: boolean
   currency: CurrencyInfo | null
@@ -153,9 +160,9 @@ function initialState(): ApiState {
       { action: 'product.update', actor: { name: ADMIN.name, email: ADMIN.email }, orderReference: null, changes: [{ field: 'price', from: 100000, to: 150050 }], createdAt: now },
     ] },
     contactRequests: [
-      { reference: CONTACT_REF, status: 'new', createdAt: now, updatedAt: now, customer, subject: 'Solar energy', message: 'Please call me about a solar system.\nMornings are best.' },
-      { reference: 'GPEC-C-2026-0000000B', status: 'in_progress', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Second Customer' }, subject: 'Electrical sales', message: 'Do you stock 63A breakers?' },
-      { reference: 'GPEC-C-2026-0000000C', status: 'closed', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Third Customer' }, subject: '', message: 'Thank you for the quick reply.' },
+      { reference: CONTACT_REF, status: 'new', createdAt: now, updatedAt: now, customer, subject: 'Solar energy', message: 'Please call me about a solar system.\nMornings are best.', attachments: SAMPLE_ATTACHMENTS },
+      { reference: 'GPEC-C-2026-0000000B', status: 'in_progress', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Second Customer' }, subject: 'Electrical sales', message: 'Do you stock 63A breakers?', attachments: [] },
+      { reference: 'GPEC-C-2026-0000000C', status: 'closed', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Third Customer' }, subject: '', message: 'Thank you for the quick reply.', attachments: [] },
     ],
     requestHistory: {},
     requestNotes: { [CONTACT_REF]: [{ author: { name: ADMIN.name, email: ADMIN.email }, text: 'Called the customer.\nSending a quote today.', createdAt: now }] },
@@ -228,6 +235,23 @@ function notesReply(entries: RequestNote[], url: URL | null = null) {
 }
 
 // A JSON body, or null for none or for a photo (binary) body.
+// A multipart form's text fields, and each file's name, type, and size.
+function multipartBody(raw: Buffer, contentType: string) {
+  const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(contentType)
+  const parts = raw.toString('latin1').split(`--${boundary?.[1] ?? boundary?.[2]}`).slice(1, -1)
+  const fields: Record<string, string> = {}
+  const files: { field: string, name: string, type: string, bytes: number }[] = []
+  for (const part of parts) {
+    const [head, ...rest] = part.replace(/^\r\n/, '').split('\r\n\r\n')
+    const content = rest.join('\r\n\r\n').replace(/\r\n$/, '')
+    const field = /name="([^"]*)"/.exec(head)?.[1] ?? ''
+    const filename = /filename="([^"]*)"/.exec(head)?.[1]
+    if (filename === undefined) fields[field] = Buffer.from(content, 'latin1').toString('utf8')
+    else files.push({ field, name: Buffer.from(filename, 'latin1').toString('utf8'), type: /Content-Type: (.+)/i.exec(head)?.[1].trim() ?? '', bytes: Buffer.byteLength(content, 'latin1') })
+  }
+  return { fields, files }
+}
+
 function jsonBody(request: Request): Record<string, unknown> | null {
   try {
     return request.postDataJSON()
@@ -339,6 +363,7 @@ function reply(state: ApiState, request: Request): Reply {
     const found = state.siteContent[publicContent[1] as SiteContentKey]
     return found ? [200, found] : [404, { message: 'Page not found.', code: 'NOT_FOUND' }]
   }
+  if (path === '/api/contact-requests/options') return [200, { fileUploads: state.imageUploads }]
   if (path === '/api/contact-requests') return state.formsFail ? [400, { message: 'Check your details and try again.' }] : [201, { reference: 'GPEC-C-2026-AAAAAAAA', createdAt: now }]
 
   if (path === '/api/admin/session' && method === 'POST') {
@@ -537,11 +562,21 @@ export async function mockApi(page: Page, overrides: Partial<ApiState> = {}): Pr
     const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true', 'access-control-allow-headers': 'Content-Type', 'access-control-allow-methods': 'GET, POST, PATCH, DELETE' }
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
     const path = new URL(request.url()).pathname
-    // Photo uploads are recorded by type and size rather than content.
-    const isPhoto = (await request.headerValue('content-type'))?.startsWith('image/')
-    state.requests.push({ method: request.method(), path, body: isPhoto ? { type: await request.headerValue('content-type'), bytes: request.postDataBuffer()?.length ?? 0 } : jsonBody(request) })
+    // Photo uploads are recorded by type and size rather than content; multipart forms (the contact
+    // form with files) by their fields and each file's name, type, and size.
+    const contentType = (await request.headerValue('content-type')) ?? ''
+    const recorded = contentType.startsWith('image/') ? { type: contentType, bytes: request.postDataBuffer()?.length ?? 0 }
+      : contentType.startsWith('multipart/form-data') ? multipartBody(request.postDataBuffer() ?? Buffer.alloc(0), contentType)
+      : jsonBody(request)
+    state.requests.push({ method: request.method(), path, body: recorded })
     if (request.method() === 'GET' && path.startsWith('/api/product-images/')) {
       return route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'image/png', 'cross-origin-resource-policy': 'cross-origin' }, body: uploadedPhoto })
+    }
+    // Attached files, as the real API sends them: photos to show, PDFs to download.
+    const attached = /^\/api\/admin\/contact-requests\/([^/]+)\/files\/([0-9a-f]{32})$/.exec(path)
+    const file = attached && state.contactRequests.find((item) => item.reference === attached[1])?.attachments.find((candidate) => candidate.id === attached[2])
+    if (request.method() === 'GET' && file) {
+      return route.fulfill({ status: 200, headers: { ...cors, 'cross-origin-resource-policy': 'same-site', ...(file.contentType === 'application/pdf' ? { 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${file.name}"` } : { 'content-type': 'image/png' }) }, body: file.contentType === 'application/pdf' ? samplePdf : uploadedPhoto })
     }
     const [status, body] = reply(state, request)
     return route.fulfill({ status, headers: { ...cors, 'content-type': 'application/json' }, body: body === null ? '' : JSON.stringify(body) })

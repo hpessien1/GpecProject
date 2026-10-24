@@ -3,6 +3,7 @@ import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import AdminNotes from './AdminNotes'
 import AdminOlderEntries from './AdminOlderEntries'
+import AdminRequestFiles from './AdminRequestFiles'
 import { requestKindContent, requestStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { addRequestNote, getOlderRequestHistory, getOlderRequestNotes, getRequest, setRequestStatus } from '../../services/adminApi'
@@ -87,6 +88,7 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
           </dl>
           {item.subject && <><h2>Subject</h2><p>{item.subject}</p></>}
           <h2>Message</h2><p className="admin-request-message">{item.message}</p>
+          <AdminRequestFiles kind={kind} reference={item.reference} files={item.attachments} />
           <AdminNotes notes={data.notes} cursor={data.notesCursor} loadOlder={(before) => getOlderRequestNotes(kind, reference, before)} onAdd={async (text) => setData(await addRequestNote(kind, reference, text))} onSessionEnded={onSessionEnded} />
         </div>
         <aside className="admin-request-side">

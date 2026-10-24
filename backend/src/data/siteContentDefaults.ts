@@ -40,6 +40,7 @@ For any question about your information, contact ${CONTACT}.`,
         body: `We only collect what you type into our forms, and only to respond to you or fulfil your order.
 
 - Contact form: your name and email address (required), and your company, phone number, the topic you choose, and your message. We use these to reply to your enquiry and to email you a confirmation with your reference number.
+- Files you attach to the contact form (optional): photos and PDF documents, such as a nameplate or a drawing. We use them only to understand and answer your enquiry. Photos are saved again by our website before they are stored, which removes hidden details such as where and with which camera they were taken. PDF documents are kept as you sent them.
 - Shop orders: your name, email address, and phone number (required), your company and any notes (optional), the products you order, and whether you collect the order or have it delivered. For delivery we also ask for your delivery area and address; for pickup we do not ask for an address. We use these to fulfil your order, contact you about it, and email you a confirmation.
 - Payment: you pay on Paystack’s own secure page, or by bank transfer to GPEC’s account. We never ask for, see, or store your card details or banking logins. Paystack tells us whether the payment succeeded and how much was paid. If you pay by bank transfer, GPEC’s bank statement shows the payment as your bank sends it (usually the account name and the narration you enter); staff use it only to match your payment to your order.`,
       },
@@ -57,9 +58,9 @@ GPEC staff who log in to manage the website use a login cookie. Visitors do not.
       },
       {
         heading: 'Who can see your information',
-        body: `Your enquiries and orders can be read only by authorised GPEC staff, through a password-protected area of the website. Each staff member has their own account, and changes they make are recorded. Staff may add notes on how they followed up your enquiry; these are kept with it and seen only by staff.
+        body: `Your enquiries (with any files you attach) and orders can be read only by authorised GPEC staff, through a password-protected area of the website. Each staff member has their own account, and changes they make are recorded. Staff may add notes on how they followed up your enquiry; these are kept with it and seen only by staff.
 
-The information is stored in a database run for us by MongoDB Atlas ([database region, shown on the cluster’s page in MongoDB Atlas]). The website runs on a server rented from Hetzner in Nuremberg, Germany. These companies store the data for us; they do not use it for their own purposes.
+The information is stored in a database run for us by MongoDB Atlas ([database region, shown on the cluster’s page in MongoDB Atlas]). Files you attach are kept in private storage at Amazon Web Services (Amazon S3, Stockholm, Sweden), which only our website can read; staff open them through the password-protected area. The website runs on a server rented from Hetzner in Nuremberg, Germany. These companies store the data for us; they do not use it for their own purposes.
 
 Payments are handled by Paystack. To take your payment we send Paystack your email address, the amount, and your order reference. Paystack handles your payment details under its own privacy policy.
 

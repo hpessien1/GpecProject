@@ -39,6 +39,14 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await contact.getByLabel('Full name').fill('Sample')
     await contact.getByLabel('Email address').fill('sample@example.com')
     await contact.getByLabel('Your requirement').fill('Sample')
+    // Attached files, and one that is refused (the list, its Remove buttons, and the problem message).
+    await contact.getByLabel('Attach photos or PDFs').setInputFiles([
+      { name: 'nameplate.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(2048, 1) },
+      { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('sample') },
+    ])
+    await contact.locator('.quote-files-problems').waitFor()
+    await audit.page(page, `${label} contact form with attached files`)
+    if (hovering) await audit.hover(page, `${label} contact form with attached files`)
     await contact.getByRole('button', { name: 'Send inquiry' }).click()
     await contact.locator('.form-error').waitFor()
     await audit.page(page, `${label} contact form error`)

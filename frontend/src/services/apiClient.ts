@@ -14,18 +14,21 @@ interface RequestOptions {
   payload?: unknown
   // A file sent as the body as it is, with its own type (photo uploads). Not used with payload.
   file?: Blob
+  // Fields and files as multipart form data (the contact form with attachments); the browser sets
+  // the type. Not used with payload or file.
+  form?: FormData
   // Admin requests send the session cookie; public requests never do.
   withCredentials?: boolean
 }
 
 // All requests to the GPEC API go through here.
-export async function requestJson<T>(path: string, fallbackMessage: string, { method = 'GET', payload, file, withCredentials = false }: RequestOptions = {}): Promise<T> {
+export async function requestJson<T>(path: string, fallbackMessage: string, { method = 'GET', payload, file, form, withCredentials = false }: RequestOptions = {}): Promise<T> {
   let response: Response
   try {
     response = await fetch(`${apiBaseUrl}${path}`, {
       method,
       headers: file ? { 'Content-Type': file.type } : payload === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: file ?? (payload === undefined ? undefined : JSON.stringify(payload)),
+      body: file ?? form ?? (payload === undefined ? undefined : JSON.stringify(payload)),
       credentials: withCredentials ? 'include' : 'same-origin',
     })
   } catch {

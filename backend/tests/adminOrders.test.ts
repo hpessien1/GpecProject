@@ -272,7 +272,7 @@ describe('demo data', () => {
     await removeDemoData()
     const { default: AdminUser } = await import('../src/models/AdminUser.js')
     await AdminUser.deleteMany({})
-    expect(await seedDemoData()).toEqual({ orders: 12, contactRequests: 8, withHistory: false, deliveryAreas: 10, bankTransferOn: true, pricesSet: 0 })
+    expect(await seedDemoData()).toEqual({ orders: 12, contactRequests: 8, files: 0, withHistory: false, deliveryAreas: 10, bankTransferOn: true, pricesSet: 0 })
     expect(await AuditRecord.countDocuments({ targetType: 'order' })).toBe(0)
   })
 

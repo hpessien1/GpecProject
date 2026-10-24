@@ -6,8 +6,9 @@ export interface StoredImage {
   contentType: string
 }
 
-// Somewhere to keep uploaded product photos. Production uses a private Amazon S3 bucket; tests pass
-// an in-memory stand-in.
+// Somewhere to keep uploaded product photos (product-images/) and the files customers attach to
+// contact requests (request-files/). Production uses a private Amazon S3 bucket; tests pass an
+// in-memory stand-in.
 export interface ImageStore {
   put(key: string, body: Buffer, contentType: string): Promise<void>
   // null when nothing is stored under the key.
@@ -15,7 +16,8 @@ export interface ImageStore {
 }
 
 // The only code that talks to Amazon S3. The bucket is private: visitors never reach it directly;
-// the API reads photos from it and serves them (routes/productImages.ts).
+// the API reads files from it and serves them (routes/productImages.ts to anyone, and
+// routes/adminRequests.ts to logged-in staff).
 export function s3ImageStore(settings: ImageStorageSettings): ImageStore {
   const client = new S3Client({
     region: settings.region,

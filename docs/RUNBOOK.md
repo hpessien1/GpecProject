@@ -242,12 +242,21 @@ simply off**: everything else works, and the API log says `Email notifications a
    names the email service's region (Stockholm, filled in 2026-10-23). Update it there if the region
    ever changes.
 
-### 1.7 Product photos (Amazon S3)
+### 1.7 Product photos and contact-form files (Amazon S3)
 
 Staff upload product photos from their laptop, phone, or tablet in the admin product form. The
 API checks and resizes each photo and keeps it in a **private** S3 bucket; visitors get photos
-from the API, never from the bucket. **Until this is set up, uploads are simply off**: the form asks
-for an image already on the site, and the API log says `Product photo uploads are off`.
+from the API, never from the bucket. Customers may also attach photos and PDFs to the contact form
+(optional); those go in the same bucket under `request-files/`, and only logged-in staff can open
+them, through the admin panel. **Until this is set up, both are simply off**: the product form asks
+for an image already on the site, the contact form offers no attachments, and the API log says
+`Product photo uploads and contact-form attachments are off`.
+
+> **Before deploying the contact-form attachments (2026-10-24) to a bucket set up earlier:** add
+> the second line to the policy's `Resource` in step 3 (IAM → *Users* → `gpec-product-images` →
+> its policy → *Edit*). Without it, a customer who attaches a file gets "Something went wrong" and
+> the API log shows `AccessDenied` for `request-files/…`; requests without files still work. The
+> same applies to the development key, if `backend/.env` has the `S3_*` settings.
 
 1. **AWS account and region.** The AWS project from Section 1.6 (step 1), region eu-north-1.
 2. **Bucket.** S3 → *Create bucket* → `gpec-product-images` (bucket names are unique across AWS),
@@ -264,7 +273,10 @@ for an image already on the site, and the API log says `Product photo uploads ar
        {
          "Effect": "Allow",
          "Action": ["s3:PutObject", "s3:GetObject"],
-         "Resource": "arn:aws:s3:::gpec-product-images/product-images/*"
+         "Resource": [
+           "arn:aws:s3:::gpec-product-images/product-images/*",
+           "arn:aws:s3:::gpec-product-images/request-files/*"
+         ]
        },
        {
          "Effect": "Allow",
@@ -275,11 +287,13 @@ for an image already on the site, and the API log says `Product photo uploads ar
    }
    ```
 
-   It can only add, read, and list product photos in that one bucket; a leaked key cannot delete
-   anything or touch other AWS services. **The list permission is needed:** without it, S3 answers a
-   request for a missing photo with `AccessDenied` instead of "not found", and the API returns 500
-   instead of 404 (found on the live site, 2026-10-23). The list only shows photo file names, and
-   the photos are public on the site anyway.
+   It can only add, read, and list product photos and contact-form files in that one bucket; a
+   leaked key cannot delete anything or touch other AWS services. **The list permission is needed:**
+   without it, S3 answers a request for a missing photo with `AccessDenied` instead of "not found",
+   and the API returns 500 instead of 404 (found on the live site, 2026-10-23). The list only shows
+   file names: product photos are public on the site anyway, and contact-form files are named by a
+   random code that says nothing about the file or the customer. Files are never deleted (the key
+   cannot), so removed demo data leaves its few sample files behind, unlisted.
 4. **Coolify.** On the API resource, set all four (a partial set stops the API at startup with a
    list of what is missing), then redeploy the API:
 
@@ -291,7 +305,8 @@ for an image already on the site, and the API log says `Product photo uploads ar
 
 5. **Test.** The API log no longer says uploads are off. In the admin panel, edit a sample
    product, choose a photo from your device (try a phone too), check the preview, and save. The
-   shop should show the new photo.
+   shop should show the new photo. Then send a `[TEST]` contact request with a photo and a PDF
+   attached: in the admin panel the request shows both, the photo opens, and the PDF downloads.
 6. **Cost.** At GPEC's size, well under a dollar a month: storage is tiny, and photos sent to
    visitors fall inside AWS's monthly free data-transfer allowance. Check the S3 pricing page for
    the chosen region.
@@ -408,6 +423,7 @@ database separately (or restored from an Atlas backup).
 | No emails, and the log says `Email notifications are off` | Email settings not set in Coolify | Expected until SES is set up (Section 1.6). |
 | Admin product form says "Photo uploads are not set up yet", or offers no photo upload | `S3_*` settings not set in Coolify | Expected until S3 is set up (Section 1.7). |
 | Photo upload fails with "Something went wrong" and the API log shows `AccessDenied` or `NoSuchBucket` | Wrong key, bucket name, or region; or the IAM policy names a different bucket | Check Section 1.7, steps 2–4. |
+| Contact form with an attached file fails with "Something went wrong" (without files it works), and the API log shows `AccessDenied` for `request-files/…` | The key's policy lacks the `request-files/*` line (keys set up before 2026-10-24) | Add it (Section 1.7, step 3). |
 | Shop shows a broken image for an uploaded photo | The photo was never stored (bucket or key changed since), or the API cannot reach S3 | Open `https://api.gpecengineering.com/api/<the product's image value>`: 404 means it is not in the bucket (upload it again); 500 means an S3 problem (check the API log; `AccessDenied` naming `s3:ListBucket` means the key's policy lacks the list permission from Section 1.7, step 3). |
 | A secret leaked (connection string, SES key, Paystack key) | — | Rotate it at the source first (Atlas: change the `gpec-prod` password; SES or S3: create a new access key for `gpec-ses-sender` or `gpec-product-images` and delete the old one; Paystack: regenerate the key), update it in Coolify, redeploy, then tell the developer so the git history can be checked. |
 

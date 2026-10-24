@@ -55,7 +55,8 @@ function formLimiter({ windowMs, limit }: RateLimitSettings) {
 
 // mailer: tests pass a recorder; otherwise Amazon SES when email is configured, or nothing.
 // breachCheck: tests pass a stand-in; otherwise Pwned Passwords.
-// imageStore: tests pass an in-memory store; otherwise Amazon S3 when configured, or nothing (uploads off).
+// imageStore: tests pass an in-memory store; otherwise Amazon S3 when configured, or nothing (uploads
+// off: product photos, and files attached to contact requests).
 // paystack: tests pass a stand-in; otherwise Paystack's API when payments are configured, or nothing.
 export default function createApp(
   config: AppConfig,
@@ -88,7 +89,7 @@ export default function createApp(
   app.use('/api/products', productsRouter(config.currency))
   app.use('/api/product-images', productImagesRouter(imageStore))
   app.use('/api/content', siteContentRouter())
-  app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter(notifier))
+  app.use('/api/contact-requests', contactRequestsRouter(notifier, imageStore, formLimiter(config.formRateLimit)))
   app.use('/api/checkout', checkoutRouter(config, paystack, notifier, { read: formLimiter(config.checkoutReadRateLimit), order: formLimiter(config.orderRateLimit) }))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.
   app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
@@ -96,7 +97,7 @@ export default function createApp(
   app.use('/api/admin/account', requireAdmin(config.clientOrigins), adminAccountRouter(config, notifier))
   app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
   app.use('/api/admin/product-images', requireAdmin(config.clientOrigins), adminProductImagesRouter(imageStore))
-  app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest'))
+  app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest', imageStore))
   app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier))
   app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))
   app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier))

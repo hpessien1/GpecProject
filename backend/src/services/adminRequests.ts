@@ -30,6 +30,15 @@ interface RequestKind<Doc extends StoredRequest> {
   searchFields: string[]
   summarize: (doc: Doc) => { name: string, company: string, email: string, summary: string }
   details: (doc: Doc) => Record<string, unknown>
+  // Photos and documents the customer attached.
+  attachments: (doc: Doc) => RequestAttachment[]
+}
+
+export interface RequestAttachment {
+  id: string
+  name: string
+  contentType: string
+  size: number
 }
 
 function truncate(text: string, length: number) {
@@ -46,11 +55,13 @@ const contactRequestKind: RequestKind<mongoose.InferSchemaType<typeof ContactReq
     subject: doc.subject,
     message: doc.message,
   }),
+  // Requests saved before attachments existed have no field stored.
+  attachments: (doc) => (doc.attachments ?? []).map(({ id, name, contentType, size }) => ({ id, name, contentType, size })),
 }
 
 function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
   function toDetail(doc: Doc) {
-    return { reference: doc.reference, status: doc.status, createdAt: doc.createdAt, updatedAt: doc.updatedAt, ...kind.details(doc) }
+    return { reference: doc.reference, status: doc.status, createdAt: doc.createdAt, updatedAt: doc.updatedAt, ...kind.details(doc), attachments: kind.attachments(doc) }
   }
 
   // The request with the newest page of its history and of its notes; older pages come from
@@ -68,6 +79,14 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
 
   return {
     get,
+
+    // One of the request's attachments, by its id; only files listed on the request can be read.
+    async attachment(reference: string, id: string) {
+      const doc = await kind.model.findOne({ reference })
+      const found = doc ? kind.attachments(doc).find((file) => file.id === id) : undefined
+      if (!found) throw new NotFoundError('File not found.')
+      return found
+    },
 
     async history(reference: string, before: Cursor | null) {
       await requireRequest(reference)

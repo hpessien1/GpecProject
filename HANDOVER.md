@@ -1,6 +1,7 @@
 # Next-session handover
 
-Last updated: 2026-10-24 (end of session: home page changes, site content, two-step login, fonts).
+Last updated: 2026-10-24 (home page changes, site content, two-step login, fonts; later: project
+clips fix and files on the contact form).
 Start a new session with:
 
 ```text
@@ -22,9 +23,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** as far as known, the website and API were last deployed at `48beb9d`
-  (company profile, prices). **Not deployed yet:** checkout, delivery areas, bank transfer, demo shop
-  data, admin pagination, and everything from 2026-10-24 (open item 1).
+- **What is deployed:** everything up to `9f7750a` (the user reported the deploy and its checks
+  done on 2026-10-24): Paystack test settings and `TWO_FACTOR_ENCRYPTION_KEY` in Coolify, the test
+  webhook URL in Paystack, demo data reloaded, and the live checks from the previous open item 1.
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (built, test mode), and 6 are
   done; step 3 (deploy) is live with the Atlas lock-down still to do.
 - **Company facts:** [`README.md`](README.md) "Company Profile", from GPEC's PDF (git-ignored, 23 MB,
@@ -62,6 +63,13 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
    self-hosted) only for codes, 0.85rem and up. DM Mono removed.
 5. **Security fix** (`9f7750a`): body-parser 2.3.0 → 2.4.0 (GHSA-27r3-jxmh-p828, denial of service),
    which had failed CI's dependency audit. Lockfile only; approved by the user.
+6. **Project clips** (later the same day, not yet committed): on screens wider than about 1700px
+   the three videos ran past the bottom of their box and were cut off; both grids now have a row of
+   fixed height. The existing browser test measured the wrong box and now checks 1920 and 2560px.
+7. **Files on the contact form** (not yet committed; CLAUDE.md Section 8): optional photos and PDFs,
+   up to 5 of 10 MB, seen by staff on the request page. New package `multer` 2.5.0 (approved; 2.4.0
+   has a high-severity advisory). Demo requests DE000002 and DE000004 get sample files. Privacy
+   notice starting text updated.
 
 Found and fixed along the way: any recovery code was accepted (Mongoose's automatic `updatedAt`
 makes every update count as a change); admin accounts from before two-step login broke the status
@@ -79,8 +87,9 @@ at 320px. Lessons are in CLAUDE.md Section 15.
   `services/checkout.ts`, Paystack only in `services/paystack.ts`, site content in
   `services/siteContent.ts` (starting text `data/siteContentDefaults.ts`), two-step login in
   `services/twoFactor.ts`, `totp.ts`, `secretBox.ts`.
-- **Tests:** 464 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 282 behaviour tests at desktop and phone (plus 2 skipped, as before) and 20
+- **Tests:** 493 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 293 behaviour tests at desktop and phone (plus 3 skipped: the 2 from before
+  and the attach button's keyboard check, desktop only) and 20
   contrast tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with
   the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
@@ -109,36 +118,34 @@ at 320px. Lessons are in CLAUDE.md Section 15.
 
 ## Open items for the next session
 
-1. **Deploy and fill the live site** (the user acts in Coolify; the assistant guides):
-   - On `gpec-api` (runtime only, *Available at Buildtime* unticked): the five `PAYSTACK_*`
-     settings (RUNBOOK 1.8) and **`TWO_FACTOR_ENCRYPTION_KEY`** (a new value, not the development
-     one; RUNBOOK 1.9). Set the **test** webhook URL in Paystack to
-     `https://api.gpecengineering.com/api/paystack/webhook`.
+0. **Deploy the contact-form files** (the user acts; the assistant guides):
+   - **First**, in AWS IAM, add `arn:aws:s3:::gpec-product-images/request-files/*` to the
+     `gpec-product-images` key's policy (RUNBOOK 1.7, step 3), and to the development key if
+     `backend/.env` has `S3_*` settings. Without it, requests with files fail; without files they work.
    - Deploy `gpec-api`, then `gpec-web`.
-   - In the `gpec-api` terminal: `node dist/scripts/seedDemoData.js --production --remove`, then
-     `node dist/scripts/seedDemoData.js --production`.
-   - Check: delivery areas and bank details in the admin; a pickup and a delivery order; a Paystack
-     **test-card** payment end to end (the first test against Paystack's real test API); a
-     bank-transfer order confirmed in the admin; pagination (Products 14 and Orders 12 show two
-     pages); the FAQ and `#refunds` with their Draft notice; *Site content* editing; turning on
-     two-step login with an app and with email (SES sandbox: only verified addresses get mail).
-2. **Unused illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
-   `product-lineup.png`): the user asked to remove them, but the sample products and five products in
-   both databases use them. Recommended: keep them until GPEC's real products replace the samples.
-   Waiting on the user's choice.
-3. **Offered, not yet asked for:** raise the remaining small text that was never monospaced (button
+   - Demo files: existing demo requests are never changed, so in the `gpec-api` terminal run
+     `node dist/scripts/seedDemoData.js --production --remove`, then `… --production` (this also
+     resets the other demo records to their starting state). It reports "Attached 3 sample files".
+   - Privacy notice: if it was already saved in *Site content* on the live site, add the attachments
+     wording from `backend/src/data/siteContentDefaults.ts` there (a saved copy does not update).
+   - Check: a `[TEST]` request with a photo and a PDF; both on its admin page; the photo opens, the
+     PDF downloads; a phone upload too.
+1. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
+   `product-lineup.png`): **kept** (user, 2026-10-24) because the sample products use them. Remove
+   them once GPEC's real products replace the samples and nothing refers to them.
+2. **Later (user, 2026-10-24):** raise the remaining small text that was never monospaced (button
    text 0.76rem, form hints 0.75–0.78rem, a few admin labels 0.72–0.75rem) to match the 0.8rem labels.
-4. **Finish the live setup:** Atlas lock-down (needs the Atlas owner: `gpec-prod`/`gpec-dev` users,
+3. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner: `gpec-prod`/`gpec-dev` users,
    network access, new `MONGODB_URI`, database region for the privacy notice); SES production access
    (requested); AWS paid plan before 2027-04-22; 2FA on the Paystack account (its dashboard asks).
-5. **From GPEC** (ROADMAP "Needed from GPEC"): approval of the refunds policy, FAQ, and privacy
+4. **From GPEC** (ROADMAP "Needed from GPEC"): approval of the refunds policy, FAQ, and privacy
    notice (Site content, every [bracket] filled in); real bank details; delivery areas and fees;
    collection hours; the Paystack rate on its plan; real products with prices; business hours and
    social links; registration number; whether Afrizone may be named; the first video's sound.
-6. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
+5. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
    data removed, samples archived, every admin using two-step login, live Paystack keys only with
    GPEC's approval.
-7. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
+6. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
 
 ## History
 

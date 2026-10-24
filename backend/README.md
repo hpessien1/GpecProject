@@ -30,7 +30,7 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `503 {"status":"unavailable"}` (also used by the Docker health check)
 - `GET /api/products`
 - `GET /api/content/:page` (`privacy`, `refunds`, `faq`)
-- `POST /api/contact-requests`
+- `POST /api/contact-requests`, `GET /api/contact-requests/options`
 - Checkout: `GET /api/checkout`, `POST /api/checkout/quote`, `POST /api/checkout/orders`,
   `GET /api/checkout/orders/:paymentReference`, `POST /api/checkout/orders/:paymentReference/transfer-sent`;
   Paystack webhook: `POST /api/paystack/webhook`
@@ -44,7 +44,7 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
   `GET /api/admin/products/:id/history`; `GET /api/admin/contact-requests`, `GET`,
   `PATCH /api/admin/contact-requests/:reference`, `GET`, `POST /api/admin/contact-requests/:reference/notes`,
-  `GET /api/admin/contact-requests/:reference/history`;
+  `GET /api/admin/contact-requests/:reference/history`, `GET /api/admin/contact-requests/:reference/files/:id`;
   `GET /api/admin/orders`, `GET`, `PATCH /api/admin/orders/:reference`,
   `GET`, `POST /api/admin/orders/:reference/notes`, `GET /api/admin/orders/:reference/history`;
   `GET`, `POST /api/admin/delivery-areas`; `GET`, `PATCH /api/admin/delivery-areas/:id`;
@@ -130,6 +130,16 @@ Both public form routes have a spam trap: a request whose `website` field has a 
 
 `POST /api/contact-requests` accepts the landing-page contact form: `fullName`, `email`, and `message` (required), plus optional `company`, `phone`, and `subject` (one of the form's listed options). It saves the request and returns a `GPEC-C-YYYY-XXXXXXXX` reference.
 
+Files are optional. With files, the same fields come as `multipart/form-data`, plus up to 5 files in
+`files` (each up to 10 MB): JPEG, PNG, or WebP photos, re-saved as WebP (upright, at most 2400×2400,
+camera details removed), or PDFs (checked to start with `%PDF-` and end with `%%EOF`, stored as
+sent). They go to the private S3 bucket under `request-files/<random id>`, never a public address.
+Refusals: a file that is neither gets `400 VALIDATION_ERROR` naming it (and nothing is saved); more
+than 5 files `400 TOO_MANY_FILES`; a file over 10 MB `413 FILE_TOO_LARGE`; files while the `S3_*`
+settings are unset `503 FILE_UPLOADS_OFF`. The text fields are checked first. The emails say how many
+files came, without attaching them. `GET /api/contact-requests/options` answers `{ fileUploads }`
+(whether the form offers attachments); it is outside the form's rate limit.
+
 ### Admin routes
 
 All admin responses are sent with `Cache-Control: no-store`.
@@ -209,6 +219,11 @@ All admin responses are sent with `Cache-Control: no-store`.
   internal note under the logged-in admin's name and returns `201` with the same body as `GET`.
   Unknown or malformed references get `404`.
   New requests are always `new`; customer details and notes cannot be edited or deleted here.
+  `GET /:reference` includes `attachments` (`id`, `name`, `contentType`, `size`; empty for requests
+  from before attachments existed), and `GET /:reference/files/:id` sends one of them: only a file
+  listed on that request, with `Content-Security-Policy: default-src 'none'; sandbox` and
+  `Cross-Origin-Resource-Policy: same-site` (the admin panel shows photos from the API's address);
+  PDFs always as a download (`Content-Disposition: attachment`). Anything else gets `404`.
 - `GET /api/admin/orders?page=N&stage=…&q=text` (all optional) lists orders newest first, each
   with a `stage`: `awaiting_payment` or `payment_failed` for unpaid orders, otherwise the
   fulfilment status (`new`, `processing`, `ready_for_pickup`, `out_for_delivery`, `completed`,

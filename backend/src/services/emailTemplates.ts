@@ -11,10 +11,13 @@ export interface ContactEmailData {
   phone: string
   subject: string
   message: string
+  // How many photos or documents the customer attached (the files stay in the admin panel).
+  files?: number
 }
 
 const received = (date: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(date)} (UTC)`
 const optional = (label: string, value: string) => value ? [`${label}: ${value}`] : []
+const fileCount = (files: number) => files === 1 ? '1 file' : `${files} files`
 
 export function staffContactEmail(request: ContactEmailData, siteUrl: string) {
   return {
@@ -33,6 +36,7 @@ export function staffContactEmail(request: ContactEmailData, siteUrl: string) {
       'Message:',
       request.message,
       '',
+      ...(request.files ? [`Attached: ${fileCount(request.files)}. Open the request in the admin panel to see them.`, ''] : []),
       `Open it in the admin panel: ${siteUrl}/#admin/contact-requests/${request.reference}`,
       'Reply to this email to answer the customer directly.',
     ].join('\n'),
@@ -159,6 +163,7 @@ export function customerContactEmail(request: ContactEmailData, siteUrl: string)
       `Hello ${request.fullName},`,
       '',
       `Thank you for contacting GPEC. Your reference is ${request.reference}.`,
+      ...(request.files ? [`We received the ${fileCount(request.files)} you attached.`] : []),
       '',
       'A GPEC representative will reply using the contact details you gave us.',
       '',

@@ -7,8 +7,11 @@ import Order from '../models/Order.js'
 import RequestNote from '../models/RequestNote.js'
 import { demoContactRequests, demoDeliveryAreas, demoOrders, demoPrices } from '../data/demoData.js'
 import Product from '../models/Product.js'
+import sharp from 'sharp'
 import { SAMPLE_BANK_DETAILS, isSampleAccount } from './bankTransfer.js'
-import type { DemoStatusStep } from '../data/demoData.js'
+import type { ImageStore } from './imageStore.js'
+import { prepareRequestFiles, storeRequestFiles } from './requestFiles.js'
+import type { DemoContactRequest, DemoStatusStep } from '../data/demoData.js'
 
 export const PRODUCTION_DATABASE = 'gpec'
 
@@ -49,9 +52,51 @@ function historyRecords(admin: { _id: unknown, email: string, name: string }, ta
   }))
 }
 
-// Adds the demo orders and contact requests that are not there yet; existing ones are left alone, so
-// running it twice changes nothing. Status history and notes need an author, so they are added (by
-// the first active admin) only when an admin account exists.
+// A plainly invented "photo": a grey plate with dark lines where a nameplate's text would be. No
+// lettering, because the server image may have no fonts; the file name says it is a sample.
+function samplePhoto(seed: number) {
+  const rows = Array.from({ length: 6 }, (_, i) => `<rect x="120" y="${170 + i * 70}" width="${560 - ((i * 97 + seed * 53) % 260)}" height="22" rx="4" fill="#2b3440"/>`).join('')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#5c6670"/><rect x="80" y="90" width="640" height="460" rx="18" fill="#c9ced3" stroke="#3a434d" stroke-width="8"/><rect x="120" y="120" width="${200 + seed * 40}" height="30" rx="4" fill="#ff7600"/>${rows}</svg>`
+  return sharp(Buffer.from(svg)).jpeg().toBuffer()
+}
+
+// A one-page PDF that says what it is, in a font every PDF reader has built in (Helvetica), with
+// the byte offsets PDF readers need to find each part.
+function samplePdf(title: string) {
+  const lines = [title, 'Demo data for trying the GPEC admin panel.', 'Not a real drawing.']
+  const text = lines.map((line) => `(${line.replace(/[\\()]/g, '\\$&')}) '`).join('\n')
+  const content = `BT\n/F1 16 Tf\n22 TL\n72 780 Td\n${text}\nET`
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Length ${Buffer.byteLength(content, 'latin1')} >>\nstream\n${content}\nendstream`,
+  ]
+  let pdf = '%PDF-1.4\n'
+  const offsets = objects.map((object, index) => {
+    const offset = Buffer.byteLength(pdf, 'latin1')
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
+    return offset
+  })
+  const xref = Buffer.byteLength(pdf, 'latin1')
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}`
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+  return Buffer.from(pdf, 'latin1')
+}
+
+// A demo request's sample files, checked and stored exactly as a customer's would be.
+async function demoAttachments(store: ImageStore | null, request: DemoContactRequest) {
+  if (!store || !request.files) return []
+  const received = await Promise.all(request.files.map(async (file, index) => ({
+    originalname: file.name,
+    buffer: file.kind === 'photo' ? await samplePhoto(index) : samplePdf(file.name.replace(/\.pdf$/, '')),
+  })))
+  const prepared = await prepareRequestFiles(received)
+  await storeRequestFiles(store, prepared)
+  return prepared.map(({ id, name, contentType, size }) => ({ id, name, contentType, size }))
+}
+
 // Demo delivery areas that are missing (by name), and bank transfer switched on with the sample
 // details, unless staff have entered real ones. Areas already there, even edited, are left alone.
 async function seedShopSettings() {
@@ -69,7 +114,11 @@ async function seedShopSettings() {
   return { deliveryAreas: missing.length, bankTransferOn: bankSwitchedOn, pricesSet }
 }
 
-export async function seedDemoData(now = Date.now()) {
+// Adds the demo orders and contact requests that are not there yet; existing ones are left alone, so
+// running it twice changes nothing. Status history and notes need an author, so they are added (by
+// the first active admin) only when an admin account exists. Sample attached files need file storage
+// (store); without it the demo requests have none.
+export async function seedDemoData(now = Date.now(), store: ImageStore | null = null) {
   const shop = await seedShopSettings()
   const areaIds = new Map((await DeliveryArea.find({ name: { $in: AREA_NAMES } }).select('name').lean()).map((area) => [area.name, String(area._id)]))
   const [existingOrders, existingContacts, admin] = await Promise.all([
@@ -113,10 +162,12 @@ export async function seedDemoData(now = Date.now()) {
       updatedAt: new Date(placedAt + (lastStep?.after ?? 0)),
     }
   }))
-  await ContactRequest.insertMany(newContacts.map((request) => {
+  const attachments = await Promise.all(newContacts.map((request) => demoAttachments(store, request)))
+  await ContactRequest.insertMany(newContacts.map((request, index) => {
     const placedAt = now - request.age
     const lastStep = request.steps.at(-1)
     return {
+      attachments: attachments[index],
       reference: request.reference,
       fullName: request.fullName,
       company: request.company,
@@ -141,7 +192,7 @@ export async function seedDemoData(now = Date.now()) {
       ...newContacts.filter((request) => request.note).map((request) => ({ targetType: 'contactRequest', targetId: request.reference, text: request.note?.text, author, createdAt: new Date(now - request.age + (request.note?.after ?? 0)) })),
     ])
   }
-  return { orders: newOrders.length, contactRequests: newContacts.length, withHistory: admin !== null, ...shop }
+  return { orders: newOrders.length, contactRequests: newContacts.length, files: attachments.flat().length, withHistory: admin !== null, ...shop }
 }
 
 // Removes every demo record, with its status history and notes, and nothing else: they are found by

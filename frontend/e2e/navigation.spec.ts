@@ -97,15 +97,23 @@ test.describe('home page sections', () => {
     await mockApi(page)
     await page.goto('/#projects')
     const gallery = page.locator('.work-video-gallery')
-    // Space between the box's edges and the nearest clip that is mostly in view, in pixels.
+    // Space between the visible box's edges (the gallery can be taller than the box that clips it)
+    // and the nearest clip that is mostly in view, in pixels.
     const space = () => gallery.evaluate((box) => {
-      const outer = box.getBoundingClientRect()
+      const outer = box.closest('.work-video-image')!.getBoundingClientRect()
       const clips = [...box.querySelectorAll('video')].map((clip) => clip.getBoundingClientRect()).filter((clip) => clip.left + clip.width / 2 > outer.left && clip.left + clip.width / 2 < outer.right)
       return { bottom: Math.round(outer.bottom - Math.max(...clips.map((clip) => clip.bottom))), left: Math.round(Math.min(...clips.map((clip) => clip.left)) - outer.left) }
     })
     expect(await space()).toEqual({ bottom: expect.any(Number), left: expect.any(Number) })
     expect((await space()).bottom).toBeGreaterThanOrEqual(24)
     expect((await space()).left).toBeGreaterThanOrEqual(20)
+    if (testInfo.project.name === 'desktop') {
+      // On wide screens the portrait clips once grew taller than their box and were cut off at the bottom.
+      for (const width of [1920, 2560]) {
+        await page.setViewportSize({ width, height: 900 })
+        expect((await space()).bottom, `space below the clips at ${width}px`).toBeGreaterThanOrEqual(24)
+      }
+    }
     if (testInfo.project.name === 'phone') {
       await gallery.evaluate((box) => box.scrollBy({ left: 200, behavior: 'instant' }))
       await expect.poll(async () => (await space()).left).toBeGreaterThanOrEqual(20)
