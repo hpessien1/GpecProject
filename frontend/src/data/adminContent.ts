@@ -1,4 +1,4 @@
-import type { AdminRequestKind, BankTransferSettings, EditableDeliveryAreaFields, EditableProductFields, PaymentMethod, FulfilmentMethod, OrderStage, PaymentStatus, RequestStatus } from '../types'
+import type { AdminRequestKind, BankTransferSettings, EditableDeliveryAreaFields, EditableProductFields, PaymentMethod, FulfilmentMethod, OrderStage, PaymentStatus, RequestStatus, EditableSiteContentFields, SiteContentKey } from '../types'
 
 // Labels for product fields, shared by the edit form and the change history.
 export const productFieldLabels: Record<keyof EditableProductFields | 'id', string> = {
@@ -143,4 +143,37 @@ export const requestNotesContent = {
 export const olderEntriesContent = {
   history: { button: 'Show older changes', end: 'That is every change, back to the first.', error: 'Unable to load older changes.' },
   notes: { button: 'Show older notes', end: 'That is every note, back to the first.', error: 'Unable to load older notes.' },
+}
+
+// Site content (#admin/content): the FAQ, the refunds policy, and the privacy notice, edited by staff.
+export const siteContentAdmin = {
+  eyebrow: 'Website',
+  title: 'Site content',
+  intro: 'The wording of the FAQ, the refunds policy, and the privacy notice on the website. Saving puts your changes on the website straight away, and every change is kept in the page’s history with what it said before.',
+  draftNote: 'The FAQ and the refunds policy were first written by the website’s developer as suggestions. Check every rule and every highlighted [bracket] with GPEC’s management (and, for the policies, a legal adviser) before marking a page approved.',
+  status: { approved: 'Approved', draft: 'Draft' },
+  formatHelp: [
+    'Leave an empty line between paragraphs.',
+    'Start a line with “- ” to make a bullet point.',
+    'Put anything still to be confirmed in [square brackets]: the website highlights it.',
+  ],
+  approvedLabel: 'Approved by GPEC: remove the “Draft for GPEC’s review” notice from the website.',
+  approvedHint: 'Leave this off until GPEC has agreed the wording. While it is off, visitors see that the page is a draft.',
+  saved: 'Saved. The website now shows this version.',
+  noChanges: 'No changes to save.',
+  unsaved: 'You have changes that are not saved yet.',
+}
+
+// What each page calls its parts in the editor.
+export const siteContentItemLabels: Record<SiteContentKey, { item: string, heading: string, body: string }> = {
+  privacy: { item: 'Section', heading: 'Heading', body: 'Text' },
+  refunds: { item: 'Section', heading: 'Heading', body: 'Text' },
+  faq: { item: 'Question', heading: 'Question', body: 'Answer' },
+}
+
+export const siteContentFieldLabels: Record<keyof EditableSiteContentFields, string> = {
+  title: 'Page title',
+  intro: 'Introduction',
+  sections: 'Sections',
+  approved: 'Approved',
 }

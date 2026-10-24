@@ -123,7 +123,7 @@ The form must also display a read-only order summary: products, quantities, unit
 
 Prices and payments are in Nigerian naira (NGN), confirmed by GPEC on 2026-10-23. GPEC wants customers to pay the Paystack transaction fee: it is added to the customer's total as a separate, clearly labelled "Payment processing fee" line, shown before the customer is redirected to pay. Product prices are not changed. The fee rule comes from GPEC's Paystack plan, as server configuration.
 
-Required fields must have visible labels and validation messages. Email format must be validated before submission. The form must include privacy wording explaining how GPEC uses the customer's details.
+Required fields must have visible labels and validation messages. Email format must be validated before submission. The form must include privacy wording explaining how GPEC uses the customer's details, with links (opening in a new tab, so the form keeps what was typed) to the privacy notice and to the refunds, cancellations, and returns policy.
 
 ### 6. Payment (Paystack or bank transfer)
 
@@ -191,7 +191,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 - The delivery areas and their fees (staff enter them in the admin panel).
 - The Paystack fee rate on GPEC's own plan (Paystack publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000; checked 2026-10-23), and confirmation that passing it to customers is allowed under GPEC's Paystack terms.
 - Collection hours for pickup (the location is the Woji address).
-- Refund, cancellation, and returns policy.
+- Approval of the refunds, cancellations, and returns policy (a draft for GPEC's review is at `#refunds` since 2026-10-24; staff edit it in the admin panel, Site content).
 - Recipients for order notifications.
 
 ## Acceptance Criteria

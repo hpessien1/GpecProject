@@ -4,3 +4,10 @@ const dateTimeFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', t
 export function formatDateTime(isoDate: string) {
   return dateTimeFormat.format(new Date(isoDate))
 }
+
+// "24 Oct 2026" on GPEC's own calendar (Nigeria), so a page's date is the same for every visitor.
+const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'Africa/Lagos' })
+
+export function formatDate(isoDate: string) {
+  return dateFormat.format(new Date(isoDate))
+}

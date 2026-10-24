@@ -1,4 +1,4 @@
-type AdminSection = 'products' | 'orders' | 'delivery' | 'bank-transfer' | 'contact-requests' | null
+type AdminSection = 'products' | 'orders' | 'delivery' | 'bank-transfer' | 'contact-requests' | 'content' | null
 
 interface AdminSectionNavProps {
   current: AdminSection
@@ -10,6 +10,7 @@ const sections = [
   { id: 'delivery', label: 'Delivery', href: '#admin/delivery' },
   { id: 'bank-transfer', label: 'Bank details', href: '#admin/bank-transfer' },
   { id: 'contact-requests', label: 'Contact requests', href: '#admin/contact-requests' },
+  { id: 'content', label: 'Site content', href: '#admin/content' },
 ] as const
 
 // The admin's main sections. Inside the page rather than the header, so it stays visible on phones.

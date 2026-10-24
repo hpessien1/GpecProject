@@ -75,8 +75,41 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await open('#shop', '.shop-status')
     await audit.page(page, `${label} shop with no products`)
 
-    await open('#privacy', '.privacy-page')
+    await open('#privacy', '.policy-section')
     await audit.page(page, `${label} privacy notice`)
+  }],
+  ['refunds policy, FAQ, and site content admin', async ({ page, api, audit, label, hovering, open }) => {
+    await open('#refunds', '.policy-section')
+    await audit.page(page, `${label} refunds policy (draft)`)
+    if (hovering) await audit.hover(page, `${label} refunds policy (draft)`)
+    api.contentFails = true
+    await open('#refunds', '.policy-body .form-error')
+    await audit.page(page, `${label} refunds policy load error`)
+    await open('#faq', '.faq .form-error')
+    await audit.page(page, `${label} FAQ load error`)
+    api.contentFails = false
+    await open('#faq', '.faq-item')
+    for (const question of await page.locator('.faq-item summary').all()) await question.click()
+    await audit.page(page, `${label} FAQ open (draft)`)
+    if (hovering) await audit.hover(page, `${label} FAQ open (draft)`)
+
+    await logInAsAdmin(page)
+    await open('#admin/content', '.admin-content-list')
+    await audit.page(page, `${label} admin site content list`)
+    if (hovering) await audit.hover(page, `${label} admin site content list`)
+    await open('#admin/content/faq', '.admin-content-section')
+    const answer = page.getByLabel('Answer').first()
+    await answer.fill('Online through Paystack, or by bank transfer.')
+    await page.getByRole('checkbox').check()
+    await page.getByRole('button', { name: 'Save and publish' }).click()
+    await page.locator('.admin-history li').first().waitFor()
+    for (const toggle of await page.locator('.admin-content-diff summary').all()) await toggle.click()
+    await audit.page(page, `${label} admin FAQ saved, with history`)
+    await answer.fill('Unsaved change.')
+    await audit.page(page, `${label} admin FAQ with unsaved changes`)
+    if (hovering) await audit.hover(page, `${label} admin FAQ with unsaved changes`)
+    await open('#faq', '.faq-item')
+    await audit.page(page, `${label} FAQ approved`)
   }],
   ['checkout', async ({ page, api, audit, label, hovering, open }) => {
     // A cart with a priced and an unpriced product, as a customer arriving from the shop would have.

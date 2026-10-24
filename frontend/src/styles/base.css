@@ -343,11 +343,23 @@ button:hover .arrow {
   outline: 2px solid var(--forest);
   outline-offset: 2px;
 }
-/* Missing company details, highlighted until GPEC supplies them (components/PlaceholderText.tsx). */
+/* Missing company details, highlighted until GPEC supplies them (components/PlaceholderText.tsx, and
+   [brackets] in staff-edited text, components/ContentBody.tsx). */
 .placeholder-text {
   padding: 0 0.2rem;
   background: rgba(255, 118, 0, 0.25);
   color: var(--ink);
+}
+/* "Draft for GPEC's review" on staff-edited text not yet approved (components/DraftNotice.tsx): the
+   policy pages and the home page's FAQ. */
+.content-draft {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--lime);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.5;
 }
 /* Shown while the admin screens load (App.tsx). */
 .admin-loading {

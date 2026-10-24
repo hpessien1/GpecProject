@@ -201,3 +201,15 @@ test.describe('checkout', () => {
     await expect(page.getByText('Sample bank details for testing: do not send money.')).toBeVisible()
   })
 })
+
+test.describe('checkout policies', () => {
+  test('links to the privacy notice and the refunds policy, each in a new tab', async ({ page }) => {
+    await mockApi(page)
+    await openCheckout(page)
+    for (const [name, href] of [[/privacy notice/, '#privacy'], [/refunds, cancellations, and returns policy/, '#refunds']] as const) {
+      const link = page.getByRole('link', { name })
+      await expect(link).toHaveAttribute('href', href)
+      await expect(link).toHaveAttribute('target', '_blank')
+    }
+  })
+})

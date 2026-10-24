@@ -1874,6 +1874,78 @@
     opacity: 1;
   }
 }
+/* FAQ (#faq): questions that open and close, in the words staff edit in the admin panel
+   (components/FaqSection.tsx). */
+.faq {
+  background: var(--cream);
+}
+.faq-list {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 900px;
+}
+.faq-item {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.6);
+}
+.faq-item summary {
+  position: relative;
+  padding: 1.1rem 3.2rem 1.1rem 1.25rem;
+  color: var(--ink);
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.4;
+  list-style: none;
+  cursor: pointer;
+}
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+/* The plus becomes a minus while the answer is open. */
+.faq-item summary::after {
+  content: "+";
+  position: absolute;
+  top: 50%;
+  right: 1.25rem;
+  transform: translateY(-50%);
+  color: var(--forest);
+  font: 500 1.4rem var(--mono);
+}
+.faq-item[open] summary::after {
+  content: "\2013";
+}
+.faq-item summary:hover {
+  color: var(--forest);
+}
+.faq-item summary:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: -2px;
+}
+.faq-answer {
+  padding: 0 1.25rem 1.25rem;
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.faq-answer p,
+.faq-answer ul {
+  max-width: 70ch;
+  margin: 0 0 0.8rem;
+}
+.faq-answer ul {
+  padding-left: 1.2rem;
+}
+.faq-answer > :last-child {
+  margin-bottom: 0;
+}
+.faq .content-draft {
+  max-width: 900px;
+}
+.faq-loading,
+.faq-empty {
+  margin: 0;
+  color: var(--ink);
+}
 /* Contact (#contact): statement panel and quote form. */
 .contact {
   display: grid;

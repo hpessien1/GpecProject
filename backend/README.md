@@ -29,6 +29,7 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
 - `GET /api/health`: `200 {"status":"ok"}` when MongoDB answers a ping within 2 seconds, otherwise
   `503 {"status":"unavailable"}` (also used by the Docker health check)
 - `GET /api/products`
+- `GET /api/content/:page` (`privacy`, `refunds`, `faq`)
 - `POST /api/contact-requests`
 - Checkout: `GET /api/checkout`, `POST /api/checkout/quote`, `POST /api/checkout/orders`,
   `GET /api/checkout/orders/:paymentReference`, `POST /api/checkout/orders/:paymentReference/transfer-sent`;
@@ -45,7 +46,8 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `GET`, `POST /api/admin/orders/:reference/notes`, `GET /api/admin/orders/:reference/history`;
   `GET`, `POST /api/admin/delivery-areas`; `GET`, `PATCH /api/admin/delivery-areas/:id`;
   `GET /api/admin/delivery-areas/:id/history`; `GET`, `PATCH /api/admin/bank-transfer`,
-  `GET /api/admin/bank-transfer/history`;
+  `GET /api/admin/bank-transfer/history`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
+  `GET /api/admin/content/:page/history`;
   `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`;
   `POST /api/admin/product-images`
 - Public product photos: `GET /api/product-images/:hash.webp`
@@ -203,6 +205,15 @@ All admin responses are sent with `Cache-Control: no-store`.
   contact requests. Orders are created by checkout; demo orders by `npm run seed:demo` (on the live
   database only with `--production`, removed before launch). Delivery orders include
   `deliveryAreaName`; every order has `customerNotes`.
+- Site content (the privacy notice, the refunds policy, and the FAQ): `GET /api/content/:page` (public)
+  returns `{ key, title, intro, sections: [{ heading, body }], approved, updatedAt }`, the text staff
+  last saved, or the starting text in `data/siteContentDefaults.ts` until the first save (`404` for
+  any other page). `GET /api/admin/content` lists the pages with `approved` and `updatedAt`;
+  `GET /api/admin/content/:page` returns the page and the newest history; `PATCH` with any of `title`,
+  `intro`, `sections` (the whole list, in order; each exactly `{ heading, body }`), `approved` saves
+  and records it (`siteContent.update`, sections recorded before and after); `GET …/history?before=`.
+  Limits: title 120, intro 1,000, heading 200, body 4,000 characters, 60 sections, 60,000 in all. The
+  body may be up to 256kb on these routes only, read after the admin login check (32kb elsewhere).
 - `/api/admin/delivery-areas`: `GET ?page=N` lists the areas, active ones first, archived ones too; `POST` with `{ name, fee,
   description? }` adds one (`fee` in the smallest unit; `409 CURRENCY_NOT_CONFIGURED` without a
   currency; `409 DELIVERY_AREA_CONFLICT` for a duplicate name); `PATCH /:id` with any of `name`,

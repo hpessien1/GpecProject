@@ -156,11 +156,12 @@ GPEC supplies and installs solar-powered and mains-powered CCTV for homes, offic
 
 | Page | What visitors should find |
 | --- | --- |
-| **Home** | Clear GPEC introduction, core services, selected projects, product categories, and prominent contact or quote actions. |
+| **Home** | Clear GPEC introduction, core services, selected projects, product categories, frequently asked questions, and prominent contact or quote actions. |
 | **About GPEC** | Verified company story, location, team capabilities, approach to quality and safety, and actual credentials. |
 | **Services** | Separate sections for panel engineering and solar energy, with process, applications, deliverables, and inquiry links. |
 | **Products** | Browseable categories for electrical, solar, electronics, industrial equipment, and accessories. Include specifications, GPEC-set prices, add-to-cart, online checkout, and quote actions. |
 | **Projects** | Completed work with real images, project scope, GPEC's role, challenge, solution, and verified result. |
+| **Refunds, cancellations, and returns** and **Privacy notice** | GPEC's policies, linked from every page's footer and from checkout. GPEC's staff edit them, and the FAQ, in the admin panel. |
 | **Contact / Request a Quote** | Phone, email, business address, map if useful, business hours, contact form, and document-upload option. |
 
 Use a simple navigation menu: **Home · About · Services · Products · Projects · Contact**. Visitors should reach a quote or contact action from every major page.
@@ -224,7 +225,7 @@ Received with the company profile (2026-10-23): company name, logo, about text, 
 - The Paystack fee rate on GPEC's own plan.
 - Paystack business account (keys are held by GPEC and configured on the server, never shared in code).
 - The delivery areas and their fees (entered by staff in the admin panel), and collection hours for pickup (the location is the Woji address).
-- Refund, cancellation, and returns policy for paid orders.
+- Approval (or rewording) of the refunds, cancellations, and returns policy and the FAQ, drafted for GPEC's review.
 - Staff who receive order notifications and who will manage prices in the admin panel.
 - Project descriptions, dates, and measurable outcomes for the photos already supplied, and customer names only where customers agree.
 - Verified licenses, certifications, warranties, or partnerships, if any.

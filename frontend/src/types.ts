@@ -398,3 +398,45 @@ export interface BankTransferResponse {
   history: BankTransferHistoryEntry[]
   historyCursor: string | null
 }
+
+// Site text staff edit in the admin panel (backend models/SiteContent.ts): the privacy notice, the
+// refunds policy, and the FAQ.
+export type SiteContentKey = 'privacy' | 'refunds' | 'faq'
+
+// For the FAQ, heading is the question and body the answer. The body is plain text: a blank line
+// starts a paragraph, "- " a bullet, and [brackets] mark a placeholder (components/ContentBody.tsx).
+export interface SiteContentSection {
+  heading: string
+  body: string
+}
+
+export interface SiteContentPage {
+  key: SiteContentKey
+  title: string
+  intro: string
+  sections: SiteContentSection[]
+  // Off: the page shows "Draft for GPEC's review".
+  approved: boolean
+  updatedAt: string
+}
+
+export type EditableSiteContentFields = Pick<SiteContentPage, 'title' | 'intro' | 'sections' | 'approved'>
+
+export type SiteContentSummary = Pick<SiteContentPage, 'key' | 'title' | 'approved' | 'updatedAt'>
+
+export type SiteContentChange =
+  | { field: 'title' | 'intro', from: string, to: string }
+  | { field: 'approved', from: boolean, to: boolean }
+  | { field: 'sections', from: SiteContentSection[], to: SiteContentSection[] }
+
+export interface SiteContentHistoryEntry {
+  actor: { name: string, email: string }
+  changes: SiteContentChange[]
+  createdAt: string
+}
+
+export interface SiteContentResponse {
+  page: SiteContentPage
+  history: SiteContentHistoryEntry[]
+  historyCursor: string | null
+}

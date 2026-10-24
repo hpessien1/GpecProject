@@ -16,14 +16,16 @@ import AdminRequestDetail from '../components/admin/AdminRequestDetail'
 import AdminRequestList from '../components/admin/AdminRequestList'
 import AdminResetPassword from '../components/admin/AdminResetPassword'
 import AdminSectionNav from '../components/admin/AdminSectionNav'
+import AdminSiteContentEditor from '../components/admin/AdminSiteContentEditor'
+import AdminSiteContentList from '../components/admin/AdminSiteContentList'
 import { ApiError } from '../services/apiClient'
 import { getAdminSession, logOut } from '../services/adminApi'
 import { forgetRememberedState } from '../utils/rememberedState'
-import type { AdminRequestKind, AdminSessionInfo } from '../types'
+import type { AdminRequestKind, AdminSessionInfo, SiteContentKey } from '../types'
 
 interface AdminPageProps {
   // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/orders[/<reference>],
-  // #admin/delivery[/<id>], #admin/bank-transfer,
+  // #admin/delivery[/<id>], #admin/bank-transfer, #admin/content[/privacy|refunds|faq],
   // #admin/contact-requests[/<reference>], or (without logging in) #admin/forgot-password and
   // #admin/reset-password/<token>
   route: string
@@ -40,6 +42,8 @@ type AdminView =
   | { kind: 'order', reference: string }
   | { kind: 'delivery' }
   | { kind: 'bankTransfer' }
+  | { kind: 'content' }
+  | { kind: 'contentPage', pageKey: SiteContentKey }
   | { kind: 'deliveryArea', areaId: string }
   | { kind: 'requests', requestKind: AdminRequestKind }
   | { kind: 'request', requestKind: AdminRequestKind, reference: string }
@@ -55,6 +59,9 @@ function parseView(route: string): AdminView {
   if (order) return { kind: 'order', reference: decodeURIComponent(order[1]) }
   if (route === '#admin/delivery') return { kind: 'delivery' }
   if (route === '#admin/bank-transfer') return { kind: 'bankTransfer' }
+  if (route === '#admin/content') return { kind: 'content' }
+  const contentPage = /^#admin\/content\/(privacy|refunds|faq)$/.exec(route)
+  if (contentPage) return { kind: 'contentPage', pageKey: contentPage[1] as SiteContentKey }
   const deliveryArea = /^#admin\/delivery\/([^/]+)$/.exec(route)
   if (deliveryArea) return { kind: 'deliveryArea', areaId: decodeURIComponent(deliveryArea[1]) }
   const product = /^#admin\/products\/([^/]+)$/.exec(route)
@@ -72,6 +79,7 @@ function sectionOf(view: AdminView) {
   if (view.kind === 'orders' || view.kind === 'order') return 'orders'
   if (view.kind === 'delivery' || view.kind === 'deliveryArea') return 'delivery'
   if (view.kind === 'bankTransfer') return 'bank-transfer'
+  if (view.kind === 'content' || view.kind === 'contentPage') return 'content'
   return view.kind === 'password' ? null : 'products'
 }
 
@@ -155,6 +163,8 @@ export default function AdminPage({ route }: AdminPageProps) {
         : view.kind === 'orders' ? <AdminOrders onSessionEnded={handleSessionEnded} />
         : view.kind === 'order' ? <AdminOrderDetail key={route} reference={view.reference} onSessionEnded={handleSessionEnded} />
         : view.kind === 'bankTransfer' ? <AdminBankTransfer currency={session.currency} onSessionEnded={handleSessionEnded} />
+        : view.kind === 'content' ? <AdminSiteContentList onSessionEnded={handleSessionEnded} />
+        : view.kind === 'contentPage' ? <AdminSiteContentEditor key={route} pageKey={view.pageKey} onSessionEnded={handleSessionEnded} />
         : view.kind === 'delivery' ? <AdminDeliveryAreas currency={session.currency} onSessionEnded={handleSessionEnded} />
         : view.kind === 'deliveryArea' ? <AdminDeliveryAreaEditor key={route} areaId={view.areaId} currency={session.currency} onSessionEnded={handleSessionEnded} />
         : view.kind === 'requests' ? <AdminRequestList key={view.requestKind} kind={view.requestKind} onSessionEnded={handleSessionEnded} />

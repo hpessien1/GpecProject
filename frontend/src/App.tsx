@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import LandingPage from './pages/LandingPage'
-import PrivacyPage from './pages/PrivacyPage'
+import PolicyPage from './pages/PolicyPage'
 import StorePage from './pages/StorePage'
 
 // Loaded only when someone opens #admin, so customers never download the admin screens.
@@ -27,7 +27,7 @@ export default function App() {
     return <Suspense fallback={<p className="admin-loading" role="status">Loading…</p>}><AdminPage route={route} /></Suspense>
   }
 
-  if (route === '#privacy') return <PrivacyPage />
+  if (route === '#privacy' || route === '#refunds') return <PolicyPage key={route} pageKey={route === '#privacy' ? 'privacy' : 'refunds'} />
 
   return isShopRoute
     ? <StorePage mode={shopMode} paymentReference={payment?.[1] ?? null} goHome={goHome} goToCatalogue={goToCatalogue} goToOrder={goToOrder} />

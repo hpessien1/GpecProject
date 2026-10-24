@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus } from '../../src/types'
+import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -32,6 +32,28 @@ export const BREACHED_PASSWORD = 'password password password'
 export const RESET_TOKEN = 'r'.repeat(43)
 export const RESET_REQUESTED_MESSAGE = 'If this email address belongs to a GPEC admin account, a link to reset the password is on its way. It works for 30 minutes. Check the spam folder if it does not arrive.'
 const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
+
+// Short sample versions of the staff-edited pages (the real starting text is in the backend's
+// data/siteContentDefaults.ts), with a placeholder, a bullet list, and a line break to render.
+function sampleSiteContent(): Record<SiteContentKey, SiteContentPage> {
+  const page = (key: SiteContentKey, title: string, intro: string, sections: SiteContentPage['sections']): SiteContentPage => ({ key, title, intro, sections, approved: false, updatedAt: '2026-10-24T00:00:00.000Z' })
+  return {
+    privacy: page('privacy', 'Privacy notice', 'What this website collects and why.', [
+      { heading: 'Who we are', body: 'This website is run by GPEC Engineering Company Limited ([company registration number]).' },
+      { heading: 'What we collect and why', body: 'We only collect what you type into our forms.\n\n- Contact form: your name and email address.\n- Shop orders: your contact details and order.' },
+    ]),
+    refunds: page('refunds', 'Refunds, cancellations, and returns', 'What happens if you need to cancel or return an order.', [
+      { heading: 'Cancelling an order', body: 'You can cancel a paid order before you collect it.\nContact us with your order reference.' },
+      { heading: 'Faulty items', body: 'Tell us within [7] days of collection or delivery.' },
+      { heading: 'How refunds are paid', body: '- Paystack: back to the card you paid with.\n- Bank transfer: to your account.' },
+    ]),
+    faq: page('faq', 'Frequently asked questions', 'Quick answers about buying from GPEC.', [
+      { heading: 'How can I pay?', body: '- Online through Paystack.\n- By bank transfer.' },
+      { heading: 'Where can I collect my order?', body: 'From the Woji address. [Collection hours, to be confirmed by GPEC.]' },
+      { heading: 'Do you deliver?', body: 'Yes, to the delivery areas listed at checkout.' },
+    ]),
+  }
+}
 
 function sampleProduct(id: string, name: string, reference: string, image: string, price: number | null = null): Product {
   return { id, name, reference, description: `${name}: sample description for testing.`, specs: ['Spec one', 'Spec two'], image, alt: `${name} photo`, isPlaceholder: true, inStock: true, deliveryAvailable: true, price }
@@ -101,6 +123,10 @@ export interface ApiState {
   emailOn: boolean
   formsFail: boolean
   loggedIn: boolean
+  // The FAQ, refunds policy, and privacy notice, their change histories, and making them fail to load.
+  siteContent: Record<SiteContentKey, SiteContentPage>
+  siteContentHistory: Record<SiteContentKey, SiteContentHistoryEntry[]>
+  contentFails: boolean
   // Every API request the site made, for tests to inspect.
   requests: { method: string, path: string, body: unknown }[]
 }
@@ -137,6 +163,9 @@ function initialState(): ApiState {
       { id: '0123456789abcdef01234569', name: 'Old area', description: '', fee: 100000, status: 'archived', sortOrder: 30, updatedAt: now },
     ],
     deliveryAreaHistory: {},
+    siteContent: sampleSiteContent(),
+    siteContentHistory: { privacy: [], refunds: [], faq: [] },
+    contentFails: false,
     paymentResult: 'paid',
     paymentStartFails: false,
     bankTransfer: { ...SAMPLE_BANK, enabled: true },
@@ -282,6 +311,12 @@ function reply(state: ApiState, request: Request): Reply {
   // Like the real API: prices only while a currency is configured.
   if (path === '/api/products') return state.products === 'error' ? [500, { message: 'Something went wrong on our side. Please try again.' }] : [200, { products: state.currency ? state.products : state.products.map(({ price: _price, ...product }) => product), currency: state.currency }]
   if (path.startsWith('/api/checkout')) return checkout(state, path, method, body, new URL(request.frame().page().url()).origin)
+  const publicContent = /^\/api\/content\/([^/]+)$/.exec(path)
+  if (publicContent) {
+    if (state.contentFails) return [500, { message: 'Something went wrong on our side. Please try again.' }]
+    const found = state.siteContent[publicContent[1] as SiteContentKey]
+    return found ? [200, found] : [404, { message: 'Page not found.', code: 'NOT_FOUND' }]
+  }
   if (path === '/api/contact-requests') return state.formsFail ? [400, { message: 'Check your details and try again.' }] : [201, { reference: 'GPEC-C-2026-AAAAAAAA', createdAt: now }]
 
   if (path === '/api/admin/session' && method === 'POST') {
@@ -364,6 +399,23 @@ function reply(state: ApiState, request: Request): Reply {
       state.bankTransferHistory = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: changes as BankTransferHistoryEntry['changes'], createdAt: new Date().toISOString() }, ...state.bankTransferHistory]
     }
     return [200, { settings: state.bankTransfer, isSample: state.bankTransfer.accountNumber === '0000000000', ...historyReply(state.bankTransferHistory) }]
+  }
+  if (path === '/api/admin/content') return [200, { pages: Object.values(state.siteContent).map(({ key, title, approved, updatedAt }) => ({ key, title, approved, updatedAt })) }]
+  const contentMatch = /^\/api\/admin\/content\/([^/]+)(\/history)?$/.exec(path)
+  if (contentMatch) {
+    const key = contentMatch[1] as SiteContentKey
+    const stored = state.siteContent[key]
+    if (!stored) return [404, { message: 'Page not found.', code: 'NOT_FOUND' }]
+    if (contentMatch[2]) return [200, historyReply(state.siteContentHistory[key], url)]
+    if (method === 'PATCH') {
+      const fields = ['title', 'intro', 'sections', 'approved'] as const
+      const changes = fields.filter((field) => Object.hasOwn(body, field) && JSON.stringify(body[field]) !== JSON.stringify(stored[field])).map((field) => ({ field, from: stored[field], to: body[field] }))
+      if (changes.length > 0) {
+        state.siteContent[key] = { ...stored, ...body, updatedAt: new Date().toISOString() }
+        state.siteContentHistory[key] = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: changes as SiteContentHistoryEntry['changes'], createdAt: new Date().toISOString() }, ...state.siteContentHistory[key]]
+      }
+    }
+    return [200, { page: state.siteContent[key], ...historyReply(state.siteContentHistory[key]) }]
   }
   if (path === '/api/admin/orders') return listOrders(state.orders, url)
   const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/history|\/transfer-received|\/transfer-not-received)?$/.exec(path)

@@ -707,3 +707,106 @@
     justify-self: end;
   }
 }
+/* Site content (components/admin/AdminSiteContentList.tsx, AdminSiteContentEditor.tsx) */
+/* Approved wording, and a draft that still shows "Draft for GPEC's review" on the site (dashed, like
+   the other states that are not settled yet). */
+.admin-status-approved {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: #fff;
+}
+.admin-status-draft {
+  border-style: dashed;
+  background: var(--sand);
+}
+.admin-content-updated {
+  color: var(--ink);
+  font: 0.75rem var(--mono);
+}
+/* Back to the list of pages, from inside the eyebrow above the page title. */
+.admin-heading .eyebrow a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+.admin-content-help {
+  max-width: none;
+}
+.admin-content-help p {
+  margin: 0 0 0.3rem;
+  font-weight: 700;
+}
+.admin-content-help ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.admin-content-sections {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  border: 0;
+}
+.admin-content-sections > legend {
+  margin-bottom: 0.6rem;
+  padding: 0;
+  color: var(--ink);
+  font: 700 0.75rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.admin-content-section {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  margin: 0;
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+}
+.admin-content-section > legend {
+  padding: 0 0.4rem;
+  color: var(--ink);
+  font: 0.75rem var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.admin-content-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.admin-content-actions .admin-show-older {
+  margin-top: 0;
+}
+/* A move button at the end of the list: the dashed outline shows it is unavailable. Not faded like the
+   form's other disabled buttons (.admin-form button:disabled), which would drop below text contrast. */
+.admin-content-actions .admin-show-older:disabled {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+  cursor: default;
+  opacity: 1;
+}
+.admin-content-actions .admin-content-remove {
+  margin-left: auto;
+}
+.admin-content-sections > .button {
+  justify-self: start;
+}
+.admin-content-submit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+.admin-content-diff {
+  margin: 0.3rem 0 0.4rem;
+}
+.admin-content-diff summary {
+  color: var(--forest);
+  cursor: pointer;
+}
+.admin-content-diff p {
+  margin: 0.4rem 0 0;
+  white-space: pre-line;
+}

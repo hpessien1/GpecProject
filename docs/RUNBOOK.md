@@ -238,8 +238,9 @@ simply off**: everything else works, and the API log says `Email notifications a
 7. **Test.** The API log no longer says email is off. Send the contact form with `[TEST]` in the
    name: staff should get a notification and the address you entered a confirmation. Delete the
    test record afterwards.
-8. **Privacy notice.** The notice (`#privacy`, `frontend/src/data/privacyContent.ts`) names the email
-   service's region (Stockholm, filled in 2026-10-23). Update it if the region ever changes.
+8. **Privacy notice.** The notice (`#privacy`; staff edit it in the admin panel, *Site content*)
+   names the email service's region (Stockholm, filled in 2026-10-23). Update it there if the region
+   ever changes.
 
 ### 1.7 Product photos (Amazon S3)
 

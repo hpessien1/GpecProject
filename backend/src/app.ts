@@ -23,11 +23,15 @@ import adminProductImagesRouter from './routes/adminProductImages.js'
 import adminProductsRouter from './routes/adminProducts.js'
 import adminRequestsRouter from './routes/adminRequests.js'
 import adminSessionRouter from './routes/adminSession.js'
+import adminSiteContentRouter from './routes/adminSiteContent.js'
 import checkoutRouter from './routes/checkout.js'
 import contactRequestsRouter from './routes/contactRequests.js'
 import paystackWebhookRouter from './routes/paystackWebhook.js'
 import productImagesRouter from './routes/productImages.js'
 import productsRouter from './routes/products.js'
+import siteContentRouter from './routes/siteContent.js'
+
+const SITE_CONTENT_ADMIN_PATH = '/api/admin/content'
 
 export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments'>
 
@@ -70,7 +74,10 @@ export default function createApp(
   app.use(cors({ origin: config.clientOrigins, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type'] }))
   // Before express.json: the webhook's signature is checked against the raw body (CLAUDE.md 4.1).
   app.use('/api/paystack/webhook', paystackWebhookRouter(config.payments?.secretKey ?? null, notifier, formLimiter(config.webhookRateLimit)))
-  app.use(express.json({ limit: '32kb' }))
+  // A whole policy or FAQ is saved at once (up to 60,000 characters), so the site-content routes read
+  // larger bodies, and only after the admin login check (below); every other route keeps 32kb.
+  const json = express.json({ limit: '32kb' })
+  app.use((req, res, next) => req.path.startsWith(SITE_CONTENT_ADMIN_PATH) ? next() : json(req, res, next))
 
   // 503 when MongoDB does not answer, so the health check reflects whether the API can do its job.
   app.get('/api/health', async (_req, res) => {
@@ -79,6 +86,7 @@ export default function createApp(
   })
   app.use('/api/products', productsRouter(config.currency))
   app.use('/api/product-images', productImagesRouter(imageStore))
+  app.use('/api/content', siteContentRouter())
   app.use('/api/contact-requests', formLimiter(config.formRateLimit), contactRequestsRouter(notifier))
   app.use('/api/checkout', checkoutRouter(config, paystack, notifier, { read: formLimiter(config.checkoutReadRateLimit), order: formLimiter(config.orderRateLimit) }))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.
@@ -90,6 +98,7 @@ export default function createApp(
   app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier))
   app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))
   app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier))
+  app.use(SITE_CONTENT_ADMIN_PATH, requireAdmin(config.clientOrigins), express.json({ limit: '256kb' }), adminSiteContentRouter())
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof HttpError) return res.status(error.status).json({ message: error.message, code: error.code, errors: error.errors })

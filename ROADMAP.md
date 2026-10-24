@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-23 (admin pagination; before it checkout, bank transfer, demo shop data, faster CI)
+- **Last updated:** 2026-10-24 (site content: FAQ, refunds policy, editable privacy notice; home page tidy-ups)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -165,6 +165,11 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 - [x] Larger text: labels, table headings, badges, and codes in the admin and on the public pages
       raised to about 12px at the owner's request (2026-10-22); two layout faults found and fixed
       (home page panels section between 821 and 1170px; shop header at 320px).
+- [x] Site content (2026-10-24, user's request): staff edit the FAQ (a new home-page section), a new
+      refunds, cancellations, and returns policy (`#refunds`, linked from the footer and checkout), and
+      the privacy notice in the admin panel (Site content), without a developer. Saved changes are
+      live at once and recorded; each page shows "Draft for GPEC's review" until staff mark it approved.
+      The policy and FAQ wording is the developer's proposal, for GPEC to review.
 - [ ] Before launch: decide on 2FA for admins; admin account management screen (optional).
 - [x] Product photo uploads from the admin's own device (laptop, phone, or tablet), with a preview:
       checked, resized, and stored in a private Amazon S3 bucket (2026-10-22). Off until GPEC's
@@ -199,7 +204,8 @@ These block launch, and several block steps 4 to 6. Ask early.
       allowed under GPEC's Paystack terms.
 - [ ] Delivery areas and their fees (staff enter them in the admin panel), and collection hours.
       Pickup location: the Woji address (confirmed by the owner, 2026-10-23).
-- [ ] Refund, cancellation, and returns policy.
+- [ ] Approve or rewrite the refunds, cancellations, and returns policy and the FAQ (drafts at `#refunds`
+      and on the home page; staff edit them in Site content), with every [bracket] filled in.
 - [ ] Business hours and social media links (phone, email, and address are in the footer since
       2026-10-23).
 - [x] Domain names: `gpecengineering.com` and `api.gpecengineering.com` (2026-10-22).

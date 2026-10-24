@@ -51,7 +51,8 @@ on MongoDB Atlas.
   choosing pickup or delivery (with a delivery area). Questions of any kind go through the contact form; there
   are no "order enquiries". No customer accounts.
 - `admin` — GPEC staff, at `#admin`. They log in, manage products, prices, stock, and delivery areas
-  (with a change history), follow up orders, and follow up contact requests. Accounts are created only with
+  (with a change history), follow up orders and contact requests, and edit the FAQ, the refunds
+  policy, and the privacy notice (Site content, with a change history). Accounts are created only with
   `npm run admin:create` (Section 7); there is no sign-up.
 
 **Core domains:** products (catalogue, prices), cart, orders, payments (Paystack), fulfilment
@@ -244,8 +245,9 @@ Every price change, product change, and order status change made by an admin rec
 **what** (old and new value), and **when**. *Why:* prices appear on the live site and drive real
 payments; GPEC must be able to answer "who changed this price and when?"
 
-Implemented for products and for contact-request status (`models/AuditRecord.ts`,
-`services/adminProducts.ts`, `services/adminRequests.ts`): the change and its record are written in
+Implemented for products, contact-request status, orders, delivery areas, bank details, and site
+content (`models/AuditRecord.ts`, `services/adminProducts.ts`, `services/adminRequests.ts`,
+`services/siteContent.ts`, …): the change and its record are written in
 **one MongoDB transaction**, so nothing changes without a record.
 Only fields whose value actually changes are recorded. Transactions need a replica set: Atlas is
 one, and the tests use an in-memory replica set.
@@ -290,7 +292,9 @@ Outside production it stays off, so a forged `X-Forwarded-For` header cannot dod
 
 ### 4.10 HTTP hardening
 
-- `helmet()` sets security headers on every API response; JSON bodies are capped at 32kb.
+- `helmet()` sets security headers on every API response; JSON bodies are capped at 32kb,
+  except the admin site-content routes (256kb, read only after the admin login check: a whole
+  policy is saved at once).
 - **Query-operator injection** (e.g. `{ "fullName": { "$gt": "" } }`) is blocked by the validators,
   not by a sanitising middleware: `validation/fields.ts`'s `text()` keeps only strings, so objects
   become empty values. Every new validator must coerce fields to primitive types this way before
@@ -372,6 +376,14 @@ name), and logs which database it found. The guard only works if production sets
 - **BankTransferSettings** (`backend/src/models/BankTransferSettings.ts`) — one record (`_id`
   `bank-transfer`): `enabled`, `bankName`, `accountName`, `accountNumber` (10 digits), `instructions`,
   `payWithinDays` (1–30). Managed at `#admin/bank-transfer`; AuditRecord `bankTransfer.update`.
+- **SiteContent** (`backend/src/models/SiteContent.ts`, 2026-10-24) — one record per staff-edited
+  page, `_id` `privacy` | `refunds` | `faq`: `title`, `intro`, `sections [{ heading, body }]` (for the
+  FAQ, question and answer), `approved`, timestamps. Created on the first save; until then the API
+  serves the starting text in `data/siteContentDefaults.ts`. The body is plain text (blank line =
+  paragraph, `- ` = bullet, `[brackets]` = placeholder, highlighted), rendered by
+  `components/ContentBody.tsx` and never as HTML. While `approved` is off the page shows "Draft for
+  GPEC's review". Edited at `#admin/content`; a save is live at once; AuditRecord
+  `siteContent.update` (sections recorded whole, before and after).
   Orders also have `paymentMethod` (`paystack` | `bank_transfer`, default `paystack`), `bankTransfer`
   (the details given, copied), and `transferReportedAt`.
 - **WebhookEvent** (`backend/src/models/WebhookEvent.ts`) — `eventId` (unique), `event`,
@@ -447,11 +459,11 @@ name), and logs which database it found. The guard only works if production sets
     ├── public/assets/        # Images and videos served at /assets/...
     └── src/
         ├── main.tsx          # Entry point
-        ├── App.tsx           # Hash router: #shop, #shop/order, #shop/payment/<ref>, #privacy, #admin… (lazy-loaded), else landing
+        ├── App.tsx           # Hash router: #shop, #shop/order, #shop/payment/<ref>, #privacy, #refunds, #admin… (lazy-loaded), else landing
         ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, contact and admin API
-        ├── pages/            # LandingPage.tsx, StorePage.tsx, PrivacyPage.tsx, AdminPage.tsx
+        ├── pages/            # LandingPage.tsx, StorePage.tsx, PolicyPage.tsx (#privacy, #refunds), AdminPage.tsx
         ├── components/       # Header, Footer, ServiceShowcase, SpamTrapField, PlaceholderText, …; shop/, admin/
-        ├── data/             # Site copy (landingContent.ts, privacyContent.ts, adminContent.ts)
+        ├── data/             # Site copy (landingContent.ts, siteContentCopy.ts, adminContent.ts); the policies' and FAQ's own text is in the database (staff edit it)
         ├── services/         # apiClient.ts (all HTTP), *Api.ts per resource, cartStorage.ts
         ├── utils/            # money.ts: price input and display (no floating-point maths); paging, list memory
         ├── fonts/            # Self-hosted font files and their licences (no Google Fonts calls)
@@ -655,6 +667,8 @@ database outage the proxy may then stop sending traffic to the API, so the site'
 - API replica count is 1 with no autoscaling.
 - The AWS project upgraded from the free plan (which ends 2027-04-22) to a paid plan with a spend
   limit.
+- **The refunds policy, the FAQ, and the privacy notice approved** by GPEC (Site content: every
+  [bracket] filled in, "Approved" ticked), the policies checked by its legal adviser.
 - **Real bank details entered** in the admin panel (*Bank details*): the sample ones ("Sample Bank
   (not real)", `0000000000`) replaced, or bank transfer switched off.
 - **Demo data removed from the live `gpec` database** (`node dist/scripts/seedDemoData.js
@@ -813,7 +827,7 @@ links for admins only, never store a raw public URL on the record, and update th
   - `base.css`: fonts, the colour and font variables, page defaults, accessibility helpers, and
     pieces several areas share (buttons, eyebrow labels, form messages).
   - `site.css`: the public header and footer (home page and privacy notice).
-  - `home.css`, `shop.css`, `privacy.css`: one area each. The admin screens reuse the shop header,
+  - `home.css`, `shop.css`, `policy.css` (privacy notice and refunds policy): one area each. The admin screens reuse the shop header,
     page buttons, and status messages from `shop.css`.
   - `admin.css`: imported by `pages/AdminPage.tsx`, so it loads only with the admin screens.
 - **Load order matters.** `main.tsx` imports base, site, home, shop, privacy in that order;
@@ -1089,7 +1103,12 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   Staff notifications go to the developer's address until GPEC names its staff. No bounce or
   complaint handling beyond SES's account-level suppression list (SES can report these through SNS).
 - No file uploads on the quote form.
-- The privacy notice (`#privacy`) is a **draft**: GPEC must supply the highlighted placeholders
+- **The refunds policy (`#refunds`) and the FAQ (home page) were written by the developer** at the
+  user's request (2026-10-24) as proposals for GPEC to review: every rule in the policy (time limits,
+  what can be returned, fees refunded, warranty) is GPEC's decision, with its legal adviser. Both show
+  "Draft for GPEC's review" until an admin ticks "Approved" in Site content. **Before launch, GPEC
+  approves or rewrites them** (Section 7 checklist).
+- The privacy notice (`#privacy`) is a **draft** (staff can now edit it in Site content): GPEC must supply the highlighted placeholders
   (registration number, registered address if different from the service location, retention,
   legal wording) and approve it. The legal name and contact email were filled in on 2026-10-23
   (GPEC's published email is used as the privacy contact; GPEC may name another). Hosting is filled in
@@ -1108,7 +1127,7 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 **Open business decisions (needed from GPEC)**
 - The delivery areas and their fees (staff enter them at `#admin/delivery`). Do not invent any.
 - Collection hours for pickup (the location is the Woji address, confirmed by the owner 2026-10-23).
-- Refund, cancellation, and returns policy for paid orders.
+- Approval of the refunds, cancellations, and returns policy drafted on 2026-10-24 (`#refunds`).
 - Who receives order and contact-request notifications.
 - The Paystack fee rate on GPEC's own plan. Paystack publishes 1.5% + ₦100 for local payments, the
   ₦100 waived under ₦2,500, capped at ₦2,000 (checked 2026-10-23); confirm in GPEC's dashboard, and

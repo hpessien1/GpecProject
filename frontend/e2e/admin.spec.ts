@@ -437,7 +437,7 @@ test.describe('contact requests', () => {
     await mockApi(page)
     await logInAsAdmin(page)
     const sections = page.getByRole('navigation', { name: 'Admin sections' })
-    await expect(sections.getByRole('link')).toHaveText(['Products', 'Orders', 'Delivery', 'Bank details', 'Contact requests'])
+    await expect(sections.getByRole('link')).toHaveText(['Products', 'Orders', 'Delivery', 'Bank details', 'Contact requests', 'Site content'])
     await page.goto('/#admin/enquiries')
     await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible()
   })

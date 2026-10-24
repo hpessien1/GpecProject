@@ -1,5 +1,5 @@
 import { requestJson } from './apiClient'
-import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus } from '../types'
+import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -162,4 +162,21 @@ export function confirmTransferReceived(reference: string) {
 
 export function closeUnpaidTransfer(reference: string) {
   return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}/transfer-not-received`, 'Unable to close the order.', { ...admin, method: 'POST' })
+}
+
+export function listSiteContent() {
+  return requestJson<{ pages: SiteContentSummary[] }>('/admin/content', 'Unable to load the site content.', admin)
+}
+
+export function getAdminSiteContent(key: SiteContentKey) {
+  return requestJson<SiteContentResponse>(`/admin/content/${key}`, 'Unable to load this page.', admin)
+}
+
+export function getOlderSiteContentHistory(key: SiteContentKey, before: string) {
+  return historyPage<SiteContentHistoryEntry>(`/admin/content/${key}/history`, before)
+}
+
+// Saved changes go live on the site straight away.
+export function updateSiteContent(key: SiteContentKey, changes: Partial<EditableSiteContentFields>) {
+  return requestJson<SiteContentResponse>(`/admin/content/${key}`, 'Unable to save this page.', { ...admin, method: 'PATCH', payload: changes })
 }

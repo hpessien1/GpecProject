@@ -7,7 +7,7 @@ import './styles/base.css'
 import './styles/site.css'
 import './styles/home.css'
 import './styles/shop.css'
-import './styles/privacy.css'
+import './styles/policy.css'
 
 // Paystack sends customers back to /shop/payment-complete?trxref=…&reference=… (the address the server
 // gives it; a #hash address would not survive Paystack adding its query). Turn that into the site's
