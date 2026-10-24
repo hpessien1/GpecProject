@@ -80,6 +80,18 @@ export const bankTransferContent = {
   },
 }
 
+// Where customers' replies to the website's emails go. The emails are sent from an address nobody
+// reads, so without this a reply would be lost.
+export const customerEmailContent = {
+  eyebrow: 'Emails',
+  title: 'Customer emails',
+  intro: 'After an order, a bank-transfer order, or a contact request, the website emails the customer a confirmation. When a customer presses Reply, their message goes to the address below, so use an inbox GPEC staff check every day.',
+  warning: 'Customers may reply with proof of payment or changes to their order. Every change of this address is recorded and emailed to all admins.',
+  emailOff: 'The website is not sending emails yet (email is not set up), so this address is not used until it is.',
+  label: 'Reply-to address',
+  hint: 'Customers see this as the address their reply goes to, e.g. GPEC’s main email.',
+}
+
 export const requestStatusLabels: Record<RequestStatus, string> = {
   new: 'New',
   in_progress: 'In progress',

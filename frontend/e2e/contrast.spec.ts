@@ -253,7 +253,7 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await audit.page(page, `${label} admin products`)
     if (hovering) await audit.hover(page, `${label} admin products`)
   }],
-  ['admin products, password, bank details, delivery', async ({ page, api, audit, label, hovering, open }) => {
+  ['admin products, password, bank details, emails, delivery', async ({ page, api, audit, label, hovering, open }) => {
     await logInAsAdmin(page)
     await open('#admin/products/panel-001', '.admin-history ol')
     await audit.page(page, `${label} admin product edit`)
@@ -292,6 +292,22 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.getByRole('button', { name: 'Save bank details' }).click()
     await page.locator('.success-message, .form-error').first().waitFor()
     await audit.page(page, `${label} admin bank details saved`)
+    // The reply-to address: as it starts, then a saved change with its history entry, then a refusal
+    // (field error) with email switched off (its notice).
+    await open('#admin/emails', '#customer-email-replyTo')
+    await audit.page(page, `${label} admin customer emails`)
+    if (hovering) await audit.hover(page, `${label} admin customer emails`)
+    await page.getByLabel('Reply-to address').fill('orders@example.com')
+    await page.getByRole('button', { name: 'Save reply-to address' }).click()
+    await page.locator('.success-message').waitFor()
+    await audit.page(page, `${label} admin customer emails saved`)
+    api.emailOn = false
+    await open('#admin/emails', '#customer-email-replyTo')
+    await page.getByLabel('Reply-to address').fill('a@b')
+    await page.getByRole('button', { name: 'Save reply-to address' }).click()
+    await page.locator('.admin-field-error').waitFor()
+    await audit.page(page, `${label} admin customer emails refused, email off`)
+    api.emailOn = true
     await open('#admin/delivery', '.admin-area-list')
     await audit.page(page, `${label} admin delivery areas`)
     if (hovering) await audit.hover(page, `${label} admin delivery areas`)

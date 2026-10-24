@@ -49,7 +49,8 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `GET`, `POST /api/admin/orders/:reference/notes`, `GET /api/admin/orders/:reference/history`;
   `GET`, `POST /api/admin/delivery-areas`; `GET`, `PATCH /api/admin/delivery-areas/:id`;
   `GET /api/admin/delivery-areas/:id/history`; `GET`, `PATCH /api/admin/bank-transfer`,
-  `GET /api/admin/bank-transfer/history`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
+  `GET /api/admin/bank-transfer/history`; `GET`, `PATCH /api/admin/customer-email`,
+  `GET /api/admin/customer-email/history`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
   `GET /api/admin/content/:page/history`;
   `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`;
   `POST /api/admin/product-images`
@@ -123,7 +124,11 @@ and emails staff and the customer.
 
 After saving, the contact form route emails GPEC staff and send the customer a confirmation, when
 Amazon SES is configured (`docs/RUNBOOK.md` Section 1.6); otherwise email is off and nothing is sent.
-Email never delays or breaks the response.
+Email never delays or breaks the response. Emails to customers carry a reply-to address that staff
+set in the admin panel: `GET` / `PATCH /api/admin/customer-email` read and change `{ replyTo }` (a
+valid email address, required, nothing else), with its change history and `emailOn`; until the
+first save it is GPEC's published address. Every change is recorded (`customerEmail.update`) and
+emailed to all active admins. Staff emails reply to the customer.
 
 Both public form routes have a spam trap: a request whose `website` field has a value gets a normal
 `201` with a reference but is not saved (see `validation/fields.ts`). Leave the field out or empty.

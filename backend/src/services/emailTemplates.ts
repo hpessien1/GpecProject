@@ -309,6 +309,23 @@ export function bankDetailsChangedEmail(changedBy: AdminEmailData, fields: strin
   }
 }
 
+export function replyToChangedEmail(changedBy: AdminEmailData, from: string, to: string, siteUrl: string) {
+  return {
+    subject: 'GPEC customer email reply address was changed',
+    text: [
+      `${changedBy.name} (${changedBy.email}) changed where customers' replies to GPEC's emails go.`,
+      '',
+      `Before: ${from}`,
+      `Now: ${to}`,
+      '',
+      'Replies to order confirmations, bank-transfer instructions, and contact confirmations now go to the new address.',
+      `If you did not expect this change, check it now at ${siteUrl}/#admin/emails and change the admin passwords.`,
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
 export function staffOrderEmail(order: OrderEmailData, siteUrl: string) {
   return {
     subject: `New paid order ${order.reference}`,
@@ -340,7 +357,7 @@ export function customerOrderEmail(order: OrderEmailData, siteUrl: string) {
         ? `GPEC will contact you to arrange delivery to the address you gave${order.deliveryArea ? ` (${order.deliveryArea.name})` : ''}.`
         : `Your order is for pickup from GPEC at ${PICKUP_LOCATION}. GPEC will contact you when it is ready and to agree a collection time. Please bring your order reference.`,
       '',
-      `If you have a question about your order, contact GPEC through ${siteUrl}/#contact and give your order reference.`,
+      `If you have a question about your order, reply to this email, or contact GPEC through ${siteUrl}/#contact and give your order reference.`,
       '',
       'GPEC',
       siteUrl,

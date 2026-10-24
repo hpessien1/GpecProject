@@ -17,8 +17,8 @@ const actorSchema = new mongoose.Schema({
 const auditRecordSchema = new mongoose.Schema({
   // product.sale: a paid order reduced a product's stock count (made by the website, not an admin).
   // order.payment: staff confirmed a bank transfer arrived, or closed an unpaid one.
-  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'contactRequest.status', 'order.status', 'order.payment', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update'] },
-  targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer', 'siteContent'] },
+  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'contactRequest.status', 'order.status', 'order.payment', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
+  targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer', 'siteContent', 'customerEmail'] },
   targetId: { type: String, required: true },
   // The admin who made the change, copied at the time, so the record still names the person if the
   // account changes later. Absent only for product.sale, which names the order instead.

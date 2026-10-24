@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 // Only the admin screens use these styles, so they load with this page (lazy-loaded in App.tsx).
 import '../styles/admin.css'
 import AdminBankTransfer from '../components/admin/AdminBankTransfer'
+import AdminCustomerEmail from '../components/admin/AdminCustomerEmail'
 import AdminDeliveryAreaEditor from '../components/admin/AdminDeliveryAreaEditor'
 import AdminDeliveryAreas from '../components/admin/AdminDeliveryAreas'
 import AdminForgotPassword from '../components/admin/AdminForgotPassword'
@@ -27,7 +28,7 @@ import type { AdminRequestKind, AdminSessionInfo, SiteContentKey } from '../type
 
 interface AdminPageProps {
   // #admin, #admin/new, #admin/products/<id>, #admin/password, #admin/security, #admin/orders[/<reference>],
-  // #admin/delivery[/<id>], #admin/bank-transfer, #admin/content[/privacy|refunds|faq],
+  // #admin/delivery[/<id>], #admin/bank-transfer, #admin/content[/privacy|refunds|faq], #admin/emails,
   // #admin/contact-requests[/<reference>], or (without logging in) #admin/forgot-password and
   // #admin/reset-password/<token>
   route: string
@@ -45,6 +46,7 @@ type AdminView =
   | { kind: 'order', reference: string }
   | { kind: 'delivery' }
   | { kind: 'bankTransfer' }
+  | { kind: 'emails' }
   | { kind: 'content' }
   | { kind: 'contentPage', pageKey: SiteContentKey }
   | { kind: 'deliveryArea', areaId: string }
@@ -63,6 +65,7 @@ function parseView(route: string): AdminView {
   if (order) return { kind: 'order', reference: decodeURIComponent(order[1]) }
   if (route === '#admin/delivery') return { kind: 'delivery' }
   if (route === '#admin/bank-transfer') return { kind: 'bankTransfer' }
+  if (route === '#admin/emails') return { kind: 'emails' }
   if (route === '#admin/content') return { kind: 'content' }
   const contentPage = /^#admin\/content\/(privacy|refunds|faq)$/.exec(route)
   if (contentPage) return { kind: 'contentPage', pageKey: contentPage[1] as SiteContentKey }
@@ -83,6 +86,7 @@ function sectionOf(view: AdminView) {
   if (view.kind === 'orders' || view.kind === 'order') return 'orders'
   if (view.kind === 'delivery' || view.kind === 'deliveryArea') return 'delivery'
   if (view.kind === 'bankTransfer') return 'bank-transfer'
+  if (view.kind === 'emails') return 'emails'
   if (view.kind === 'content' || view.kind === 'contentPage') return 'content'
   return view.kind === 'password' || view.kind === 'security' ? null : 'products'
 }
@@ -179,6 +183,7 @@ export default function AdminPage({ route }: AdminPageProps) {
         : view.kind === 'orders' ? <AdminOrders onSessionEnded={handleSessionEnded} />
         : view.kind === 'order' ? <AdminOrderDetail key={route} reference={view.reference} onSessionEnded={handleSessionEnded} />
         : view.kind === 'bankTransfer' ? <AdminBankTransfer currency={session.currency} onSessionEnded={handleSessionEnded} />
+        : view.kind === 'emails' ? <AdminCustomerEmail onSessionEnded={handleSessionEnded} />
         : view.kind === 'content' ? <AdminSiteContentList onSessionEnded={handleSessionEnded} />
         : view.kind === 'contentPage' ? <AdminSiteContentEditor key={route} pageKey={view.pageKey} onSessionEnded={handleSessionEnded} />
         : view.kind === 'delivery' ? <AdminDeliveryAreas currency={session.currency} onSessionEnded={handleSessionEnded} />

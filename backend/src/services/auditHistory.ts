@@ -2,7 +2,7 @@ import AuditRecord from '../models/AuditRecord.js'
 import { ADMIN_PAGE_SIZE, NEWEST_FIRST, olderThan, toPage } from '../utils/paging.js'
 import type { Cursor } from '../utils/paging.js'
 
-type AuditTarget = 'product' | 'contactRequest' | 'order' | 'deliveryArea' | 'bankTransfer' | 'siteContent'
+type AuditTarget = 'product' | 'contactRequest' | 'order' | 'deliveryArea' | 'bankTransfer' | 'siteContent' | 'customerEmail'
 
 // One page of a record's change history (models/AuditRecord.ts), newest first, and the cursor for the
 // older page after it (null when there is none). Every older record stays reachable, so the admin can

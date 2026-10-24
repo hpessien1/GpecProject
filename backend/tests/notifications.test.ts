@@ -21,7 +21,8 @@ describe('contact request emails', () => {
     expect(staff.text).toContain('Please call me.')
     expect(staff.text).toContain(`#admin/contact-requests/${res.body.reference}`)
     expect(customer).toMatchObject({ to: ['ada@example.org'], subject: `We have your message (${res.body.reference})` })
-    expect(customer.replyTo).toBeUndefined()
+    // Replies reach GPEC's published address, not the sending-only one (staff can change it).
+    expect(customer.replyTo).toBe('gpecengineeringcompanylimited@gmail.com')
   })
 
   it('never puts customer input in a subject line', async () => {

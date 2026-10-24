@@ -18,6 +18,7 @@ import { paystackClient } from './services/paystack.js'
 import type { PaystackClient } from './services/paystack.js'
 import adminAccountRouter from './routes/adminAccount.js'
 import adminBankTransferRouter from './routes/adminBankTransfer.js'
+import adminCustomerEmailRouter from './routes/adminCustomerEmail.js'
 import adminDeliveryAreasRouter from './routes/adminDeliveryAreas.js'
 import adminOrdersRouter from './routes/adminOrders.js'
 import adminProductImagesRouter from './routes/adminProductImages.js'
@@ -101,6 +102,7 @@ export default function createApp(
   app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier))
   app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))
   app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier))
+  app.use('/api/admin/customer-email', requireAdmin(config.clientOrigins), adminCustomerEmailRouter(notifier))
   app.use(SITE_CONTENT_ADMIN_PATH, requireAdmin(config.clientOrigins), express.json({ limit: '256kb' }), adminSiteContentRouter())
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

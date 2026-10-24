@@ -241,6 +241,22 @@ simply off**: everything else works, and the API log says `Email notifications a
 8. **Privacy notice.** The notice (`#privacy`; staff edit it in the admin panel, *Site content*)
    names the email service's region (Stockholm, filled in 2026-10-23). Update it there if the region
    ever changes.
+9. **Replies.** Emails to customers carry a reply-to address that staff set in the admin panel
+   (*Emails*; GPEC's published Gmail address until they change it), so pressing Reply reaches GPEC.
+   **Optional, not set up** (2026-10-24, the user's decision: the reply-to is enough). Only someone
+   who writes to `notifications@gpecengineering.com` directly misses GPEC, and their email comes
+   back undelivered. If that ever matters, forward the address with Cloudflare's free **Email
+   Routing**:
+   Cloudflare → the `gpecengineering.com` zone → *Email* → *Email Routing* → *Get started* (or
+   *Enable*). Let Cloudflare add the records it proposes (three MX records and one SPF TXT record on
+   the root domain); they only affect mail **coming in**, and SES's sending (its DKIM CNAMEs, the
+   `_dmarc` record) is untouched. If a TXT record starting `v=spf1` already exists on the root,
+   merge the two into one instead of adding a second (a domain may have only one SPF record). Then
+   *Destination addresses* → add the inbox (e.g. `gpecengineeringcompanylimited@gmail.com`): Cloudflare
+   emails it a link that someone with that inbox must click. Then *Routing rules* → *Create address*
+   → custom address `notifications` → action *Send to an email* → that destination. Test by sending
+   an email to `notifications@gpecengineering.com` from another account. Forwarded mail may land in
+   Gmail's spam folder at first; marking it "Not spam" teaches Gmail.
 
 ### 1.7 Product photos and contact-form files (Amazon S3)
 

@@ -1,5 +1,5 @@
 import { apiBaseUrl, requestJson } from './apiClient'
-import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
+import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -199,6 +199,18 @@ export function getOlderBankTransferHistory(before: string) {
 
 export function updateBankTransfer(changes: Partial<BankTransferSettings>) {
   return requestJson<BankTransferResponse>('/admin/bank-transfer', 'Unable to save the bank details.', { ...admin, method: 'PATCH', payload: changes })
+}
+
+export function getCustomerEmail() {
+  return requestJson<CustomerEmailResponse>('/admin/customer-email', 'Unable to load the email settings.', admin)
+}
+
+export function getOlderCustomerEmailHistory(before: string) {
+  return historyPage<CustomerEmailHistoryEntry>('/admin/customer-email/history', before)
+}
+
+export function updateCustomerEmail(settings: CustomerEmailSettings) {
+  return requestJson<CustomerEmailResponse>('/admin/customer-email', 'Unable to save the email settings.', { ...admin, method: 'PATCH', payload: settings })
 }
 
 // Staff checked GPEC's bank account: the transfer arrived, or it never did. Both are recorded.

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
+import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -122,6 +122,9 @@ export interface ApiState {
   // GPEC's bank details (the admin screen), offered at checkout while enabled.
   bankTransfer: BankTransferSettings
   bankTransferHistory: BankTransferHistoryEntry[]
+  // Where customers' replies go (the Emails screen), and its change history.
+  customerReplyTo: string
+  customerEmailHistory: CustomerEmailHistoryEntry[]
   // Whether the customer has pressed "I have sent the transfer" for the sample transfer order.
   transferReported: boolean
   // Makes adding a note fail.
@@ -189,6 +192,9 @@ function initialState(): ApiState {
     paymentStartFails: false,
     bankTransfer: { ...SAMPLE_BANK, enabled: true },
     bankTransferHistory: [],
+    // What the real server starts with (backend services/customerEmail.ts, DEFAULT_REPLY_TO).
+    customerReplyTo: 'gpecengineeringcompanylimited@gmail.com',
+    customerEmailHistory: [],
     transferReported: false,
     notesFail: false,
     imageUploads: true,
@@ -487,6 +493,18 @@ function reply(state: ApiState, request: Request): Reply {
       state.bankTransferHistory = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: changes as BankTransferHistoryEntry['changes'], createdAt: new Date().toISOString() }, ...state.bankTransferHistory]
     }
     return [200, { settings: state.bankTransfer, isSample: state.bankTransfer.accountNumber === '0000000000', ...historyReply(state.bankTransferHistory) }]
+  }
+  if (path === '/api/admin/customer-email/history') return [200, historyReply(state.customerEmailHistory, url)]
+  if (path === '/api/admin/customer-email') {
+    if (method === 'PATCH') {
+      const replyTo = String(body.replyTo ?? '').trim().toLowerCase()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) return [400, { message: 'Check the details and try again.', code: 'VALIDATION_ERROR', errors: { replyTo: 'replyTo must be a valid email address.' } }]
+      if (replyTo !== state.customerReplyTo) {
+        state.customerEmailHistory = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'replyTo', from: state.customerReplyTo, to: replyTo }], createdAt: new Date().toISOString() }, ...state.customerEmailHistory]
+        state.customerReplyTo = replyTo
+      }
+    }
+    return [200, { settings: { replyTo: state.customerReplyTo }, emailOn: state.emailOn, ...historyReply(state.customerEmailHistory) }]
   }
   if (path === '/api/admin/content') return [200, { pages: Object.values(state.siteContent).map(({ key, title, approved, updatedAt }) => ({ key, title, approved, updatedAt })) }]
   const contentMatch = /^\/api\/admin\/content\/([^/]+)(\/history)?$/.exec(path)

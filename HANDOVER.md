@@ -87,8 +87,8 @@ at 320px. Lessons are in CLAUDE.md Section 15.
   `services/checkout.ts`, Paystack only in `services/paystack.ts`, site content in
   `services/siteContent.ts` (starting text `data/siteContentDefaults.ts`), two-step login in
   `services/twoFactor.ts`, `totp.ts`, `secretBox.ts`.
-- **Tests:** 493 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 293 behaviour tests at desktop and phone (plus 3 skipped: the 2 from before
+- **Tests:** 505 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 297 behaviour tests at desktop and phone (plus 3 skipped: the 2 from before
   and the attach button's keyboard check, desktop only) and 20
   contrast tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with
   the API).
@@ -117,6 +117,13 @@ at 320px. Lessons are in CLAUDE.md Section 15.
 - **Temporary test scripts** never stay in `frontend/e2e/`; use the scratchpad.
 
 ## Open items for the next session
+
+- **Replies to customer emails** (built 2026-10-24, not yet deployed): customer emails now reply to
+  an address staff set in the admin panel (*Emails*, `#admin/emails`; GPEC's published Gmail address
+  until changed), recorded and emailed to all admins like bank details. After deploying, check it
+  shows the right inbox. Forwarding `notifications@gpecengineering.com` with Cloudflare Email Routing
+  was considered and skipped (the user, 2026-10-24: the reply-to is enough); steps in RUNBOOK 1.6,
+  step 9, if it is ever wanted.
 
 0. **Deploy the contact-form files** (the user acts; the assistant guides):
    - **First**, in AWS IAM, add `arn:aws:s3:::gpec-product-images/request-files/*` to the

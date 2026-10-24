@@ -1,6 +1,7 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
-import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerTransferOrderEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
+import { DEFAULT_REPLY_TO, getCustomerEmailSettings } from './customerEmail.js'
+import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
 import type { AdminEmailData, ContactEmailData, OrderEmailData } from './emailTemplates.js'
 
 const HOUR = 60 * 60 * 1000
@@ -19,6 +20,7 @@ export interface Notifier {
   transferOrderPlaced(order: OrderEmailData & { _id: unknown }): Promise<void>
   transferReported(order: OrderEmailData): Promise<void>
   bankDetailsChanged(adminEmails: string[], changedBy: AdminEmailData, fields: string[], details: { enabled: boolean, bankName: string, accountName: string, accountNumber: string }): Promise<void>
+  replyToChanged(adminEmails: string[], changedBy: AdminEmailData, from: string, to: string): Promise<void>
   // token: for the link only; it is never logged.
   passwordResetRequested(admin: AdminEmailData, token: string, minutes: number): Promise<void>
   passwordChanged(admin: AdminEmailData): Promise<void>
@@ -32,7 +34,9 @@ export interface Notifier {
 // Sends staff notifications and customer confirmations after a request is saved. Never throws: a
 // failed email is logged (reference and error type only, no personal details) and the customer's
 // request stands. With no mailer (email not configured), it does nothing.
-export function createNotifier(mailer: Mailer | null, settings: EmailSettings | null): Notifier {
+// customerReplyTo: where customers' replies go (staff choose it, services/customerEmail.ts); staff
+// emails reply to the customer instead.
+export function createNotifier(mailer: Mailer | null, settings: EmailSettings | null, customerReplyTo: () => Promise<string> = async () => (await getCustomerEmailSettings()).replyTo): Notifier {
   // In memory: one API instance only (CLAUDE.md, Section 6.3).
   const recentConfirmations = new Map<string, number[]>()
 
@@ -42,6 +46,16 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     if (recent.length >= CONFIRMATIONS_PER_HOUR) return false
     recentConfirmations.set(address, [...recent, now])
     return true
+  }
+
+  // If the saved address cannot be read (database trouble), GPEC's published one: the email still goes.
+  async function replyTo(reference: string) {
+    try {
+      return await customerReplyTo()
+    } catch (error) {
+      console.error(`Reply-to address for ${reference} could not be read, using GPEC's published one: ${error instanceof Error ? error.name : 'unknown error'}`)
+      return DEFAULT_REPLY_TO
+    }
   }
 
   async function deliver(reference: string, messages: EmailMessage[]) {
@@ -59,20 +73,20 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     async contactRequestReceived(request) {
       if (!mailer || !settings) return
       const messages: EmailMessage[] = [{ to: settings.staffRecipients, replyTo: request.email, ...staffContactEmail(request, settings.siteUrl) }]
-      if (mayConfirm(request.email)) messages.push({ to: [request.email], ...customerContactEmail(request, settings.siteUrl) })
+      if (mayConfirm(request.email)) messages.push({ to: [request.email], replyTo: await replyTo(request.reference), ...customerContactEmail(request, settings.siteUrl) })
       await deliver(request.reference, messages)
     },
     async orderPaid(order) {
       if (!mailer || !settings) return
       await deliver(order.reference, [
         { to: settings.staffRecipients, replyTo: order.customer.email, ...staffOrderEmail(order, settings.siteUrl) },
-        { to: [order.customer.email], ...customerOrderEmail(order, settings.siteUrl) },
+        { to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderEmail(order, settings.siteUrl) },
       ])
     },
     async transferOrderPlaced(order) {
       if (!mailer || !settings) return
       const messages: EmailMessage[] = [{ to: settings.staffRecipients, replyTo: order.customer.email, ...staffTransferOrderEmail(order, settings.siteUrl) }]
-      if (mayConfirm(order.customer.email)) messages.push({ to: [order.customer.email], ...customerTransferOrderEmail(order, settings.siteUrl, `${settings.siteUrl}/#shop/payment/${String(order._id)}`) })
+      if (mayConfirm(order.customer.email)) messages.push({ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerTransferOrderEmail(order, settings.siteUrl, `${settings.siteUrl}/#shop/payment/${String(order._id)}`) })
       await deliver(order.reference, messages)
     },
     async transferReported(order) {
@@ -82,6 +96,10 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     async bankDetailsChanged(adminEmails, changedBy, fields, details) {
       if (!mailer || !settings || adminEmails.length === 0) return
       await deliver('a bank details change', [{ to: adminEmails, ...bankDetailsChangedEmail(changedBy, fields, details, settings.siteUrl) }])
+    },
+    async replyToChanged(adminEmails, changedBy, from, to) {
+      if (!mailer || !settings || adminEmails.length === 0) return
+      await deliver('a reply-to address change', [{ to: adminEmails, ...replyToChangedEmail(changedBy, from, to, settings.siteUrl) }])
     },
     // The token goes after # in the link: browsers never send that part to a server, so it stays out
     // of server and proxy logs.

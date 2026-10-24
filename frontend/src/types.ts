@@ -438,6 +438,26 @@ export interface BankTransferResponse {
   historyCursor: string | null
 }
 
+// Settings for the emails customers receive (backend models/CustomerEmailSettings.ts).
+export interface CustomerEmailSettings {
+  // Where customers' replies to their confirmation emails go.
+  replyTo: string
+}
+
+export interface CustomerEmailHistoryEntry {
+  actor: { name: string, email: string }
+  changes: { field: keyof CustomerEmailSettings, from: string, to: string }[]
+  createdAt: string
+}
+
+export interface CustomerEmailResponse {
+  settings: CustomerEmailSettings
+  // Whether the website sends email at all (Amazon SES is set up).
+  emailOn: boolean
+  history: CustomerEmailHistoryEntry[]
+  historyCursor: string | null
+}
+
 // Site text staff edit in the admin panel (backend models/SiteContent.ts): the privacy notice, the
 // refunds policy, and the FAQ.
 export type SiteContentKey = 'privacy' | 'refunds' | 'faq'

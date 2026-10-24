@@ -432,12 +432,50 @@ test.describe('bank transfer', () => {
   })
 })
 
+test.describe('customer emails', () => {
+  test('shows where customers’ replies go and saves a new address, with its history', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Emails' }).click()
+    await expect(page.getByRole('heading', { name: 'Customer emails', level: 1 })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Emails' })).toHaveAttribute('aria-current', 'page')
+    const address = page.getByLabel('Reply-to address')
+    await expect(address).toHaveValue('gpecengineeringcompanylimited@gmail.com')
+    await expect(page.getByText('No changes yet.')).toBeVisible()
+    await page.getByRole('button', { name: 'Save reply-to address' }).click()
+    await expect(page.locator('.success-message')).toHaveText('No changes to save.')
+    expect(api.requests.some((r) => r.method === 'PATCH')).toBe(false)
+
+    await address.fill(' Orders@GPECengineering.com ')
+    await page.getByRole('button', { name: 'Save reply-to address' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Reply-to address saved. All admins have been emailed about the change.')
+    await expect(page.locator('.success-message')).toBeFocused()
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ replyTo: 'orders@gpecengineering.com' })
+    await expect(page.locator('.admin-history li').first()).toContainText('Reply-to address: gpecengineeringcompanylimited@gmail.com → orders@gpecengineering.com')
+    await expect(page.locator('.admin-history li').first()).toContainText(`${ADMIN.name} (${ADMIN.email})`)
+    await expect(address).toHaveValue('orders@gpecengineering.com')
+  })
+
+  test('shows the server’s message for an address it refuses, and says when email is off', async ({ page }) => {
+    await mockApi(page, { emailOn: false })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/emails')
+    await expect(page.getByText('The website is not sending emails yet')).toBeVisible()
+    // The browser's own check passes "a@b"; the server's does not.
+    await page.getByLabel('Reply-to address').fill('a@b')
+    await page.getByRole('button', { name: 'Save reply-to address' }).click()
+    await expect(page.locator('.form-error')).toHaveText('Check the details and try again.')
+    await expect(page.locator('.admin-field-error')).toHaveText('replyTo must be a valid email address.')
+    await expect(page.getByLabel('Reply-to address')).toHaveValue('a@b')
+  })
+})
+
 test.describe('contact requests', () => {
   test('has no order enquiries section: customers buy in the shop or use the contact form', async ({ page }) => {
     await mockApi(page)
     await logInAsAdmin(page)
     const sections = page.getByRole('navigation', { name: 'Admin sections' })
-    await expect(sections.getByRole('link')).toHaveText(['Products', 'Orders', 'Delivery', 'Bank details', 'Contact requests', 'Site content'])
+    await expect(sections.getByRole('link')).toHaveText(['Products', 'Orders', 'Delivery', 'Bank details', 'Contact requests', 'Site content', 'Emails'])
     await page.goto('/#admin/enquiries')
     await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible()
   })

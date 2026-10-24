@@ -263,8 +263,8 @@ Every price change, product change, and order status change made by an admin rec
 **what** (old and new value), and **when**. *Why:* prices appear on the live site and drive real
 payments; GPEC must be able to answer "who changed this price and when?"
 
-Implemented for products, contact-request status, orders, delivery areas, bank details, and site
-content (`models/AuditRecord.ts`, `services/adminProducts.ts`, `services/adminRequests.ts`,
+Implemented for products, contact-request status, orders, delivery areas, bank details, the
+customer emails' reply-to address, and site content (`models/AuditRecord.ts`, `services/adminProducts.ts`, `services/adminRequests.ts`,
 `services/siteContent.ts`, …): the change and its record are written in
 **one MongoDB transaction**, so nothing changes without a record.
 Only fields whose value actually changes are recorded. Transactions need a replica set: Atlas is
@@ -403,6 +403,10 @@ name), and logs which database it found. The guard only works if production sets
 - **BankTransferSettings** (`backend/src/models/BankTransferSettings.ts`) — one record (`_id`
   `bank-transfer`): `enabled`, `bankName`, `accountName`, `accountNumber` (10 digits), `instructions`,
   `payWithinDays` (1–30). Managed at `#admin/bank-transfer`; AuditRecord `bankTransfer.update`.
+- **CustomerEmailSettings** (`backend/src/models/CustomerEmailSettings.ts`, 2026-10-24) — one record
+  (`_id` `customer-email`): `replyTo`, where customers' replies to their emails go. Created on the
+  first save; until then GPEC's published address (`DEFAULT_REPLY_TO`, `services/customerEmail.ts`).
+  Managed at `#admin/emails`; AuditRecord `customerEmail.update`; every change emailed to all admins.
 - **SiteContent** (`backend/src/models/SiteContent.ts`, 2026-10-24) — one record per staff-edited
   page, `_id` `privacy` | `refunds` | `faq`: `title`, `intro`, `sections [{ heading, body }]` (for the
   FAQ, question and answer), `approved`, timestamps. Created on the first save; until then the API
@@ -472,7 +476,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── routes/           # HTTP wiring: public (products, product images, contact, checkout, Paystack webhook) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord
-│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, photos, productImages, requestFiles
+│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, photos, productImages, requestFiles, customerEmail
 │       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers; paging.ts: admin page size, cursors
 │       └── data/             # sampleProducts.ts (seed products); demoData.ts (demo orders and contact requests)
@@ -789,6 +793,12 @@ to it in the admin panel) and sends the customer a plain-text confirmation with 
   and it never throws: a failed email is logged with the reference and error type only, and the
   customer's request stands. Spam-trapped or invalid submissions send nothing.
 - Plain text only; subjects contain only server-made references, never customer input.
+- **Replies** (2026-10-24, the user's request): staff emails reply to the customer; customer emails
+  (contact, paid order, bank-transfer order) reply to the address staff set at `#admin/emails`, read
+  at send time (GPEC's published address if it cannot be read). The sender itself,
+  `notifications@gpecengineering.com`, is sending-only, and mail written to it directly comes back
+  undelivered (forwarding it was skipped by the user's choice; RUNBOOK 1.6, step 9). Changing the reply-to is recorded and emailed to all admins,
+  like bank details: it decides where customers' replies, such as proof of payment, go.
 - Customer confirmations are capped at 3 per address per hour (in memory; one API instance), so
   the forms cannot be used to flood a stranger's inbox. Staff notifications are not capped.
 - **Off until configured.** All five `SES_*`/`EMAIL_*`/`STAFF_*` settings plus `FRONTEND_URL`, or
