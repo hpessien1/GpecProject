@@ -1240,3 +1240,23 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - **2026-10-23 — CI was slow for a reason batching would not fix.** The browser job's 15 minutes
   were half spent installing Chromium's libraries from a slow mirror. **Rule:** before speeding up
   CI, look at each step's timings; the browser jobs now run in Playwright's pinned image.
+- **2026-10-24 — Every update "changed" the document.** A recovery code was removed with
+  `updateOne({ _id }, { $pull: … })` and accepted when `modifiedCount` was 1, but Mongoose's
+  automatic `updatedAt` makes every update count as modified, so any made-up code logged in. Only a
+  test with a wrong code caught it. **Rule:** put the condition in the filter and check
+  `matchedCount`; test the refused case, not just the accepted one.
+- **2026-10-24 — Old records lack new fields.** The user's admin account, created before two-step
+  login existed, had no `recoveryCodeHashes`, and `.lean()` skips schema defaults, so the status page
+  crashed for them while every test (fresh accounts) passed. **Rule:** when adding fields, read them
+  defensively on `.lean()` results and test with a record stored the old way.
+- **2026-10-24 — Tests passed on a broken page.** The two-step login page's radio buttons took the
+  admin text-box style and the layout fell apart; the browser tests checked behaviour, not layout.
+  **Rule:** look at screenshots of every new screen at desktop and 390px before handing it over.
+- **2026-10-24 — The dev server served an empty file.** A script rewrote `AdminPage.tsx` while the
+  user's Vite server ran; Vite read it mid-write and kept an empty module, so the admin page went
+  blank for the user only (the production build and tests were fine). **Rule:** while the user's dev
+  server runs, edit frontend files with the editor tool; if a page breaks only for them, check the
+  served file's size.
+- **2026-10-24 — `npm audit fix --omit=dev` pruned the dev tools.** It removed TypeScript, `tsx`, and
+  Vitest from `node_modules`. **Rule:** use plain `npm audit fix` (it changes only the lockfile's
+  vulnerable entries), and run `npm ci` if dependencies were pruned.
