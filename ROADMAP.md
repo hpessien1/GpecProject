@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-24 (all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
+- **Last updated:** 2026-10-25 (FAQ in the menu, section labels match it; all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -35,7 +35,7 @@ and split by area (`frontend/src/styles/`, admin styles loaded only with the adm
 checked for zero visual change; `/api/health` now checks the database; the illustrative portfolio
 cards no longer claim to be GPEC's work.
 
-CI's first run on GitHub passed (2026-10-20); latest green run on commit `9f7750a` (2026-10-24, 5 min 57 s). Session handover notes are in
+CI's first run on GitHub passed (2026-10-20); latest green run on commit `59e136c` (2026-10-24, 7 min 7 s), deployed 2026-10-25. Session handover notes are in
 [`HANDOVER.md`](HANDOVER.md).
 
 ---

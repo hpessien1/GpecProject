@@ -1,7 +1,7 @@
 # Next-session handover
 
-Last updated: 2026-10-24 (end of session: project clips, contact-form files, reply-to address,
-order update emails, product categories).
+Last updated: 2026-10-25 (end of session: larger small text, menu with FAQ, section labels matching
+the menu, panels section moved after Services).
 Start a new session with:
 
 ```text
@@ -11,7 +11,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything is pushed up to `12ab46c` and CI is green (run 40132472294, 6 min 3 s).
+- **Git and CI:** everything is pushed up to `59e136c` and CI is green (run 40137434745, 7 min 7 s).
   The user pushes; check with `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can
   read this repository's runs; it cannot push). This handover's own commit comes after it.
 - **The live site is a test environment until the owner says it is production ready** (owner,
@@ -23,10 +23,11 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `12ab46c`, including all of the session below (the user
-  reported the S3 policy, both deploys, the seed commands, the privacy wording, and the checks done
-  on 2026-10-24). Checked from outside the same day: `/api/health` ok, `fileUploads: true`, all 14
-  sample products have a category, and the saved privacy notice mentions attached files.
+- **What is deployed:** everything up to `59e136c`: nothing is waiting to deploy. The user deployed
+  the previous session's work (S3 policy, both resources, seed commands, privacy wording, checks) on
+  2026-10-24, and `gpec-web` with this session's work on 2026-10-25. Checked from outside: `/api/health`
+  ok, `fileUploads: true`, all 14 sample products have a category, the saved privacy notice mentions
+  attached files, and the live site's code has the FAQ menu item.
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (test mode), and 6 are done;
   step 3 (deploy) is live with the Atlas lock-down still to do.
 - **Company facts:** [`README.md`](README.md) "Company Profile", from GPEC's PDF (git-ignored, 23 MB,
@@ -37,35 +38,24 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   catalogue checklist (11), known gaps (14), lessons learned (15). Every command:
   [`docs/COMMANDS.md`](docs/COMMANDS.md).
 
-## This session (2026-10-24, second half), in order
+## This session (2026-10-24/25), in order
 
-1. **Project clips** (`e54b37c`): on screens wider than about 1700px the three videos ran past the
-   bottom of their box and were cut off; the box and the gallery now have rows of fixed height. The
-   browser test had measured the gallery (which overflowed with them) and now measures the visible
-   box, at 1920 and 2560px too.
-2. **Files on the contact form** (`e54b37c`; CLAUDE.md Section 8): optional photos and PDFs, up to 5
-   of 10 MB each, seen only by staff on the request page (photos open, PDFs always download). Photos
-   are re-saved without camera details; PDFs checked and stored as sent; private bucket folder
-   `request-files/`. New package `multer` 2.5.0 (approved; 2.4.0 has a high-severity advisory).
-   Demo requests DE000002 and DE000004 get sample files. Privacy notice starting text updated.
-3. **Reply-to address** (`f144b0c`): customer emails (contact, paid order, bank transfer) reply to an
-   address staff set in a new admin tab, *Emails* (`#admin/emails`); GPEC's published Gmail address
-   until changed. Recorded and emailed to all admins, like bank details. Forwarding the sending
-   address with Cloudflare Email Routing was considered and **skipped** (user: the reply-to is
-   enough; steps kept, marked optional, in RUNBOOK 1.6 step 9).
-4. **Order update emails** (`c21f084`): moving an order to ready for pickup, out for delivery, or
-   cancelled, and closing an unpaid transfer, email the customer unless staff untick "Tell the
-   customer by email" (ticked by default; the user's choice over automatic). The order history shows
-   "Customer emailed". Contact-request status changes still email nobody.
-5. **Product categories** (`12ab46c`): the home page's four Products cards now all carry GPEC's own
-   photos and open the shop filtered (`#shop/category/solar`); the shop has All plus four filter
-   links with counts; staff choose a category in the product form (recorded); uncategorised
-   products appear only under All. The seed command fills in missing categories on sample products
-   only (the user's choice).
+1. **Previous session's deploy** confirmed (the user did it; checked from outside, see above).
+2. **Larger small text** (`b6d649e`): button text, form hints, notes, admin labels, the menu, and the
+   footer raised from 0.7–0.78rem to 0.8rem, like the labels (CLAUDE.md Section 9 has the grep to
+   check). Found and fixed: on phones the footer's copyright line was 0.48rem (about 8px). The larger
+   text made the ten "Typical components" names overlap on desktop (the user spotted it; the
+   sideways-scroll test could not, see CLAUDE.md Lessons): the list now has as many columns as fit,
+   symbol beside name on phones, no dividing lines; a browser test checks nine widths.
+3. **Menu and labels** (`59e136c`, the user's request): FAQ added to the menu (Home · About ·
+   Services · Products · Projects · FAQ · Contact, plus Shop; README and AGENTS updated); each
+   section's small label is its menu word (the big slogans stay); the Control & distribution panels
+   section moved to directly after Services; the footer follows the menu. The header still fits on
+   one line from 1101px (216px to spare).
 
-Also answered: SES production access (requested 2026-10-23) usually takes up to a day, AWS quotes up
-to 96 hours; check the support case for questions if nothing by about 2026-10-27. No need to
-upgrade the AWS plan for it now (it is on the launch checklist anyway).
+The previous session (project clips, contact-form files, reply-to address, order update emails,
+product categories) is described in ROADMAP.md and CLAUDE.md. SES production access (requested
+2026-10-23): if nothing by about 2026-10-27, check the AWS support case for questions.
 
 ## What exists
 
@@ -115,21 +105,14 @@ upgrade the AWS plan for it now (it is on the launch checklist anyway).
 
 ## Open items for the next session
 
-1. ~~Deploy this session's work~~: done by the user, 2026-10-24 (see "What is deployed"). Delete
-   the `[TEST]` contact request from the check if it is still there (it was only a check).
+1. **Tidy-up on the live site:** delete the `[TEST]` contact request from the 2026-10-24 deploy check
+   if it is still there (only a check; CLAUDE.md Section 10.3; needs the user, in the database).
 2. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and
    photos replace them.
-3. ~~Raise the remaining small text to 0.8rem~~: done 2026-10-24 (next session's first change), with
-   the phone footer's copyright line, which was 0.48rem (about 8px), fixed on the way. The larger
-   text made the "Typical components" names overlap (the user spotted it on desktop), so that list
-   now has as many columns as fit (symbol beside name on phones), with a browser test at nine widths.
-   Then (2026-10-25, the user's request): FAQ added to the menu (Home · About · Services · Products ·
-   Projects · FAQ · Contact, plus Shop; README and AGENTS updated); each section's small label now
-   matches its menu word (About, Services, Products, Projects, FAQ, Contact; the big slogans stay);
-   and the Control & distribution panels section moved to directly after Services. **Deploy
-   `gpec-web` only** for these and the text sizes (the API did not change).
+3. **Possible follow-up (not asked for):** on phones, the open menu does not cover the hero below it;
+   the faded hero text shows under the menu's last item. Ask the user before changing it.
 4. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner:
    `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for the privacy
    notice); SES production access (requested 2026-10-23); AWS paid plan before 2027-04-22; 2FA on
