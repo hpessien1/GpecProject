@@ -111,8 +111,10 @@ product categories) is described in ROADMAP.md and CLAUDE.md. SES production acc
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and
    photos replace them.
-3. ~~Phone menu not covering the hero~~ and the two repeated hex colours: done 2026-10-25 (not yet
-   committed or deployed at the time of writing).
+3. Done 2026-10-25, committed, **not yet pushed or deployed** (`gpec-web` only): the phone menu
+   fills the screen; the two repeated hex colours are variables; a browser tab icon from the logo's
+   helmet (`frontend/public/favicon.ico`, `apple-touch-icon.png`). Also confirmed by the user that
+   day: `TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify, and Afrizone may be named.
 4. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner:
    `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for the privacy
    notice); SES production access (requested 2026-10-23); AWS paid plan before 2027-04-22; 2FA on
@@ -121,7 +123,7 @@ product categories) is described in ROADMAP.md and CLAUDE.md. SES production acc
    notice (every [bracket] filled in, including how long attached files are kept); real bank
    details; delivery areas and fees; collection hours (the "ready for pickup" email could then state
    them); the Paystack rate on its plan; real products with prices and categories; business hours
-   and social links; registration number; whether Afrizone may be named; the first video's sound.
+   and social links; registration number; the first video's sound.
 6. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
    data removed, samples archived, every admin using two-step login, live Paystack keys only with
    GPEC's approval.

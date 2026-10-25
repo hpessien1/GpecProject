@@ -174,7 +174,8 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 - [x] Two-step login for admins (2026-10-24, user's request): optional, each admin turns it on or off
       at *Two-step login*; an authenticator app (QR code) or emailed codes, ten recovery codes, a
       banner suggesting it until it is on, and a command for a lost phone. Needs
-      `TWO_FACTOR_ENCRYPTION_KEY` in Coolify for authenticator apps (RUNBOOK 1.9).
+      `TWO_FACTOR_ENCRYPTION_KEY` in Coolify for authenticator apps (RUNBOOK 1.9; set, confirmed
+      2026-10-25).
 - [ ] Before launch: every admin turns on two-step login; admin account management screen (optional).
 - [x] Product photo uploads from the admin's own device (laptop, phone, or tablet), with a preview:
       checked, resized, and stored in a private Amazon S3 bucket (2026-10-22). Off until GPEC's
@@ -224,7 +225,8 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [x] Amazon SES: domain verified, sending key, email on in production (2026-10-23, eu-north-1).
       Production access requested; until AWS approves it, only verified addresses get mail.
 - [x] S3 bucket for product photos and its key, uploads on in production and tested (2026-10-23).
-- [ ] Permission to name Afrizone (GPEC's photos, and the people in them, were approved on 2026-10-23).
+- [x] Permission to name Afrizone (confirmed by the user, 2026-10-25; GPEC's photos, and the people in
+      them, were approved on 2026-10-23).
 
 ## Later / not yet scheduled
 
@@ -243,3 +245,4 @@ These block launch, and several block steps 4 to 6. Ask early.
       label matches its menu word; the panels section follows Services.
 - [x] Phone menu (2026-10-25): the open menu fills the screen below the header instead of letting the
       home page's text show beneath it; Escape or tabbing out closes it.
+- [x] Browser tab icon (2026-10-25): the helmet from GPEC's logo, also for phone home screens.

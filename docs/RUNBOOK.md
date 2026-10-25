@@ -5,9 +5,9 @@ deploys: the project owner, or the developer with the owner's go-ahead. An AI as
 deploys. Engineering rules behind these steps are in
 [`CLAUDE.md`](../CLAUDE.md), Section 7. All commands in one place: [`COMMANDS.md`](COMMANDS.md).
 
-- **Last updated:** 2026-10-23
-- **Live since 2026-10-22, not announced:** the site still shows mock About text, mock footer
-  contacts, and no products. Do not share the address until GPEC's real content is in.
+- **Last updated:** 2026-10-25
+- **Live since 2026-10-22, not announced:** the site still shows sample products and demo orders
+  and contact requests. Do not share the address until GPEC's real content is in.
 
 ## What runs where
 
@@ -380,7 +380,7 @@ Until these are set, checkout shows the order and says online payment is not ava
 Admins can turn on two-step login for their own account (admin panel, **Two-step login** in the
 header): a code from an authenticator app, or an emailed code (needs email, Section 1.6).
 
-1. **Authenticator apps need a key.** On your own computer run `openssl rand -base64 32` and copy the
+1. **Authenticator apps need a key** (done on the live site: set in Coolify, confirmed 2026-10-25). On your own computer run `openssl rand -base64 32` and copy the
    result. In Coolify, open `gpec-api`, **Environment Variables**, add `TWO_FACTOR_ENCRYPTION_KEY`
    with that value (runtime only: *Available at Buildtime* unticked), save, and redeploy. Use a
    different value from the one in your local `backend/.env`. The API's log no longer says

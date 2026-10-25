@@ -702,8 +702,8 @@ database outage the proxy may then stop sending traffic to the API, so the site'
   limit.
 - **The refunds policy, the FAQ, and the privacy notice approved** by GPEC (Site content: every
   [bracket] filled in, "Approved" ticked), the policies checked by its legal adviser.
-- **`TWO_FACTOR_ENCRYPTION_KEY` set in Coolify** (its own value, not the development one), and
-  every GPEC admin has turned on two-step login.
+- Every GPEC admin has turned on two-step login (`TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify,
+  confirmed by the user 2026-10-25).
 - **Real bank details entered** in the admin panel (*Bank details*): the sample ones ("Sample Bank
   (not real)", `0000000000`) replaced, or bank transfer switched off.
 - **Demo data removed from the live `gpec` database** (`node dist/scripts/seedDemoData.js
@@ -1137,7 +1137,6 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - The 14 products are samples with invented references and specs (e.g. "415 V", "IP54
   enclosure"). The shop labels each one "Sample listing · details to be confirmed by GPEC" until
   GPEC's real product list replaces them. No prices exist yet.
-- The client name "Afrizone" is published; permission is unconfirmed.
 - The first project video (`portfolio-electrical-components.mp4`) has a sound track and no captions.
   GPEC must confirm whether it contains speech; if so, add captions (a `<track>`), otherwise mute it
   or remove the track. Marked in `LandingPage.tsx` with an `oxlint-disable` comment.
@@ -1212,7 +1211,6 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - Breakpoints are desktop-first with several one-off widths (1100, 980, 900, 820, 650, 600, 540px).
   Aligning them to 1100/820/540 would change layouts between the old and new widths, so it needs a
   design decision and a browser check, not a cleanup.
-- No favicon: every page load requests `/favicon.ico` and gets a 404. Needs GPEC's logo mark.
 
 **Open business decisions (needed from GPEC)**
 - The delivery areas and their fees (staff enter them at `#admin/delivery`). Do not invent any.

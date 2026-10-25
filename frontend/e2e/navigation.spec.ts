@@ -213,6 +213,18 @@ test.describe('home page sections', () => {
   })
 })
 
+test('the site has GPEC\'s icon for browser tabs and phone home screens', async ({ page, request }) => {
+  await mockApi(page)
+  await page.goto('/')
+  for (const [rel, type] of [['icon', 'image/x-icon'], ['apple-touch-icon', 'image/png']]) {
+    const href = await page.locator(`head link[rel="${rel}"]`).getAttribute('href')
+    const response = await request.get(href!)
+    expect(response.status(), href!).toBe(200)
+    // Unknown paths are answered with the site's own page, so check it really is an image.
+    expect(response.headers()['content-type'], href!).toContain(type)
+  }
+})
+
 test('every page shows the same GPEC logo in its header, including the admin screens', async ({ page }) => {
   await mockApi(page)
   const logoOn = async (hash: string) => {
