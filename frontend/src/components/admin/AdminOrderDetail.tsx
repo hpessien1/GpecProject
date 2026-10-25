@@ -114,7 +114,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
     const notify = !received && data?.emailOn === true && notifyOnClose
     try {
       setData(await (received ? confirmTransferReceived(reference) : closeUnpaidTransfer(reference, notify)))
-      setResult({ kind: 'success', message: received ? 'Transfer confirmed: the order is paid, and the customer has been emailed.' : `Order closed as not received.${notify ? ' The customer has been emailed.' : ''}` })
+      setResult({ kind: 'success', message: received ? `Transfer confirmed: the order is paid${data?.emailOn ? ', and the customer has been emailed' : ''}.` : `Order closed as not received.${notify ? ' The customer has been emailed.' : ''}` })
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return onSessionEnded()
       setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to update the payment.' })
@@ -126,6 +126,11 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
   function handleTransferReceived(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     void settleTransfer(true)
+  }
+
+  function handleTransferMissing(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void settleTransfer(false)
   }
 
   const order = data?.order
@@ -207,19 +212,26 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
               <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Update status <Arrow /></>}</button>
             </form>
             : order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'pending_payment'
-              ? <div className="admin-transfer-actions">
-                <p className="admin-notice">{ordersContent.transferWaiting}</p>
-                <form className="admin-form" onSubmit={handleTransferReceived}>
+              // Two opposite answers, each in its own box with its own button, so the email box
+              // clearly belongs to closing the order.
+              ? <section className="admin-transfer-actions" aria-labelledby="admin-transfer-title">
+                <h2 id="admin-transfer-title">{ordersContent.transferQuestion}</h2>
+                <p className="admin-notice">{ordersContent.transferWaiting(money(order.total), order.reference)}</p>
+                <form className="admin-form admin-transfer-choice" aria-labelledby="admin-transfer-received-title" onSubmit={handleTransferReceived}>
+                  <h3 id="admin-transfer-received-title">{ordersContent.transferReceived.title}</h3>
+                  <p>{ordersContent.transferReceived.text(data.emailOn)}</p>
                   <div className="admin-field admin-checkbox">
                     <label><input type="checkbox" name="checked" required /> I have checked GPEC’s bank account: {money(order.total)} arrived with the narration {order.reference}.</label>
                   </div>
                   <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Confirm transfer received <Arrow /></>}</button>
                 </form>
-                <div className="admin-transfer-close">
+                <form className="admin-form admin-transfer-choice" aria-labelledby="admin-transfer-missing-title" onSubmit={handleTransferMissing}>
+                  <h3 id="admin-transfer-missing-title">{ordersContent.transferMissing.title}</h3>
+                  <p>{ordersContent.transferMissing.text}</p>
                   <NotifyCustomerField id="transfer-close-notify" emailOn={data.emailOn} hint={ordersContent.notifyHints.transfer_not_received} checked={notifyOnClose} onChange={setNotifyOnClose} />
-                  <button type="button" className="text-link" onClick={() => void settleTransfer(false)} disabled={isSaving}>Payment not received: close the order</button>
-                </div>
-              </div>
+                  <button className="button button-outline" type="submit" disabled={isSaving}>{ordersContent.transferMissing.button}</button>
+                </form>
+              </section>
             : <p className="admin-notice">{order.paymentMethod === 'bank_transfer' ? ordersContent.transferClosed : ordersContent.notPaid}</p>}
           <section className="admin-history" aria-labelledby="admin-order-history-title">
             <h2 id="admin-order-history-title">History</h2>

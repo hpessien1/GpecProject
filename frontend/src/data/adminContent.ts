@@ -110,7 +110,18 @@ export const ordersContent = {
   empty: 'No orders yet. Orders placed in the shop appear here: who ordered, what they bought, the amount, and whether they chose pickup or delivery.',
   noMatches: (search: string) => `No orders match “${search}”.`,
   notPaid: 'Payment has not been completed, so this order cannot be moved along. Only the website changes payment status, after Paystack confirms a payment.',
-  transferWaiting: 'The customer chose bank transfer. Check GPEC’s bank account for this amount with the order reference as the narration, then confirm it here. The order can be moved along once it is paid.',
+  // A bank-transfer order waiting for the money: one question, two answers in separate boxes.
+  transferQuestion: 'Did the money arrive?',
+  transferWaiting: (amount: string, reference: string) => `The customer chose bank transfer. Check GPEC’s bank account for ${amount} with the narration ${reference}.`,
+  transferReceived: {
+    title: 'Yes, it arrived',
+    text: (emailOn: boolean) => `The order becomes paid and can then be moved along.${emailOn ? ' The customer is emailed their order confirmation.' : ''}`,
+  },
+  transferMissing: {
+    title: 'No, it did not arrive',
+    text: 'Close the order only when you are sure the money is not coming, for example once the customer’s time to pay has passed. This cannot be undone.',
+    button: 'Close the order as not received',
+  },
   transferClosed: 'Closed as not received: the transfer never arrived. If the customer did pay, they can contact GPEC; place a new order for them if needed.',
   // "Tell the customer by email": ticked by default where it is offered; untick it when you have
   // already told the customer, or are correcting a mistake.

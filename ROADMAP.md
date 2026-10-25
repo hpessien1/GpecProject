@@ -35,7 +35,7 @@ and split by area (`frontend/src/styles/`, admin styles loaded only with the adm
 checked for zero visual change; `/api/health` now checks the database; the illustrative portfolio
 cards no longer claim to be GPEC's work.
 
-CI's first run on GitHub passed (2026-10-20); latest green run on commit `59e136c` (2026-10-24, 7 min 7 s), deployed 2026-10-25. Session handover notes are in
+CI's first run on GitHub passed (2026-10-20); latest green run on commit `a4c8739` (2026-10-25, 6 min 58 s), deployed 2026-10-26. Session handover notes are in
 [`HANDOVER.md`](HANDOVER.md).
 
 ---

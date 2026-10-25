@@ -502,20 +502,29 @@
 .admin-transfer-actions .admin-notice {
   margin: 0;
 }
-.admin-transfer-actions .text-link {
-  border: 0;
-  background: transparent;
-  color: var(--forest);
-  cursor: pointer;
-  text-align: left;
+/* "Did the money arrive?" is the column's first heading, so no space above it. */
+.admin-request-side .admin-transfer-actions h2 {
+  margin: 0;
 }
-/* "Tell the customer by email" above "Payment not received", apart from the confirm form. */
-.admin-transfer-close {
+/* Its two answers, each a box with its own heading, explanation, and button. */
+.admin-transfer-choice {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.8rem;
   justify-items: start;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
+  width: 100%;
+  padding: 1.1rem 1.2rem 1.25rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+}
+.admin-transfer-choice h3 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+.admin-transfer-choice p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 .admin-history-emailed {
   color: var(--forest);

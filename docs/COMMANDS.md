@@ -71,9 +71,15 @@ answering the API with sample data, so neither `npm run dev`, the API, nor the d
 
 ```bash
 cd frontend && npx playwright install chromium   # first time on a machine only (about 150 MB)
-cd frontend && npm test                          # behaviour tests, desktop and phone (about 10 s)
-cd frontend && npm run check:contrast            # every page and state (about a minute)
+cd frontend && npm test                          # behaviour tests, desktop and phone (about 2 minutes)
+cd frontend && npm run check:contrast            # every page and state (about 3 minutes)
 ```
+
+**Run the three test commands one after another, never at the same time.** Run together, or with
+their default settings, they can use up the laptop's memory and freeze it (it happened on
+2026-10-26). Locally each runs four at a time (`maxWorkers` in `backend/vitest.config.ts`, `workers`
+in `frontend/playwright.config.ts`): the backend tests then peak at about 2.5 GB and the browser
+tests at about 4 GB. CI, on its own machines, keeps the defaults.
 
 After editing a stylesheet in `frontend/src/styles/`, format it (Prettier formats only those files):
 

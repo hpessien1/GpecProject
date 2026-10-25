@@ -571,7 +571,8 @@ cd backend && npm run admin:create -- --email you@example.com --reset           
 cd backend && npm run dev      # tsx watch src/server.ts
 cd frontend && npm run dev     # Vite dev server
 
-# Checks — all must pass before a change is "done" (CI runs the same).
+# Checks — all must pass before a change is "done" (CI runs the same). Run the three test
+# commands one after another, never together: they can freeze the laptop (Lessons, 2026-10-26).
 cd frontend && npm run lint        # oxlint
 cd backend && npm run lint         # oxlint
 cd frontend && npm run typecheck   # tsc -b (site, browser tests, configs)
@@ -1328,6 +1329,13 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   happened, and `scrollIntoViewIfNeeded` reached a link that a locked page stopped people from
   reaching. **Rule:** drive tests the way a person does (wheel, keys, taps) and wait for the
   result; programmatic scrolling and focusing ignore what blocks people.
+- **2026-10-26 — Tests froze the developer's laptop.** Vitest's default (a test file per CPU core,
+  each with its own in-memory MongoDB) took the 22-core, 30 GB laptop from 13 GB free to under 2 GB
+  in about 8 seconds and froze it; a safety stop could not react in time, and `pkill -f vitest` also
+  matched the stop's own command. Vision 25 had the same freeze (it runs its tests in sequential
+  batches). Local runs are now capped at four (backend 2.5 GB peak, browser tests about 4 GB).
+  **Rule:** run the three test commands one after another, never together, and never measure or
+  run tests above the cap on the developer's machine; stop a process by its ID, never by name.
 - **2026-10-24 — A restore script overwrote the wrong file.** Backups for a break-the-code check were
   copied by file name into one folder; two files named `adminRequests.ts` (route and service)
   collided, and the "restore" put the route over the service. **Rule:** back up under unique names

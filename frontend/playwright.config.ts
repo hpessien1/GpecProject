@@ -9,6 +9,10 @@ const isCI = !!process.env.CI
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // Playwright's default is one browser per two CPU cores (11 on the developer's laptop). Four keep
+  // memory in check there, where full test runs have frozen the machine (2026-10-26); CI keeps the
+  // default.
+  workers: isCI ? undefined : 4,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   reporter: isCI ? [['list'], ['html', { open: 'never' }]] : 'list',

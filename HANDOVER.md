@@ -1,7 +1,7 @@
 # Next-session handover
 
-Last updated: 2026-10-25 (end of session: larger small text, menu with FAQ, section labels matching
-the menu, panels section moved after Services).
+Last updated: 2026-10-26 (phone menu fills the screen, two colour variables, browser tab icon; all
+deployed).
 Start a new session with:
 
 ```text
@@ -11,7 +11,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything is pushed up to `59e136c` and CI is green (run 40137434745, 7 min 7 s).
+- **Git and CI:** everything is pushed up to `a4c8739` and CI is green (run 40241976878, 6 min 58 s).
   The user pushes; check with `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can
   read this repository's runs; it cannot push). This handover's own commit comes after it.
 - **The live site is a test environment until the owner says it is production ready** (owner,
@@ -23,9 +23,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `59e136c`: nothing is waiting to deploy. The user deployed
-  the previous session's work (S3 policy, both resources, seed commands, privacy wording, checks) on
-  2026-10-24, and `gpec-web` with this session's work on 2026-10-25. Checked from outside: `/api/health`
+- **What is deployed:** everything up to `a4c8739`: nothing is waiting to deploy. The user deployed
+  the S3 policy, both resources, seed commands, privacy wording, and checks on 2026-10-24, `gpec-web`
+  with the menu and label work on 2026-10-25, and `gpec-web` with the phone menu and tab icon on
+  2026-10-26 (open item 3). Checked from outside: `/api/health`
   ok, `fileUploads: true`, all 14 sample products have a category, the saved privacy notice mentions
   attached files, and the live site's code has the FAQ menu item.
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (test mode), and 6 are done;
@@ -111,10 +112,17 @@ product categories) is described in ROADMAP.md and CLAUDE.md. SES production acc
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and
    photos replace them.
-3. Done 2026-10-25, committed, **not yet pushed or deployed** (`gpec-web` only): the phone menu
+3. Done 2026-10-25, deployed 2026-10-26 (`a4c8739`, CI run 40241976878; checked from outside: the
+   icon files match, the new menu and colour rules are live, `/api/health` ok): the phone menu
    fills the screen; the two repeated hex colours are variables; a browser tab icon from the logo's
    helmet (`frontend/public/favicon.ico`, `apple-touch-icon.png`). Also confirmed by the user that
    day: `TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify, and Afrizone may be named.
+   Then, 2026-10-26, committed, **not yet pushed or deployed** (`gpec-web` only): the admin order's
+   bank-transfer actions redesigned ("Did the money arrive?", two separate boxes); local test runs
+   capped at four at a time after a backend test run froze the laptop (CLAUDE.md Lessons); the
+   runbook says to keep test payments small (Paystack's test card refused ₦1,962,000, took ₦27,000).
+   Open question for the user: keep all Paystack payment methods (card, bank, transfer, USSD) or
+   switch the others off in the Paystack dashboard.
 4. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner:
    `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for the privacy
    notice); SES production access (requested 2026-10-23); AWS paid plan before 2027-04-22; 2FA on

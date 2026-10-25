@@ -370,7 +370,10 @@ Until these are set, checkout shows the order and says online payment is not ava
    pay with one of Paystack's test cards (listed in Paystack's documentation, "Test Payments"). You
    should come back to "Your order is paid", the order should show in *Orders* as New, and the
    emails should arrive. Try a failing test card too: the site says the payment did not go through
-   and keeps the cart.
+   and keeps the cart. **Keep test orders small:** Paystack's success test card (ending 4081)
+   refused a ₦1,962,000 order as "Insufficient Funds" while a ₦27,000 one went through
+   (2026-10-26). The limit is in Paystack's test system and is not documented; live customers'
+   own banks decide what they can pay.
 7. **Going live** needs GPEC's approval and a verified Paystack business: switch the dashboard to
    *Live*, set the live webhook URL to the same address, replace `PAYSTACK_SECRET_KEY` with the
    `sk_live_…` key, and redeploy. The "Test mode" notice disappears.
