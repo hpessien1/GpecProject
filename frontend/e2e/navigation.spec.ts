@@ -35,6 +35,44 @@ test.describe('main menu', () => {
     }
   })
 
+  test('the open hamburger menu covers the page below the header, and keyboard users can leave it', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'the hamburger menu is shown at 1100px and below')
+    await mockApi(page)
+    await page.goto('/')
+    const menu = page.getByRole('navigation', { name: 'Main navigation' })
+    // In the hero's navy, a shorter menu let the hero's text show beneath it as if it were part of the menu.
+    await page.getByRole('button', { name: 'Menu' }).click()
+    expect(await menu.evaluate((nav) => Math.round(nav.getBoundingClientRect().bottom))).toBe(page.viewportSize()!.height)
+    await page.mouse.move(200, 600)
+    await page.mouse.wheel(0, 600)
+    // Wheel scrolling happens after the event, so give it the time it would take to show.
+    await page.waitForTimeout(500)
+    expect(await page.evaluate(() => window.scrollY), 'the page behind the menu stays still').toBe(0)
+
+    // Escape closes it and returns focus to the Menu button.
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Menu' })).toBeFocused()
+
+    // Tabbing past the last item closes it, rather than focusing links hidden behind it.
+    await page.keyboard.press('Enter')
+    await menu.getByRole('link', { name: /^Shop/ }).focus()
+    await page.keyboard.press('Tab')
+    await expect(menu).toBeHidden()
+    await page.mouse.wheel(0, 600)
+    await expect.poll(() => page.evaluate(() => window.scrollY), 'the page scrolls again once the menu is closed').toBeGreaterThan(0)
+
+    // On a phone held sideways the menu is taller than the screen and scrolls to its last item.
+    await page.setViewportSize({ width: 740, height: 360 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.getByRole('button', { name: 'Menu' }).click()
+    const shop = menu.getByRole('link', { name: /^Shop/ })
+    await expect(shop).not.toBeInViewport({ ratio: 1 })
+    await page.mouse.move(370, 250)
+    await page.mouse.wheel(0, 400)
+    await expect(shop).toBeInViewport({ ratio: 1 })
+  })
+
   test('section links from another page land on that section of the home page', async ({ page }, testInfo) => {
     await mockApi(page)
     await page.goto('/#privacy')

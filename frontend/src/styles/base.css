@@ -121,6 +121,10 @@
   --lime: #ff7600;
   /* Lighter orange for small orange text on mid-blue (hovered cards), where --lime is only 3.5:1. */
   --lime-soft: #ffb070;
+  /* Brighter orange for accents on navy (rules, arrows) and the orange button's hover. */
+  --lime-bright: #ff8b1f;
+  /* Lighter navy where --ink gradients end (dark panels on the home page). */
+  --ink-light: #0a225f;
   --cream: #f4dfcc;
   --sand: #eac7a8;
   /* Secondary text. Darkened from #566789 (4.4:1 on cream, failing WCAG AA) to pass on every

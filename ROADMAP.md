@@ -241,3 +241,5 @@ These block launch, and several block steps 4 to 6. Ask early.
       raised to 0.8rem like the labels; the phone footer's copyright line had been about 8px.
 - [x] Home page menu and labels (2026-10-25, user's request): FAQ in the menu; each section's small
       label matches its menu word; the panels section follows Services.
+- [x] Phone menu (2026-10-25): the open menu fills the screen below the header instead of letting the
+      home page's text show beneath it; Escape or tabbing out closes it.

@@ -111,8 +111,8 @@ product categories) is described in ROADMAP.md and CLAUDE.md. SES production acc
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and
    photos replace them.
-3. **Possible follow-up (not asked for):** on phones, the open menu does not cover the hero below it;
-   the faded hero text shows under the menu's last item. Ask the user before changing it.
+3. ~~Phone menu not covering the hero~~ and the two repeated hex colours: done 2026-10-25 (not yet
+   committed or deployed at the time of writing).
 4. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner:
    `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for the privacy
    notice); SES production access (requested 2026-10-23); AWS paid plan before 2027-04-22; 2FA on

@@ -910,7 +910,7 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
   files (root `.prettierignore`); the TypeScript keeps the project's own style (single quotes, no
   semicolons).
 - Brand colours and fonts are CSS custom properties on `:root` in `base.css` (`--ink`, `--forest`,
-  `--deep`, `--lime`, `--lime-soft`, `--cream`, `--sand`, `--muted`, `--placeholder`, `--line`,
+  `--deep`, `--ink-light`, `--lime`, `--lime-soft`, `--lime-bright`, `--cream`, `--sand`, `--muted`, `--placeholder`, `--line`,
   `--mono`, `--label`, `--sans`, `--serif`). **New code uses these variables**, not new hex values.
   Existing hex values are white and one-off shades in gradients (see Known Gaps).
 - **Fonts** (user's choice, 2026-10-24; all self-hosted from `src/fonts/` with their licences, no
@@ -951,7 +951,9 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
 - **Navigation:** the menu items live in `data/landingContent.ts` (`navigationLinks`), in the brief's
   order, with Shop as the highlighted button. Above 1100px the full menu sits in the header; at
   1100px and below it collapses into the hamburger ("Menu") button, because the eight items no
-  longer fit (Current Work was removed 2026-10-24; FAQ added 2026-10-25). Adding an item means
+  longer fit (Current Work was removed 2026-10-24; FAQ added 2026-10-25). The open menu fills the
+  screen below the header and scrolls on its own, the page behind it stays still, and Escape or
+  tabbing out of the header closes it (2026-10-25). Adding an item means
   checking the 1101–1440px header still fits on one line. Each home page section the menu leads to
   has the menu's word as its small (eyebrow) label; the big heading stays a slogan. The footer
   repeats the menu (except Home), then Shop and the two policies.
@@ -1204,9 +1206,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   itself, so staff add that wording there.
 
 **Styling**
-- About 68 hex colours remain outside `:root` (2026-10-21; 163 before the cleanup): 45 are white
-  (`#fff`), the rest one-off shades, mostly in gradients. Only `#ff8b1f` (bright orange, 4 uses) and
-  `#0a225f` (navy gradient end, 3 uses) repeat; they could become variables.
+- About 65 hex colours remain outside `:root` (2026-10-25; 163 before the 2026-10-21 cleanup): 58
+  are white (`#fff`), the rest one-off shades, mostly in gradients. The two that repeated became
+  `--lime-bright` and `--ink-light` (2026-10-25).
 - Breakpoints are desktop-first with several one-off widths (1100, 980, 900, 820, 650, 600, 540px).
   Aligning them to 1100/820/540 would change layouts between the old and new widths, so it needs a
   design decision and a browser check, not a cleanup.
@@ -1323,6 +1325,11 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   stayed green because each column kept its width, and the user spotted it. **Rule:** after a text
   size change, check that text stays inside its own box (not only the page width), and look at
   screenshots of every section at several widths.
+- **2026-10-25 — Shortcuts in a test skipped what users go through.** Two checks on the phone menu
+  stayed green with the code broken: one read the page's position before the wheel scroll had
+  happened, and `scrollIntoViewIfNeeded` reached a link that a locked page stopped people from
+  reaching. **Rule:** drive tests the way a person does (wheel, keys, taps) and wait for the
+  result; programmatic scrolling and focusing ignore what blocks people.
 - **2026-10-24 — A restore script overwrote the wrong file.** Backups for a break-the-code check were
   copied by file name into one folder; two files named `adminRequests.ts` (route and service)
   collided, and the "restore" put the route over the service. **Rule:** back up under unique names
