@@ -145,6 +145,35 @@ The customer chooses how to pay when both are open: **Paystack** (Section 6 belo
 - The same payment must never be applied twice, even if Paystack sends a notification more than once.
 - While Paystack test keys are in use, the site must show a visible "Test mode" notice.
 
+#### Payment methods on Paystack's page (decision pending with GPEC)
+
+Paystack's page currently offers four ways to pay. The website does not choose them: Paystack shows
+every method switched on in GPEC's Paystack dashboard, so GPEC can turn any of them off there,
+without a change to the website. In every one, the customer pays on Paystack's own page, GPEC's
+website never sees card or bank details, and an order becomes paid only when Paystack confirms the
+full amount arrived. If a method confirms later (some transfers do), the order shows as awaiting
+payment until Paystack's confirmation arrives a few moments afterwards.
+
+| Method on Paystack's page | What the customer does | Good for |
+|---|---|---|
+| **Card** | Types in a debit or credit card (Visa, Mastercard, or Verve); their bank may ask for a PIN or a one-time code sent to their phone. | The most familiar way to pay online; works for customers with any bank. |
+| **Bank** ("Pay with Bank") | Chooses their Nigerian bank and approves the payment from their bank account, through Paystack. | Customers who have no card, or prefer not to use it. |
+| **Transfer** ("Pay with Transfer") | Paystack shows a temporary account number for this one payment; the customer sends the exact amount from their bank app, and Paystack confirms it automatically. | Customers used to paying by transfer, without GPEC staff checking the bank account. |
+| **USSD** | Dials their bank's code on a phone (for example `*xxx#`) and follows the prompts. Needs no internet or smartphone. | Customers on basic phones or with poor internet. |
+
+Points to raise with GPEC:
+
+- **Paystack's "Transfer" is not the site's own "Bank transfer" option (6a).** With Paystack's, the
+  money goes through Paystack, the Paystack fee applies, and the order is confirmed automatically.
+  With the site's own option, the money goes straight to GPEC's account, there is no Paystack fee,
+  and staff confirm it by hand. Offering both may confuse customers; GPEC may prefer to keep only one.
+- **Fees:** the site adds one "Payment processing fee" using one rate for every method. Check in
+  GPEC's Paystack dashboard that every method switched on costs the same; if not, tell the developer.
+- **More methods, more completed orders:** each method switched off is a way some customers can no
+  longer pay. Switching off only what GPEC has a reason not to offer is the usual choice.
+- Source: Paystack's documentation, "Payment Channels" (checked 2026-10-26), and the test-mode
+  payment page seen on 2026-10-26.
+
 ### 6a. Bank transfer
 
 Added 2026-10-23 at the project owner's request, adapted from the sister project Vision 25.
@@ -156,7 +185,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 - Placing the order creates it unpaid, with a copy of the bank details given, and empties the cart. The customer sees, and is emailed, the account details, the exact amount, the order reference to use as the **narration**, and the date to pay by. GPEC staff are emailed that an order awaits a transfer.
 - The customer can press "I have sent the transfer". It tells staff (one email) and marks the order "Transfer reported"; it proves nothing.
 - Staff check GPEC's bank account and, on the order, confirm "transfer received" (ticking that the full amount arrived with that narration). Only then is the order paid: stock goes down, and the paid emails go to the customer and staff. The confirmation is recorded with who and when.
-- If the money never arrives, staff close the order as "Payment not received" (recorded). Nothing closes it automatically (owner's choice, 2026-10-23), and stock is not held while waiting. The customer is emailed that the order is closed, and asked to reply with the details if they did send the money, unless staff untick "Tell the customer by email".
+- If the money never arrives, staff close the order as not received (recorded; on the order, "Did the money arrive?" has a separate box for each answer). Nothing closes it automatically (owner's choice, 2026-10-23), and stock is not held while waiting. The customer is emailed that the order is closed, and asked to reply with the details if they did send the money, unless staff untick "Tell the customer by email".
 - The admin Orders list shows unpaid transfers as "Awaiting transfer" or "Transfer reported".
 
 ### 7. Confirmation
@@ -197,6 +226,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 
 - The delivery areas and their fees (staff enter them in the admin panel).
 - The Paystack fee rate on GPEC's own plan (Paystack publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000; checked 2026-10-23), and confirmation that passing it to customers is allowed under GPEC's Paystack terms.
+- Which payment methods Paystack's page offers: card, bank, transfer, USSD, or fewer (Section 6, "Payment methods on Paystack's page"; GPEC switches them in its Paystack dashboard). The user is asking GPEC (2026-10-26).
 - Collection hours for pickup (the location is the Woji address).
 - Approval of the refunds, cancellations, and returns policy (a draft for GPEC's review is at `#refunds` since 2026-10-24; staff edit it in the admin panel, Site content).
 - Recipients for order notifications.

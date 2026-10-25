@@ -121,8 +121,8 @@ product categories) is described in ROADMAP.md and CLAUDE.md. SES production acc
    bank-transfer actions redesigned ("Did the money arrive?", two separate boxes); local test runs
    capped at four at a time after a backend test run froze the laptop (CLAUDE.md Lessons); the
    runbook says to keep test payments small (Paystack's test card refused ₦1,962,000, took ₦27,000).
-   Open question for the user: keep all Paystack payment methods (card, bank, transfer, USSD) or
-   switch the others off in the Paystack dashboard.
+   **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD); the user
+   is asking them, with the explanation in `ECOMMERCE_REQUIREMENTS.md` Section 6.
 4. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner:
    `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for the privacy
    notice); SES production access (requested 2026-10-23); AWS paid plan before 2027-04-22; 2FA on

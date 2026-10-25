@@ -1215,6 +1215,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
 **Open business decisions (needed from GPEC)**
 - The delivery areas and their fees (staff enter them at `#admin/delivery`). Do not invent any.
+- Which payment methods Paystack's page offers (card, bank, transfer, USSD: all on today, set in
+  GPEC's Paystack dashboard; explained in `ECOMMERCE_REQUIREMENTS.md` Section 6). The user is asking
+  GPEC (2026-10-26). The code handles every method; only the fee rule assumes one rate for all.
 - Collection hours for pickup (the location is the Woji address, confirmed by the owner 2026-10-23).
 - Approval of the refunds, cancellations, and returns policy drafted on 2026-10-24 (`#refunds`).
 - Who receives order and contact-request notifications.
