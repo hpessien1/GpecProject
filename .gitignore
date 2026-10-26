@@ -15,6 +15,10 @@ playwright-report/
 # repository is public: kept locally, never committed. Its photos are in frontend/public/assets/.
 /GPEC Engineering Company*.pdf
 
+# Security audit reports. They describe weaknesses, some still open, and the repository is public:
+# kept locally, never committed.
+/SECURITY_AUDIT*.md
+
 # Environment files (secrets). The .env.example templates stay tracked.
 .env
 .env.*
