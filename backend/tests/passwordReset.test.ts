@@ -2,8 +2,10 @@ import request from 'supertest'
 import { describe, expect, it, vi } from 'vitest'
 import AdminPasswordReset from '../src/models/AdminPasswordReset.js'
 import AdminSession from '../src/models/AdminSession.js'
-import { createPasswordReset } from '../src/services/adminAuth.js'
+import AdminUser from '../src/models/AdminUser.js'
+import { createPasswordReset, replacePassword, startSession } from '../src/services/adminAuth.js'
 import type { BreachedPasswordCheck } from '../src/services/breachedPasswords.js'
+import { hashPassword } from '../src/services/passwords.js'
 import { RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
 
 useTestDatabase()
@@ -194,6 +196,40 @@ describe('using a reset link', () => {
     expect(res.status).toBe(400)
     expect(res.body.code).toBe('PASSWORD_BREACHED')
     expect((await confirm(app, { token: reset?.token, newPassword: 'an unbreached long passphrase' })).status).toBe(204)
+  })
+
+  it('stops working once the password is changed in the admin panel', async () => {
+    await createTestAdmin()
+    const { app } = emailApp()
+    const reset = await createPasswordReset(TEST_ADMIN.email)
+    const agent = await loggedInAgent(app)
+    await agent.post('/api/admin/session/password').set('Origin', ORIGIN).send({ currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD }).expect(204)
+    expect((await confirm(app, { token: reset?.token, newPassword: 'an attacker long passphrase' })).body.code).toBe('RESET_LINK_INVALID')
+    expect((await logIn(app, NEW_PASSWORD)).status).toBe(200)
+  })
+
+  it('stops working, with every session, once the password is reset by the admin:create command', async () => {
+    const admin = await createTestAdmin()
+    const { app } = emailApp()
+    const reset = await createPasswordReset(TEST_ADMIN.email)
+    const agent = await loggedInAgent(app)
+    expect(await replacePassword(admin._id, await hashPassword(NEW_PASSWORD))).toBe(true)
+    expect((await agent.get('/api/admin/session')).status).toBe(401)
+    expect((await confirm(app, { token: reset?.token, newPassword: 'an attacker long passphrase' })).body.code).toBe('RESET_LINK_INVALID')
+    expect((await AdminUser.findById(admin._id).lean())?.passwordChangedAt).toBeInstanceOf(Date)
+    expect((await logIn(app, NEW_PASSWORD)).status).toBe(200)
+  })
+
+  it('refuses a session started under the old password while the new one was being set', async () => {
+    const admin = await createTestAdmin()
+    const { app } = emailApp()
+    // A login checks the password, then starts the session; a reset can land in between.
+    const versionAtLogin = admin.credentialVersion
+    const reset = await createPasswordReset(TEST_ADMIN.email)
+    await confirm(app, { token: reset?.token, newPassword: NEW_PASSWORD }).expect(204)
+    const token = await startSession(admin._id, versionAtLogin)
+    const res = await request(app).get('/api/admin/session').set('Cookie', `gpec_admin_session=${token}`)
+    expect(res.status).toBe(401)
   })
 
   it('limits refused links per visitor, but not too-short passwords', async () => {

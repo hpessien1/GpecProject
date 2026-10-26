@@ -217,7 +217,8 @@ add a frontend gate, confirm the backend enforces the same condition.
 - Passwords: scrypt at OWASP's minimum cost, built into Node (`services/passwords.ts`). Unknown
   emails take as long to reject as wrong passwords, and both get the same message.
 - Admins change their own password at `#admin/password` (current password required, at least 15
-  characters per NIST SP 800-63B, no composition rules); it ends their other sessions. Wrong current
+  characters per NIST SP 800-63B, no composition rules); it ends their other sessions and gives this
+  browser a new session token (a copied cookie stops working). Wrong current
   passwords count toward the login rate limit. New passwords known from data breaches are refused
   (`400 PASSWORD_BREACHED`), checked with Have I Been Pwned's free Pwned Passwords API
   (`services/breachedPasswords.ts`; approved by the user 2026-10-22). Only the first 5 characters
@@ -236,6 +237,14 @@ add a frontend gate, confirm the backend enforces the same condition.
   and 3 emails per address per hour; refused links per IP (both reuse `adminLoginRateLimit`'s
   numbers). With email off the request gets `503 PASSWORD_RESET_UNAVAILABLE`; `admin:create --reset`
   still works.
+- **A new password cancels everything issued under the old one** (2026-10-26, audit finding H-01).
+  All three ways to set one (`#admin/password`, a reset link, `admin:create --reset`) go through
+  `replaceCredentials` in `services/adminAuth.ts`, in one transaction: sessions, reset links, logins
+  waiting for their code, and a two-step setup or emailed account code in progress are deleted, and
+  `AdminUser.credentialVersion` goes up by one. Sessions and login challenges carry the version they
+  were started under and are refused once it moves on, which covers a login whose password check
+  ran while the password was changing. Established two-step login stays on. Any new way to set a
+  password must use it.
 - Admins cannot demote, deactivate, or delete themselves.
 - **Two-step login** (built 2026-10-24, user's request; `services/twoFactor.ts`): **optional**, each
   admin turns it on or off for their own account at `#admin/security`. After the password, a 6-digit
@@ -383,13 +392,14 @@ name), and logs which database it found. The guard only works if production sets
   `npm run seed:products` (Section 11).
 
 - **AdminUser** — `email` (unique), `name`, `passwordHash`, `role` (`admin`), `isActive`,
-  `lastLoginAt`, `passwordChangedAt`; two-step login: `twoFactorMethod` (`app` | `email` | null),
+  `lastLoginAt`, `passwordChangedAt`, `credentialVersion` (up by one at each password change; missing
+  on accounts, sessions, and challenges stored before 2026-10-26, read as 0); two-step login: `twoFactorMethod` (`app` | `email` | null),
   `twoFactorSecret` (encrypted), `twoFactorEnabledAt`, `lastTotpStep`, `recoveryCodeHashes`, and a
   setup or emailed code in progress (`pendingTwoFactor*`, `accountCode*`). Accounts created before
   2026-10-24 have none of these stored: code reading them with `.lean()` must allow for missing
-  fields. **AdminSession** — `tokenHash`, `admin`, `expiresAt` (TTL
+  fields. **AdminSession** — `tokenHash`, `admin`, `credentialVersion`, `expiresAt` (TTL
   index deletes expired sessions), `twoFactorPromptDismissed`. **AdminLoginChallenge** — a login
-  waiting for its code: `tokenHash`, `admin`, `attempts`, the emailed code's hash and send count,
+  waiting for its code: `tokenHash`, `admin`, `credentialVersion`, `attempts`, the emailed code's hash and send count,
   `expiresAt` (TTL). **AdminPasswordReset** — the same shape for "forgot password"
   links: `tokenHash` (unique), `admin`, `expiresAt` (TTL); deleted when used or replaced.
   **AuditRecord** — `action`, `targetType`, `targetId`, `actor { adminId, email, name }`

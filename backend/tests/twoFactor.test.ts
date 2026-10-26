@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { loadConfig } from '../src/config.js'
 import AdminLoginChallenge from '../src/models/AdminLoginChallenge.js'
 import AdminUser from '../src/models/AdminUser.js'
+import { createPasswordReset } from '../src/services/adminAuth.js'
 import { open, seal } from '../src/services/secretBox.js'
 import { currentStep, matchTotp, toBase32, totpCode } from '../src/services/totp.js'
 import { RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, TEST_TWO_FACTOR_KEY, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
@@ -13,6 +14,7 @@ useTestDatabase()
 const ORIGIN = 'http://localhost:5173'
 const ACCOUNT = '/api/admin/account/two-factor'
 const LOGIN = '/api/admin/session'
+const NEW_PASSWORD = 'a brand new long passphrase'
 
 let mailer: RecordingMailer
 let app: ReturnType<typeof testApp>
@@ -166,6 +168,17 @@ describe('setting up an authenticator app', () => {
     expect((await post(agent, `${ACCOUNT}/app`)).body.code).toBe('TWO_FACTOR_ALREADY_ON')
   })
 
+  it('is cancelled by a password change, like an emailed setup code', async () => {
+    await post(agent, `${ACCOUNT}/app`).expect(200)
+    const appCode = totpCode(await appSecret(), currentStep())
+    await post(agent, `${ACCOUNT}/email-code`).expect(202)
+    await settle()
+    const emailedCode = lastEmailedCode()
+    await post(agent, `${LOGIN}/password`, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD }).expect(204)
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: appCode })).body.code).toBe('SETUP_NOT_STARTED')
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'email', code: emailedCode })).body.code).toBe('SETUP_NOT_STARTED')
+  })
+
   it('needs a setup started first', async () => {
     expect((await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: '123456' })).body.code).toBe('SETUP_NOT_STARTED')
   })
@@ -245,6 +258,32 @@ describe('logging in with an authenticator app', () => {
     expect(mailer.sent.at(-1)?.text).toContain('you have 9 left')
     const again = await startLogin()
     expect((await post(again.client, `${LOGIN}/two-factor`, { recoveryCode: first })).status).toBe(400)
+  })
+
+  it('cancels a login waiting for its code when the password is reset; the recovery code tried stays unused', async () => {
+    const [first] = await turnOnApp()
+    const waiting = await startLogin()
+    const reset = await createPasswordReset(TEST_ADMIN.email)
+    await post(request.agent(app), `${LOGIN}/password-reset/confirm`, { token: reset?.token, newPassword: NEW_PASSWORD }).expect(204)
+    expect((await post(waiting.client, `${LOGIN}/two-factor`, { recoveryCode: first })).body.code).toBe('LOGIN_EXPIRED')
+    const client = request.agent(app)
+    await post(client, LOGIN, { email: TEST_ADMIN.email, password: NEW_PASSWORD }).expect(200)
+    expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: first })).status).toBe(200)
+  })
+
+  it('refuses a login whose password step ran while the password was being changed', async () => {
+    const [first] = await turnOnApp()
+    const waiting = await startLogin()
+    // As if the change finished just after this login's challenge was stored.
+    await AdminUser.updateOne({ email: TEST_ADMIN.email }, { $inc: { credentialVersion: 1 } })
+    expect((await post(waiting.client, `${LOGIN}/two-factor`, { recoveryCode: first })).body.code).toBe('LOGIN_EXPIRED')
+  })
+
+  it('cancels a login waiting for its code when the password is changed', async () => {
+    const [first] = await turnOnApp()
+    const waiting = await startLogin()
+    await post(agent, `${LOGIN}/password`, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD }).expect(204)
+    expect((await post(waiting.client, `${LOGIN}/two-factor`, { recoveryCode: first })).body.code).toBe('LOGIN_EXPIRED')
   })
 
   it('without the encryption key, says app codes cannot be checked; a recovery code still works', async () => {
@@ -365,6 +404,15 @@ describe('admin accounts created before two-step login existed', () => {
   it('can turn on email codes', async () => {
     await makeLegacy()
     expect(await turnOnEmail()).toHaveLength(10)
+  })
+
+  it('finish a login started before password versions existed (2026-10-26)', async () => {
+    const [first] = await turnOnApp()
+    const { client } = await startLogin()
+    await AdminUser.collection.updateOne({ email: TEST_ADMIN.email }, { $unset: { credentialVersion: '' } })
+    await AdminLoginChallenge.collection.updateMany({}, { $unset: { credentialVersion: '' } })
+    expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: first })).status).toBe(200)
+    expect((await client.get(LOGIN)).status).toBe(200)
   })
 })
 

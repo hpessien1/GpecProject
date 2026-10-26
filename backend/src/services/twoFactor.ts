@@ -98,13 +98,15 @@ async function useRecoveryCode(adminId: unknown, code: string) {
 // --- Logging in -----------------------------------------------------------------------------------
 
 // The password was right and the admin uses two-step login: a challenge for the code, and for email
-// codes the first code to send.
-export async function startLoginChallenge(admin: { _id: unknown, twoFactorMethod?: string | null }) {
+// codes the first code to send. It carries the admin's credentialVersion, so a password change
+// cancels it (services/adminAuth.ts).
+export async function startLoginChallenge(admin: { _id: unknown, twoFactorMethod?: string | null, credentialVersion?: number | null }) {
   const token = randomBytes(32).toString('base64url')
   const emailCode = admin.twoFactorMethod === 'email' ? newEmailCode() : null
   await AdminLoginChallenge.create({
     tokenHash: sha256(token),
     admin: admin._id,
+    credentialVersion: admin.credentialVersion ?? 0,
     expiresAt: minutesFromNow(CHALLENGE_MINUTES),
     ...(emailCode ? { emailCodeHash: sha256(emailCode), emailCodeSentAt: new Date(), emailCodesSent: 1 } : {}),
   })
@@ -112,7 +114,7 @@ export async function startLoginChallenge(admin: { _id: unknown, twoFactorMethod
 }
 
 export type ChallengeResult =
-  | { status: 'ok', admin: { _id: unknown, email: string, name: string }, recoveryCodeUsed: boolean, recoveryCodesLeft: number }
+  | { status: 'ok', admin: { _id: unknown, email: string, name: string, credentialVersion: number }, recoveryCodeUsed: boolean, recoveryCodesLeft: number }
   | { status: 'wrong', attemptsLeft: number }
   | { status: 'expired' }
   | { status: 'unavailable' }
@@ -128,7 +130,9 @@ export async function completeLoginChallenge(token: string, step: SecondStep, ke
   ).lean()
   if (!challenge) return { status: 'expired' }
   const admin = await AdminUser.findOne({ _id: challenge.admin, isActive: true }).lean()
-  if (!admin?.twoFactorMethod) {
+  const credentialVersion = admin?.credentialVersion ?? 0
+  // Checked before any code, so a recovery code sent to a cancelled login is not used up.
+  if (!admin?.twoFactorMethod || (challenge.credentialVersion ?? 0) !== credentialVersion) {
     await AdminLoginChallenge.deleteOne({ _id: challenge._id })
     return { status: 'expired' }
   }
@@ -149,7 +153,7 @@ export async function completeLoginChallenge(token: string, step: SecondStep, ke
   if (removed.deletedCount !== 1) return { status: 'expired' }
   const stored = admin.recoveryCodeHashes?.length ?? 0
   const left = 'recoveryCode' in step ? stored - 1 : stored
-  return { status: 'ok', admin: { _id: admin._id, email: admin.email, name: admin.name }, recoveryCodeUsed: 'recoveryCode' in step, recoveryCodesLeft: left }
+  return { status: 'ok', admin: { _id: admin._id, email: admin.email, name: admin.name, credentialVersion }, recoveryCodeUsed: 'recoveryCode' in step, recoveryCodesLeft: left }
 }
 
 // A new emailed code for a login waiting on one. 'too-soon' within a minute of the last; null when the

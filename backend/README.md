@@ -170,8 +170,9 @@ All admin responses are sent with `Cache-Control: no-store`.
   /disable` and `POST /recovery-codes` with `{ password, code | recoveryCode }` (`400 WRONG_PASSWORD`
   / `WRONG_CODE`, both counted per IP).
 - `POST /api/admin/session/password` with `{ currentPassword, newPassword }` changes the logged-in
-  admin's password (new one at least 15 characters, different from the current one) and ends their
-  other sessions. A wrong current password gets `400 WRONG_PASSWORD` and counts toward the
+  admin's password (new one at least 15 characters, different from the current one), ends their
+  other sessions, reset links, and logins waiting for a code, and sets a new session cookie for this
+  browser (the old one stops working). A wrong current password gets `400 WRONG_PASSWORD` and counts toward the
   failed-attempt limit. A new password known from a data breach gets `400 PASSWORD_BREACHED`: the
   server asks `api.pwnedpasswords.com` (sending only the first 5 characters of the password's
   SHA-1 hash) and, if that service cannot be reached within 3 seconds, allows the change and logs
@@ -183,7 +184,7 @@ All admin responses are sent with `Cache-Control: no-store`.
   PASSWORD_RESET_UNAVAILABLE` when email is not configured; `400` for a missing or invalid address.
 - `POST /api/admin/session/password-reset/confirm` with `{ token, newPassword }` sets the password
   (same rules and breach check as above; a refused password leaves the link usable), ends all that
-  admin's sessions, clears this browser's cookie, emails the admin that the password changed, and
+  admin's sessions, other reset links, and logins waiting for a code, clears this browser's cookie, emails the admin that the password changed, and
   returns `204`. An unknown, expired, used, or malformed link, or a deactivated account, gets `400
   RESET_LINK_INVALID`, which counts toward a per-IP limit.
 - Every command (creating admins, seeding, checks) is listed in [`docs/COMMANDS.md`](../docs/COMMANDS.md).

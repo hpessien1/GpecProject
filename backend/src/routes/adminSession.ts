@@ -114,7 +114,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
         throw new HttpError(400, `${message} ${result.attemptsLeft} ${result.attemptsLeft === 1 ? 'try' : 'tries'} left.`, 'WRONG_CODE', { ['recoveryCode' in value ? 'recoveryCode' : 'code']: message })
       }
       const admin = { id: String(result.admin._id), email: result.admin.email, name: result.admin.name }
-      const token = await startSession(result.admin._id)
+      const token = await startSession(result.admin._id, result.admin.credentialVersion)
       res.clearCookie(CHALLENGE_COOKIE, challengeCookieOptions)
       res.cookie(SESSION_COOKIE, token, { ...cookieOptions, maxAge: SESSION_DURATION_MS })
       res.json(await sessionInfo(admin, token))
@@ -167,12 +167,14 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
       const breached = await breachCheck.isBreached(value.newPassword)
       if (breached) throw new HttpError(400, BREACHED_MESSAGE, 'PASSWORD_BREACHED', { newPassword: BREACHED_MESSAGE })
       if (breached === null) console.warn('Password change: the breached-password check could not be made; the change went ahead without it.')
-      const changed = await changePassword(currentAdmin(res).id, value.currentPassword, value.newPassword, readCookie(req.headers.cookie, SESSION_COOKIE))
+      const token = await changePassword(currentAdmin(res).id, value.currentPassword, value.newPassword)
       // 400, not 401: the session is still valid, only the password typed was wrong.
-      if (!changed) {
+      if (!token) {
         res.locals.wrongPassword = true
         throw new HttpError(400, 'Your current password is incorrect.', 'WRONG_PASSWORD', { currentPassword: 'Your current password is incorrect.' })
       }
+      // Every session ended with the old password, this one too: this browser carries on with a new one.
+      res.cookie(SESSION_COOKIE, token, { ...cookieOptions, maxAge: SESSION_DURATION_MS })
       return res.status(204).end()
     } catch (error) {
       return next(error)

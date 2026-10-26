@@ -7,6 +7,8 @@ const adminLoginChallengeSchema = new mongoose.Schema({
   tokenHash: { type: String, required: true, unique: true },
   admin: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', required: true, index: true },
   attempts: { type: Number, default: 0 },
+  // The admin's credentialVersion when the password was checked: refused once the password changes.
+  credentialVersion: { type: Number, default: 0 },
   // Email codes: the SHA-256 of the code last sent, when, and how many were sent for this login.
   emailCodeHash: { type: String, default: null },
   emailCodeSentAt: { type: Date, default: null },

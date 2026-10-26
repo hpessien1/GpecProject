@@ -110,7 +110,8 @@ docker build --build-arg VITE_API_BASE_URL=https://api.example.com/api -t gpec-w
 # Create an account. Prints a random password once.
 cd backend && npm run admin:create -- --email person@example.com --name "Full Name"
 
-# Forgotten password: prints a new one and logs that person out everywhere.
+# Forgotten password: prints a new one, logs that person out everywhere, and cancels their reset
+# links and unfinished logins.
 cd backend && npm run admin:create -- --email person@example.com --reset
 
 # Lost phone and lost recovery codes: turns two-step login off and logs them out everywhere. Only

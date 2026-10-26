@@ -10,8 +10,12 @@ const adminUserSchema = new mongoose.Schema({
   // Deactivated admins cannot log in and their sessions stop working.
   isActive: { type: Boolean, default: true },
   lastLoginAt: { type: Date, default: null },
-  // Set when the admin changes their own password in the admin panel.
+  // Set whenever the password changes: in the admin panel, by a reset link, or by admin:create --reset.
   passwordChangedAt: { type: Date, default: null },
+  // Goes up by one at each password change. Sessions and logins waiting for a code carry the number
+  // they were started under and stop working once it moves on (services/adminAuth.ts,
+  // replaceCredentials). Missing on accounts created before 2026-10-26: read as 0.
+  credentialVersion: { type: Number, default: 0 },
 
   // Two-step login (services/twoFactor.ts), optional, turned on by each admin for their own account:
   // a code from an authenticator app, or one emailed at each login. null: off.

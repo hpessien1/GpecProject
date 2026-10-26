@@ -157,6 +157,34 @@ describe('changing your own password', () => {
     expect((await otherBrowser.get('/api/admin/session')).status).toBe(401)
   })
 
+  it('gives this browser a new session token, so a copied cookie stops working', async () => {
+    await createTestAdmin()
+    const login = await logIn(app, { email: TEST_ADMIN.email, password: TEST_ADMIN.password })
+    const oldCookie = String(login.headers['set-cookie']).split(';')[0]
+    const res = await request(app).post('/api/admin/session/password').set('Origin', ORIGIN).set('Cookie', oldCookie)
+      .send({ currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD })
+    expect(res.status).toBe(204)
+    const newCookie = String(res.headers['set-cookie']).split(';')[0]
+    expect(newCookie).toMatch(/^gpec_admin_session=[\w-]{43}$/)
+    expect(newCookie).not.toBe(oldCookie)
+    expect((await request(app).get('/api/admin/session').set('Cookie', oldCookie)).status).toBe(401)
+    expect((await request(app).get('/api/admin/session').set('Cookie', newCookie)).status).toBe(200)
+    expect(await AdminSession.countDocuments()).toBe(1)
+  })
+
+  it('works for an account and session stored before password versions existed (2026-10-26)', async () => {
+    await createTestAdmin()
+    const thisBrowser = await loggedInAgent(app)
+    const otherBrowser = await loggedInAgent(app)
+    await AdminUser.collection.updateMany({}, { $unset: { credentialVersion: '' } })
+    await AdminSession.collection.updateMany({}, { $unset: { credentialVersion: '' } })
+    expect((await thisBrowser.get('/api/admin/session')).status).toBe(200)
+    expect((await changePassword(thisBrowser, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD })).status).toBe(204)
+    expect((await thisBrowser.get('/api/admin/session')).status).toBe(200)
+    expect((await otherBrowser.get('/api/admin/session')).status).toBe(401)
+    expect((await AdminUser.findOne().lean())?.credentialVersion).toBe(1)
+  })
+
   it('refuses a wrong current password with 400 (the session stays valid)', async () => {
     await createTestAdmin()
     const agent = await loggedInAgent(app)
