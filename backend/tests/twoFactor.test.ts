@@ -42,7 +42,7 @@ async function appSecret() {
 // code is the current step's, so later logins use the next step's (a code cannot be used twice).
 async function turnOnApp() {
   await post(agent, `${ACCOUNT}/app`).expect(200)
-  const res = await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: totpCode(await appSecret(), currentStep()) })
+  const res = await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code: totpCode(await appSecret(), currentStep()) })
   expect(res.status).toBe(200)
   return res.body.recoveryCodes as string[]
 }
@@ -50,7 +50,7 @@ async function turnOnApp() {
 async function turnOnEmail() {
   await post(agent, `${ACCOUNT}/email-code`).expect(202)
   await settle()
-  const res = await post(agent, `${ACCOUNT}/enable`, { method: 'email', code: lastEmailedCode() })
+  const res = await post(agent, `${ACCOUNT}/enable`, { method: 'email', password: TEST_ADMIN.password, code: lastEmailedCode() })
   expect(res.status).toBe(200)
   return res.body.recoveryCodes as string[]
 }
@@ -131,12 +131,12 @@ describe('setting up an authenticator app', () => {
     expect(setup.body.uri).toBe(`otpauth://totp/GPEC%20Admin%3A${encodeURIComponent(TEST_ADMIN.email)}?secret=${setup.body.secret}&issuer=GPEC+Admin&algorithm=SHA1&digits=6&period=30`)
 
     // A wrong code changes nothing.
-    const wrong = await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: '000000' === totpCode(await appSecret(), currentStep()) ? '111111' : '000000' })
+    const wrong = await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code: '000000' === totpCode(await appSecret(), currentStep()) ? '111111' : '000000' })
     expect(wrong.status).toBe(400)
     expect(wrong.body.code).toBe('WRONG_CODE')
     expect((await agent.get(ACCOUNT)).body.method).toBeNull()
 
-    const res = await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: totpCode(await appSecret(), currentStep()) })
+    const res = await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code: totpCode(await appSecret(), currentStep()) })
     expect(res.status).toBe(200)
     expect(res.body.recoveryCodes).toHaveLength(10)
     expect(new Set(res.body.recoveryCodes).size).toBe(10)
@@ -175,12 +175,52 @@ describe('setting up an authenticator app', () => {
     await settle()
     const emailedCode = lastEmailedCode()
     await post(agent, `${LOGIN}/password`, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD }).expect(204)
-    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: appCode })).body.code).toBe('SETUP_NOT_STARTED')
-    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'email', code: emailedCode })).body.code).toBe('SETUP_NOT_STARTED')
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: NEW_PASSWORD, code: appCode })).body.code).toBe('SETUP_NOT_STARTED')
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'email', password: NEW_PASSWORD, code: emailedCode })).body.code).toBe('SETUP_NOT_STARTED')
   })
 
   it('needs a setup started first', async () => {
-    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'app', code: '123456' })).body.code).toBe('SETUP_NOT_STARTED')
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code: '123456' })).body.code).toBe('SETUP_NOT_STARTED')
+  })
+})
+
+// A session alone (a browser left logged in, a copied cookie) must not be enough to put someone
+// else's phone on the account and lock its owner out.
+describe('turning it on needs the current password', () => {
+  it('refuses a missing or wrong password with an app code, and leaves the setup usable', async () => {
+    await post(agent, `${ACCOUNT}/app`).expect(200)
+    const code = totpCode(await appSecret(), currentStep())
+    const missing = await post(agent, `${ACCOUNT}/enable`, { method: 'app', code })
+    expect(missing.status).toBe(400)
+    expect(missing.body.errors).toEqual({ password: 'Enter your password.' })
+    const wrong = await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: 'not my password at all', code })
+    expect(wrong.status).toBe(400)
+    expect(wrong.body).toMatchObject({ code: 'WRONG_PASSWORD', errors: { password: 'Your password is incorrect.' } })
+    expect((await agent.get(ACCOUNT)).body.method).toBeNull()
+    expect(mailer.sent).toHaveLength(0)
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code })).status).toBe(200)
+  })
+
+  it('refuses a wrong password with an emailed code without using up the code', async () => {
+    await post(agent, `${ACCOUNT}/email-code`).expect(202)
+    await settle()
+    const code = lastEmailedCode()
+    for (let attempt = 0; attempt < 6; attempt++) {
+      expect((await post(agent, `${ACCOUNT}/enable`, { method: 'email', password: 'not my password at all', code })).body.code).toBe('WRONG_PASSWORD')
+    }
+    expect((await agent.get(ACCOUNT)).body.method).toBeNull()
+    expect((await post(agent, `${ACCOUNT}/enable`, { method: 'email', password: TEST_ADMIN.password, code })).status).toBe(200)
+  })
+
+  it('counts wrong passwords toward the limit', async () => {
+    const limited = testApp({ email: TEST_EMAIL_SETTINGS, adminLoginRateLimit: { windowMs: 60_000, limit: 2 } }, mailer)
+    const limitedAgent = await loggedInAgent(limited)
+    await post(limitedAgent, `${ACCOUNT}/app`).expect(200)
+    const code = totpCode(await appSecret(), currentStep())
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect((await post(limitedAgent, `${ACCOUNT}/enable`, { method: 'app', password: 'not my password at all', code })).body.code).toBe('WRONG_PASSWORD')
+    }
+    expect((await post(limitedAgent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code })).status).toBe(429)
   })
 })
 

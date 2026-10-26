@@ -84,8 +84,10 @@ export default function AdminSecurity({ email, onSessionEnded, onChanged }: Admi
 
   function enable(event: SubmitEvent<HTMLFormElement>, method: TwoFactorMethod) {
     event.preventDefault()
-    const code = String(new FormData(event.currentTarget).get('code') ?? '').replace(/\s/g, '')
-    void run(() => enableTwoFactor(method, code), ({ recoveryCodes, ...next }) => {
+    const formData = new FormData(event.currentTarget)
+    const password = String(formData.get('password') ?? '')
+    const code = String(formData.get('code') ?? '').replace(/\s/g, '')
+    void run(() => enableTwoFactor(method, password, code), ({ recoveryCodes, ...next }) => {
       setStatus(next)
       onChanged(true)
       setStep({ kind: 'codes', codes: recoveryCodes })
@@ -114,6 +116,12 @@ export default function AdminSecurity({ email, onSessionEnded, onChanged }: Admi
 
   const back = () => { setStep({ kind: 'overview' }); setMessage(null); setErrors({}); setUseRecovery(false) }
   const resendButton = <button type="button" className="admin-link-button" onClick={() => void run(sendAccountCode, (sent) => setMessage({ kind: 'status', text: sent.message }))}>Email me a code</button>
+  // Every change here asks for the password: a browser left logged in is not enough.
+  const passwordField = (idPrefix: string) => <div className="admin-field">
+    <label htmlFor={`${idPrefix}-password`}>Password</label>
+    <PasswordInput id={`${idPrefix}-password`} name="password" required autoComplete="current-password" aria-describedby={errors.password ? `${idPrefix}-password-error` : undefined} />
+    {errors.password && <small className="admin-field-error" id={`${idPrefix}-password-error`}>{errors.password}</small>}
+  </div>
 
   let body = null
   if (loadError) body = <p className="form-error" role="alert">{loadError}</p>
@@ -133,6 +141,7 @@ export default function AdminSecurity({ email, onSessionEnded, onChanged }: Admi
         </div>
       </div>
       <form className="admin-form" onSubmit={(event) => enable(event, 'app')}>
+        {passwordField('setup')}
         <SecondStepFields idPrefix="setup" useRecovery={false} onToggle={() => undefined} allowRecovery={false} codeLabel="6-digit code from the app" errors={errors} />
         <div className="admin-security-buttons">
           <button className="button button-primary" type="submit" disabled={isBusy}>{isBusy ? 'Checking…' : <>Turn on two-step login <Arrow /></>}</button>
@@ -143,8 +152,9 @@ export default function AdminSecurity({ email, onSessionEnded, onChanged }: Admi
   } else if (step.kind === 'email') {
     body = <section className="admin-security-step" aria-labelledby="admin-security-step">
       <h2 id="admin-security-step" tabIndex={-1}>Check your email</h2>
-      <p>Enter the 6-digit code we emailed to {email}. From now on, a code like this is emailed to you each time you log in.</p>
+      <p>Enter your password, to confirm it is you, and the 6-digit code we emailed to {email}. From now on, a code like this is emailed to you each time you log in.</p>
       <form className="admin-form" onSubmit={(event) => enable(event, 'email')}>
+        {passwordField('setup')}
         <SecondStepFields idPrefix="setup" useRecovery={false} onToggle={() => undefined} allowRecovery={false} codeLabel="6-digit code from the email" errors={errors} />
         <p className="admin-help">{resendButton}</p>
         <div className="admin-security-buttons">
@@ -159,11 +169,7 @@ export default function AdminSecurity({ email, onSessionEnded, onChanged }: Admi
       <h2 id="admin-security-step" tabIndex={-1}>{isDisable ? 'Turn off two-step login' : 'Make new recovery codes'}</h2>
       <p>{isDisable ? twoFactorContent.disableWarning : 'Your current recovery codes stop working, and you get ten new ones.'} To confirm it is you, enter your password and a code.</p>
       <form className="admin-form" onSubmit={(event) => confirm(event, step.action)}>
-        <div className="admin-field">
-          <label htmlFor="security-password">Password</label>
-          <PasswordInput id="security-password" name="password" required autoComplete="current-password" aria-describedby={errors.password ? 'security-password-error' : undefined} />
-          {errors.password && <small className="admin-field-error" id="security-password-error">{errors.password}</small>}
-        </div>
+        {passwordField('security')}
         <SecondStepFields idPrefix="security" useRecovery={useRecovery} onToggle={() => setUseRecovery((current) => !current)} codeLabel={status.method === 'app' ? '6-digit code from your app' : '6-digit code from your email'} errors={errors} />
         {status.method === 'email' && !useRecovery && <p className="admin-help">{resendButton}</p>}
         <div className="admin-security-buttons">

@@ -50,8 +50,8 @@ export function sendAccountCode() {
   return requestJson<{ message: string }>('/admin/account/two-factor/email-code', 'Unable to send a code. Please try again.', { ...admin, method: 'POST' })
 }
 
-export function enableTwoFactor(method: TwoFactorMethod, code: string) {
-  return requestJson<TwoFactorStatus & { recoveryCodes: string[] }>('/admin/account/two-factor/enable', 'Unable to turn on two-step login.', { ...admin, method: 'POST', payload: { method, code } })
+export function enableTwoFactor(method: TwoFactorMethod, password: string, code: string) {
+  return requestJson<TwoFactorStatus & { recoveryCodes: string[] }>('/admin/account/two-factor/enable', 'Unable to turn on two-step login.', { ...admin, method: 'POST', payload: { method, password, code } })
 }
 
 export function disableTwoFactor(password: string, step: SecondStep) {

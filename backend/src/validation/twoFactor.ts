@@ -39,14 +39,21 @@ export function validateLoginCode(body: unknown) {
   return { errors, value: secondStep(source, errors) }
 }
 
-// Turning two-step login on: the method and its first code.
+function currentPassword(value: unknown, errors: ValidationErrors) {
+  const password = typeof value === 'string' ? value : ''
+  if (!password) errors.password = 'Enter your password.'
+  else if (password.length > 200) errors.password = 'Passwords are at most 200 characters.'
+  return password
+}
+
+// Turning two-step login on: the method, its first code, and the password.
 export function validateEnable(body: unknown) {
   const errors: ValidationErrors = {}
   const source = asFields(body)
-  rejectUnknown(source, ['method', 'code'], errors)
+  rejectUnknown(source, ['method', 'password', 'code'], errors)
   const method = source.method === 'app' || source.method === 'email' ? source.method as TwoFactorMethod : null
   if (!method) errors.method = 'method must be app or email.'
-  return { errors, value: { method: method ?? 'app', code: sixDigits(source.code, errors) } }
+  return { errors, value: { method: method ?? 'app', password: currentPassword(source.password, errors), code: sixDigits(source.code, errors) } }
 }
 
 // Turning it off, or new recovery codes: the password and a current second step.
@@ -54,8 +61,5 @@ export function validateVerifiedAction(body: unknown) {
   const errors: ValidationErrors = {}
   const source = asFields(body)
   rejectUnknown(source, ['password', 'code', 'recoveryCode'], errors)
-  const password = typeof source.password === 'string' ? source.password : ''
-  if (!password) errors.password = 'Enter your password.'
-  else if (password.length > 200) errors.password = 'Passwords are at most 200 characters.'
-  return { errors, value: { password, step: secondStep(source, errors) } }
+  return { errors, value: { password: currentPassword(source.password, errors), step: secondStep(source, errors) } }
 }

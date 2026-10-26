@@ -106,6 +106,7 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     if (hovering) await audit.hover(page, `${label} two-step login off, email unavailable`)
     await page.getByRole('button', { name: 'Continue' }).click()
     await page.locator('.admin-qr').waitFor()
+    await page.getByLabel('Password', { exact: true }).fill(ADMIN.password)
     await page.getByLabel('6-digit code from the app').fill('000000')
     await page.getByRole('button', { name: 'Turn on two-step login' }).click()
     await page.locator('.admin-field-error').waitFor()

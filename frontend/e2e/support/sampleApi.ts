@@ -404,6 +404,7 @@ function reply(state: ApiState, request: Request): Reply {
   if (path === '/api/admin/account/two-factor/app') return [200, { secret: SAMPLE_APP_SECRET, uri: `otpauth://totp/GPEC%20Admin%3A${encodeURIComponent(ADMIN.email)}?secret=${SAMPLE_APP_SECRET}&issuer=GPEC+Admin&algorithm=SHA1&digits=6&period=30` }]
   if (path === '/api/admin/account/two-factor/email-code') return [202, { message: `A code is on its way to ${ADMIN.email}. It works for 10 minutes.` }]
   if (path === '/api/admin/account/two-factor/enable') {
+    if (body.password !== ADMIN.password) return [400, { message: 'Your password is incorrect.', code: 'WRONG_PASSWORD', errors: { password: 'Your password is incorrect.' } }]
     if (body.code !== SAMPLE_CODE) return [400, { message: 'That code is not right, or has already been used.', code: 'WRONG_CODE', errors: { code: 'That code is not right, or has already been used.' } }]
     state.twoFactorMethod = body.method as TwoFactorMethod
     state.recoveryCodes = [...SAMPLE_RECOVERY_CODES]

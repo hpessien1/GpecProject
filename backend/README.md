@@ -166,9 +166,9 @@ All admin responses are sent with `Cache-Control: no-store`.
 - `/api/admin/account/two-factor` (logged in, own account only): `GET` → `{ method, enabledAt,
   recoveryCodesLeft, available: { app, email } }`; `POST /app` → `{ secret, uri }` (Base32 key and
   `otpauth://` link, 15 minutes to confirm); `POST /email-code` emails a code; `POST /enable` with
-  `{ method, code }` → the status plus `recoveryCodes` (shown once; ends other sessions); `POST
-  /disable` and `POST /recovery-codes` with `{ password, code | recoveryCode }` (`400 WRONG_PASSWORD`
-  / `WRONG_CODE`, both counted per IP).
+  `{ method, password, code }` → the status plus `recoveryCodes` (shown once; ends other sessions);
+  `POST /disable` and `POST /recovery-codes` with `{ password, code | recoveryCode }`. All three
+  answer `400 WRONG_PASSWORD` / `WRONG_CODE`, both counted per IP.
 - `POST /api/admin/session/password` with `{ currentPassword, newPassword }` changes the logged-in
   admin's password (new one at least 15 characters, different from the current one), ends their
   other sessions, reset links, and logins waiting for a code, and sets a new session cookie for this

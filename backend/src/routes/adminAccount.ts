@@ -78,17 +78,21 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
     }
   })
 
-  // Turns it on with a first code from the chosen method. The ten recovery codes are in this answer
-  // only; the admin's other sessions end.
+  // Turns it on with the password and a first code from the chosen method. The ten recovery codes are
+  // in this answer only; the admin's other sessions end.
   router.post('/two-factor/enable', verifyLimiter, async (req, res, next) => {
     try {
       const admin = currentAdmin(res)
       const { errors, value } = validateEnable(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       if (value.method === 'email' && !notifier.isOn) throw new HttpError(409, 'Codes cannot be emailed right now: email is not set up on this website.', 'EMAIL_UNAVAILABLE')
-      const result = await enableTwoFactor(admin.id, value.method, value.code, config.twoFactorKey, readCookie(req.headers.cookie, SESSION_COOKIE))
+      const result = await enableTwoFactor(admin.id, value.method, value.password, value.code, config.twoFactorKey, readCookie(req.headers.cookie, SESSION_COOKIE))
       if (result.status === 'already-on') throw new HttpError(409, 'Two-step login is already on.', 'TWO_FACTOR_ALREADY_ON')
       if (result.status === 'not-started') throw new HttpError(409, value.method === 'app' ? 'Start again: the setup has timed out.' : 'Ask for a new code: the last one has expired or was used.', 'SETUP_NOT_STARTED')
+      if (result.status === 'wrong-password') {
+        res.locals.wrongPassword = true
+        throw new HttpError(400, WRONG_PASSWORD, 'WRONG_PASSWORD', { password: WRONG_PASSWORD })
+      }
       if (result.status === 'wrong') {
         res.locals.wrongPassword = true
         throw new HttpError(400, WRONG_CODE, 'WRONG_CODE', { code: WRONG_CODE })

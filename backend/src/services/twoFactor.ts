@@ -219,12 +219,14 @@ async function useAccountEmailCode(adminId: unknown, code: string) {
   return passed
 }
 
-export type EnableResult = { status: 'ok', recoveryCodes: string[] } | { status: 'wrong' } | { status: 'not-started' } | { status: 'already-on' }
+export type EnableResult = { status: 'ok', recoveryCodes: string[] } | { status: 'wrong' } | { status: 'wrong-password' } | { status: 'not-started' } | { status: 'already-on' }
 
-// Turns two-step login on once the admin proves the method works: a first code from the app being set
-// up, or the code just emailed. Gives ten new recovery codes (shown once) and ends the admin's other
-// sessions, which were logged in with the password alone.
-export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, code: string, key: Buffer | null, currentSessionToken: string): Promise<EnableResult> {
+// Turns two-step login on once the admin proves it is them (the password: a session alone, such as a
+// browser left logged in, must not be able to put someone else's phone on the account and lock its
+// owner out) and that the method works (a first code from the app being set up, or the code just
+// emailed). Gives ten new recovery codes (shown once) and ends the admin's other sessions, which were
+// logged in with the password alone.
+export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, password: string, code: string, key: Buffer | null, currentSessionToken: string): Promise<EnableResult> {
   const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
   if (!admin) return { status: 'not-started' }
   if (admin.twoFactorMethod) return { status: 'already-on' }
@@ -235,12 +237,15 @@ export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, 
     if (!key || !admin.pendingTwoFactorSecret || !admin.pendingTwoFactorExpiresAt || admin.pendingTwoFactorExpiresAt < new Date()) return { status: 'not-started' }
     const pending = open(admin.pendingTwoFactorSecret, key)
     if (!pending) return { status: 'not-started' }
+    if (!await verifyPassword(password, admin.passwordHash)) return { status: 'wrong-password' }
     const step = matchTotp(pending, code, null)
     if (step === null) return { status: 'wrong' }
     secret = admin.pendingTwoFactorSecret
     lastTotpStep = step
   } else {
     if (!admin.accountCodeHash || !admin.accountCodeExpiresAt || admin.accountCodeExpiresAt < new Date()) return { status: 'not-started' }
+    // Before the code, so a wrong password does not use up the emailed code's tries.
+    if (!await verifyPassword(password, admin.passwordHash)) return { status: 'wrong-password' }
     if (!await useAccountEmailCode(admin._id, code)) return { status: 'wrong' }
   }
 

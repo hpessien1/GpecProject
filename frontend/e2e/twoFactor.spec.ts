@@ -52,6 +52,14 @@ test.describe('setting up two-step login', () => {
     expect(await qr.locator('path').getAttribute('d')).toMatch(/^(M\d+ \d+h1v1h-1z){200,}$/)
     await expect(page.locator('.admin-security-key')).toHaveText(SAMPLE_APP_SECRET.match(/.{4}/g)?.join(' ') ?? '')
 
+    // The password is asked for too: a browser left logged in is not enough.
+    const password = page.getByLabel('Password', { exact: true })
+    await password.fill('not my password at all')
+    await page.getByLabel('6-digit code from the app').fill(SAMPLE_CODE)
+    await page.getByRole('button', { name: 'Turn on two-step login' }).click()
+    await expect(page.getByRole('alert')).toContainText('Your password is incorrect.')
+    await expect(password).toHaveAccessibleDescription('Your password is incorrect.')
+    await password.fill(ADMIN.password)
     await page.getByLabel('6-digit code from the app').fill('654321')
     await page.getByRole('button', { name: 'Turn on two-step login' }).click()
     await expect(page.getByRole('alert')).toContainText('That code is not right')
@@ -60,7 +68,7 @@ test.describe('setting up two-step login', () => {
 
     await expect(page.getByRole('heading', { name: 'Save your recovery codes' })).toBeFocused()
     await expect(page.locator('.admin-recovery-codes li')).toHaveText(SAMPLE_RECOVERY_CODES)
-    expect(api.requests.find((r) => r.path === '/api/admin/account/two-factor/enable' && (r.body as { code: string }).code === SAMPLE_CODE)?.body).toEqual({ method: 'app', code: SAMPLE_CODE })
+    expect(api.requests.filter((r) => r.path === '/api/admin/account/two-factor/enable').at(-1)?.body).toEqual({ method: 'app', password: ADMIN.password, code: SAMPLE_CODE })
     const done = page.getByRole('button', { name: 'Done' })
     await expect(done).toBeDisabled()
     await page.getByRole('checkbox', { name: 'I have saved my recovery codes somewhere safe.' }).check()
@@ -79,10 +87,12 @@ test.describe('setting up two-step login', () => {
     await page.getByRole('radio', { name: /Code by email/ }).check()
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page.getByRole('status').filter({ hasText: `A code is on its way to ${ADMIN.email}` })).toBeVisible()
+    await page.getByLabel('Password', { exact: true }).fill(ADMIN.password)
     await page.getByLabel('6-digit code from the email').fill(SAMPLE_CODE)
     await page.getByRole('button', { name: 'Turn on two-step login' }).click()
     await expect(page.locator('.admin-recovery-codes li')).toHaveCount(10)
     expect(api.twoFactorMethod).toBe('email')
+    expect(api.requests.filter((r) => r.path === '/api/admin/account/two-factor/enable').at(-1)?.body).toEqual({ method: 'email', password: ADMIN.password, code: SAMPLE_CODE })
   })
 
   test('shows each method as a radio button beside its description, not stretched like a text box', async ({ page }) => {

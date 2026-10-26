@@ -233,7 +233,7 @@ export const twoFactorContent = {
   appSteps: [
     'Install an authenticator app on your phone if you do not have one, such as Google Authenticator or Microsoft Authenticator.',
     'In the app, add an account and scan this QR code. If you cannot scan it, type in the key below instead.',
-    'Enter the 6-digit code the app shows.',
+    'Enter your password, to confirm it is you, and the 6-digit code the app shows.',
   ],
   recovery: {
     title: 'Save your recovery codes',

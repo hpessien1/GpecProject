@@ -257,8 +257,10 @@ add a frontend gate, confirm the backend enforces the same condition.
     `gpec_admin_login`, path `/api/admin/session`, 10 minutes), not a session. Five wrong codes end
     it; wrong codes also count toward the failed-login limit. An app code's time step is recorded in
     the same conditional update that accepts it, so a code works once even if sent twice at once.
-  - Turning it on needs a first code from the chosen method, ends the admin's other sessions, and
-    shows the recovery codes once. Turning it off and new recovery codes need the password **and** a
+  - Turning it on needs the password and a first code from the chosen method (the password since
+    2026-10-26, audit finding M-01: a session alone, such as a browser left logged in, must not put
+    someone else's phone on the account), ends the admin's other sessions, and shows the recovery
+    codes once. Turning it off and new recovery codes need the password **and** a
     current code (wrong ones count toward a per-IP limit). Each change, and each recovery-code login,
     is emailed to the admin. A password reset does not skip it.
   - Not mandatory (user's choice): admins without it see a banner suggesting it, closed with "Not
