@@ -1,7 +1,7 @@
 # Next-session handover
 
-Last updated: 2026-10-26 (phone menu fills the screen, two colour variables, browser tab icon; all
-deployed).
+Last updated: 2026-10-26 (end of session: phone menu, tab icon, bank-transfer actions redesigned,
+test runs capped after a laptop freeze, Paystack payment methods explained for GPEC; all deployed).
 Start a new session with:
 
 ```text
@@ -11,7 +11,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything is pushed up to `a4c8739` and CI is green (run 40241976878, 6 min 58 s).
+- **Git and CI:** everything is pushed up to `5b052ce` and CI is green (run 40247407746, 6 min 20 s).
   The user pushes; check with `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can
   read this repository's runs; it cannot push). This handover's own commit comes after it.
 - **The live site is a test environment until the owner says it is production ready** (owner,
@@ -23,12 +23,13 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `a4c8739`: nothing is waiting to deploy. The user deployed
-  the S3 policy, both resources, seed commands, privacy wording, and checks on 2026-10-24, `gpec-web`
-  with the menu and label work on 2026-10-25, and `gpec-web` with the phone menu and tab icon on
-  2026-10-26 (open item 3). Checked from outside: `/api/health`
-  ok, `fileUploads: true`, all 14 sample products have a category, the saved privacy notice mentions
-  attached files, and the live site's code has the FAQ menu item.
+- **What is deployed:** everything up to `5b052ce`: nothing is waiting to deploy. The user deployed
+  `gpec-web` twice on 2026-10-26 (phone menu and tab icon; then the bank-transfer actions). Checked
+  from outside: the icon files match the repository, the live code has the new menu, colour
+  variables, and "Did the money arrive?", and `/api/health` is ok. The API was last deployed on
+  2026-10-24; nothing since needed it.
+- **Confirmed by the user this session:** `TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify; GPEC may
+  name Afrizone; a live test-mode card payment of about ₦27,000 went through.
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (test mode), and 6 are done;
   step 3 (deploy) is live with the Atlas lock-down still to do.
 - **Company facts:** [`README.md`](README.md) "Company Profile", from GPEC's PDF (git-ignored, 23 MB,
@@ -39,24 +40,35 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   catalogue checklist (11), known gaps (14), lessons learned (15). Every command:
   [`docs/COMMANDS.md`](docs/COMMANDS.md).
 
-## This session (2026-10-24/25), in order
+## This session (2026-10-25/26), in order
 
-1. **Previous session's deploy** confirmed (the user did it; checked from outside, see above).
-2. **Larger small text** (`b6d649e`): button text, form hints, notes, admin labels, the menu, and the
-   footer raised from 0.7–0.78rem to 0.8rem, like the labels (CLAUDE.md Section 9 has the grep to
-   check). Found and fixed: on phones the footer's copyright line was 0.48rem (about 8px). The larger
-   text made the ten "Typical components" names overlap on desktop (the user spotted it; the
-   sideways-scroll test could not, see CLAUDE.md Lessons): the list now has as many columns as fit,
-   symbol beside name on phones, no dividing lines; a browser test checks nine widths.
-3. **Menu and labels** (`59e136c`, the user's request): FAQ added to the menu (Home · About ·
-   Services · Products · Projects · FAQ · Contact, plus Shop; README and AGENTS updated); each
-   section's small label is its menu word (the big slogans stay); the Control & distribution panels
-   section moved to directly after Services; the footer follows the menu. The header still fits on
-   one line from 1101px (216px to spare).
-
-The previous session (project clips, contact-form files, reply-to address, order update emails,
-product categories) is described in ROADMAP.md and CLAUDE.md. SES production access (requested
-2026-10-23): if nothing by about 2026-10-27, check the AWS support case for questions.
+1. **Phone menu** (`1c9024e`): the open hamburger menu fills the screen below the header (in the
+   hero's navy, the hero's text used to show beneath it); the page behind stays still; Escape or
+   tabbing out of the header closes it. **Colours:** `#ff8b1f` and `#0a225f` became `--lime-bright`
+   and `--ink-light`.
+2. **Tab icon** (`a4c8739`): `frontend/public/favicon.ico` (16/32/48) and `apple-touch-icon.png`,
+   the helmet from GPEC's flat logo on a white tile (the blue circuit vanishes on dark tabs without
+   it). Browsers cache icons: a hard refresh or a new tab shows it. Docs: 2FA key and Afrizone.
+3. **Paystack test payments:** a ₦1,962,000 test order was refused as "Insufficient Funds" with the
+   *success* test card (ending 4081); ₦27,000 went through. An undocumented limit of Paystack's test
+   system, not a site problem; RUNBOOK 1.8 says to keep test orders small.
+4. **Bank-transfer actions on an admin order** (`9ad9f63`, the user found them confusing): one
+   question, "Did the money arrive?", with two boxes ("Yes, it arrived" with the checkbox and
+   Confirm; "No, it did not arrive" with "Tell the customer by email" and a real "Close the order as
+   not received" button). Confirming always emails the customer their order confirmation (while
+   email is on); found and fixed: the success message claimed an email even with email off.
+5. **Tests froze the laptop:** measuring Vitest's default (a test file per core, each with an
+   in-memory MongoDB) took free memory from 13 GB to under 2 GB in about 8 s and froze the machine;
+   the session restarted. Vision 25 had the same problem (it batches its tests). Local runs are now
+   capped at four (`maxWorkers` in `backend/vitest.config.ts`, `workers` in
+   `frontend/playwright.config.ts`; CI keeps its defaults): backend peak 2.5 GB in 90 s, browser
+   tests about 4 GB in 2.1 min, contrast 2.6 min. **Run the three test commands one after another,
+   never together, and never above the cap** (CLAUDE.md Lessons, `docs/COMMANDS.md` Section 3).
+6. **Paystack payment methods explained for GPEC** (`5b052ce`): card, bank, transfer, and USSD, set
+   in GPEC's Paystack dashboard (the code passes no list), in `ECOMMERCE_REQUIREMENTS.md` Section 6.
+7. **Email provider alternatives** to SES (only if Amazon refuses production access): prices checked
+   on each provider's own page, kept in Claude's memory, not in the repository. Recommendation: stay
+   on SES.
 
 ## What exists
 
@@ -72,9 +84,9 @@ product categories) is described in ROADMAP.md and CLAUDE.md. SES production acc
   `services/requestFiles.ts` (photo re-saving shared in `services/photos.ts`), reply-to in
   `services/customerEmail.ts`, all emails in `services/notifications.ts` and `emailTemplates.ts`.
 - **Tests:** 529 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 319 behaviour tests at desktop and phone (plus 3 skipped: 2 from before and
-  the attach button's keyboard check, desktop only) and 20 contrast tests (10 parts at 2 widths)
-  (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
+  with sample API data: 324 behaviour tests at desktop and phone (plus 4 skipped: 2 from before, the
+  attach button's keyboard check on desktop, and the phone-menu test on desktop) and 20 contrast
+  tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
   builds, `npm audit`, gitleaks. Never deploys. Upgrading `@playwright/test` means updating the
   browser job's image tag and digest too (a CI step fails if they differ).
@@ -94,7 +106,10 @@ product categories) is described in ROADMAP.md and CLAUDE.md. SES production acc
   categories, and `npm run seed:demo -- --remove` then `npm run seed:demo` for the demo files (only
   with the `S3_*` settings).
 - **Run locally:** `docs/COMMANDS.md`. The user runs their own dev servers on 5173 and 5001; do not
-  stop them (stop only your own, by port). Browser tests use 4173. Docker works on this machine.
+  stop them (stop only your own, by port or process ID, never `pkill -f`). Browser tests use 4173.
+  Docker works on this machine.
+- **The laptop has 22 cores and 30 GB, often with much of it in use.** Run test suites one at a
+  time; never raise the worker caps or run tests at Vitest's or Playwright's defaults here.
 - **While the user's Vite server runs,** edit frontend files with the Edit tool, not scripts that
   rewrite them (check with `curl -s localhost:5173/src/<file> | wc -c`; a types-only file is
   served as `export {};`, which is normal).
@@ -102,40 +117,39 @@ product categories) is described in ROADMAP.md and CLAUDE.md. SES production acc
 - **Before calling a change done,** run every CI step locally, look at screenshots of every new
   screen at desktop and 390px, read the whole Playwright summary, and break the code once to see
   each new test fail.
-- **Temporary test scripts** never stay in `frontend/e2e/`; use the scratchpad.
+- **Temporary test scripts** never stay in `frontend/e2e/`; use the scratchpad. (A screenshot spec
+  can run from the scratchpad with its own Playwright config that sets `testDir`, the web server's
+  `cwd` to `frontend/`, and imports `@playwright/test` by absolute path.)
+- **paystack.com/docs blocks automated reading;** `docs-v2.paystack.com` works but may be older.
 
 ## Open items for the next session
 
-1. **Tidy-up on the live site:** delete the `[TEST]` contact request from the 2026-10-24 deploy check
-   if it is still there (only a check; CLAUDE.md Section 10.3; needs the user, in the database).
-2. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
+1. **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD). The user
+   is asking them with the explanation in `ECOMMERCE_REQUIREMENTS.md` Section 6. When they answer:
+   GPEC switches methods in its Paystack dashboard; update that section, ROADMAP, and CLAUDE.md's
+   open decisions. Also confirm that Verve cards are accepted (not checked in Paystack's docs).
+2. **Tidy-up on the live site:** delete the `[TEST]` contact request from the 2026-10-24 deploy check
+   if it is still there (only a check; CLAUDE.md Section 10.3; needs the user, in the database), and
+   drop the empty `enquiries` collection in `gpec` (CLAUDE.md Known Gaps).
+3. **SES production access** (requested 2026-10-23): if nothing by about 2026-10-27, check the AWS
+   support case for questions. Alternatives only if refused (see item 7 above).
+4. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and
    photos replace them.
-3. Done 2026-10-25, deployed 2026-10-26 (`a4c8739`, CI run 40241976878; checked from outside: the
-   icon files match, the new menu and colour rules are live, `/api/health` ok): the phone menu
-   fills the screen; the two repeated hex colours are variables; a browser tab icon from the logo's
-   helmet (`frontend/public/favicon.ico`, `apple-touch-icon.png`). Also confirmed by the user that
-   day: `TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify, and Afrizone may be named.
-   Then, 2026-10-26, committed, **not yet pushed or deployed** (`gpec-web` only): the admin order's
-   bank-transfer actions redesigned ("Did the money arrive?", two separate boxes); local test runs
-   capped at four at a time after a backend test run froze the laptop (CLAUDE.md Lessons); the
-   runbook says to keep test payments small (Paystack's test card refused ₦1,962,000, took ₦27,000).
-   **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD); the user
-   is asking them, with the explanation in `ECOMMERCE_REQUIREMENTS.md` Section 6.
-4. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (needs the Atlas owner:
-   `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for the privacy
-   notice); SES production access (requested 2026-10-23); AWS paid plan before 2027-04-22; 2FA on
-   the Paystack account.
-5. **From GPEC** (ROADMAP "Needed from GPEC"): approval of the refunds policy, FAQ, and privacy
+5. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (most important; needs the
+   Atlas owner: `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for
+   the privacy notice); an Atlas tier with backups; AWS paid plan before 2027-04-22; 2FA on the
+   Paystack account (its dashboard shows a banner asking for it).
+6. **From GPEC** (ROADMAP "Needed from GPEC"): approval of the refunds policy, FAQ, and privacy
    notice (every [bracket] filled in, including how long attached files are kept); real bank
    details; delivery areas and fees; collection hours (the "ready for pickup" email could then state
-   them); the Paystack rate on its plan; real products with prices and categories; business hours
-   and social links; registration number; the first video's sound.
-6. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
+   them); the Paystack rate on its plan, for every payment method kept; real products with prices
+   and categories; business hours and social links; registration number; the first video's sound.
+7. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
    data removed, samples archived, every admin using two-step login, live Paystack keys only with
    GPEC's approval.
-7. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
+8. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
 
 ## History
 

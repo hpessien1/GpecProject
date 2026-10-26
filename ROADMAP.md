@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-25 (FAQ in the menu, section labels match it; all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
+- **Last updated:** 2026-10-26 (phone menu, tab icon, clearer bank-transfer actions for staff, Paystack payment methods explained for GPEC; 2026-10-25: FAQ in the menu, section labels match it; all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -35,7 +35,7 @@ and split by area (`frontend/src/styles/`, admin styles loaded only with the adm
 checked for zero visual change; `/api/health` now checks the database; the illustrative portfolio
 cards no longer claim to be GPEC's work.
 
-CI's first run on GitHub passed (2026-10-20); latest green run on commit `a4c8739` (2026-10-25, 6 min 58 s), deployed 2026-10-26. Session handover notes are in
+CI's first run on GitHub passed (2026-10-20); latest green run on commit `5b052ce` (2026-10-26, 6 min 20 s), deployed 2026-10-26. Session handover notes are in
 [`HANDOVER.md`](HANDOVER.md).
 
 ---
@@ -249,3 +249,5 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [x] Phone menu (2026-10-25): the open menu fills the screen below the header instead of letting the
       home page's text show beneath it; Escape or tabbing out closes it.
 - [x] Browser tab icon (2026-10-25): the helmet from GPEC's logo, also for phone home screens.
+- [x] Clearer bank-transfer actions on an order (2026-10-26, user's request): "Did the money
+      arrive?" with a separate box and button for each answer.
