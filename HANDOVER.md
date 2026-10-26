@@ -1,7 +1,7 @@
 # Next-session handover
 
-Last updated: 2026-10-26 (end of session: phone menu, tab icon, bank-transfer actions redesigned,
-test runs capped after a laptop freeze, Paystack payment methods explained for GPEC; all deployed).
+Last updated: 2026-10-26, evening (end of session: four security-audit findings fixed and committed,
+**not pushed or deployed**; the next finding explained and waiting for the user's go-ahead).
 Start a new session with:
 
 ```text
@@ -11,9 +11,12 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything is pushed up to `5b052ce` and CI is green (run 40247407746, 6 min 20 s).
+- **Git and CI:** pushed up to `5b052ce` (CI green, run 40247407746). **Not pushed yet:** `a7b89ab`
+  (the previous handover), the four audit fixes `b342b0f`, `1481f43`, `2027a69`, `b2eae90`, then
+  `34b7eab` (git-ignores audit reports), and this handover update. Every CI step passed locally
+  on 2026-10-26: backend 556 tests, browser 328 (+4 skipped), contrast 20, lint, type-check, build.
   The user pushes; check with `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can
-  read this repository's runs; it cannot push). This handover's own commit comes after it.
+  read this repository's runs; it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23). GPEC's team uses it to see how everything behaves. So: every feature comes with demo
   data there too (`seed:demo`), sample values are labelled rather than blocked, and "replace/remove
@@ -23,11 +26,13 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `5b052ce`: nothing is waiting to deploy. The user deployed
-  `gpec-web` twice on 2026-10-26 (phone menu and tab icon; then the bank-transfer actions). Checked
-  from outside: the icon files match the repository, the live code has the new menu, colour
-  variables, and "Did the money arrive?", and `/api/health` is ok. The API was last deployed on
-  2026-10-24; nothing since needed it.
+- **What is deployed:** everything up to `5b052ce`. **Waiting to deploy: the four audit fixes, which
+  change both `gpec-api` and `gpec-web`.** Deploy both, one straight after the other, soon after
+  pushing (the public commit messages name what they fix): the new API wants the admin's password on
+  bank details, reply-to, "transfer received", and turning on two-step login, which only the new
+  site sends, so those four forms fail until `gpec-web` is deployed too. Admins already logged in
+  stay logged in (records from before have no `credentialVersion`, read as 0; tested). After
+  deploying, check `/api/health`, log in, and save the bank details with the password.
 - **Confirmed by the user this session:** `TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify; GPEC may
   name Afrizone; a live test-mode card payment of about ₦27,000 went through.
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (test mode), and 6 are done;
@@ -40,7 +45,25 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   catalogue checklist (11), known gaps (14), lessons learned (15). Every command:
   [`docs/COMMANDS.md`](docs/COMMANDS.md).
 
-## This session (2026-10-25/26), in order
+## This session (2026-10-26, afternoon and evening): security audit
+
+The user had an outside assessment written to `SECURITY_AUDIT_FIRST.md` at the repository root. **It
+is git-ignored on purpose (`34b7eab`): it describes weaknesses still open and the repository is
+public. Never commit it; read it locally.** Its "Remediation Status" table at the top says what is
+fixed (with commits) and what is open; each fixed finding has a Status line.
+
+**How the user wants each finding handled:** pick the next one, explain in plain terms why the fix
+is needed, and **wait for the user's confirmation before changing anything**. Then write tests that
+fail first, fix, break each safeguard to see a test fail, run every CI step locally (one suite at a
+time), look at screenshots of changed screens at desktop and 390px, update CLAUDE.md /
+`backend/README.md` / `ECOMMERCE_REQUIREMENTS.md` and the audit file's status, and commit only when
+asked.
+
+Fixed and committed (not deployed): H-01 (`b342b0f`), M-01 (`1481f43`), M-03 (`2027a69`), M-02
+(`b2eae90`; the user chose to include "transfer received"). What each does for staff is in CLAUDE.md
+Section 4.5 (search for "audit finding").
+
+## Previous session (2026-10-25/26), in order
 
 1. **Phone menu** (`1c9024e`): the open hamburger menu fills the screen below the header (in the
    hero's navy, the hero's text used to show beneath it); the page behind stays still; Escape or
@@ -83,8 +106,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   `services/siteContent.ts`, two-step login in `services/twoFactor.ts`, contact-form files in
   `services/requestFiles.ts` (photo re-saving shared in `services/photos.ts`), reply-to in
   `services/customerEmail.ts`, all emails in `services/notifications.ts` and `emailTemplates.ts`.
-- **Tests:** 529 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 324 behaviour tests at desktop and phone (plus 4 skipped: 2 from before, the
+- **Tests:** 556 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 328 behaviour tests at desktop and phone (plus 4 skipped: 2 from before, the
   attach button's keyboard check on desktop, and the phone-menu test on desktop) and 20 contrast
   tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
@@ -124,6 +147,13 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Open items for the next session
 
+0. **Security audit, next finding: M-07** (see the audit file). Explained to the user on 2026-10-26
+   with a proposed fix: record the webhook event as received, then processed only after the order is
+   settled, so a retry redoes unfinished work; and a staff "Check payment with Paystack" button on
+   unpaid Paystack orders. An automatic periodic check was offered as an option and not recommended
+   for now. **The user has not confirmed yet:** ask before starting. After M-07, continue with the
+   remaining open findings the same way; H-02 and data retention need the Atlas owner and GPEC, and
+   L-01 (file permissions on the developer's `.env`) needs the user's go-ahead.
 1. **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD). The user
    is asking them with the explanation in `ECOMMERCE_REQUIREMENTS.md` Section 6. When they answer:
    GPEC switches methods in its Paystack dashboard; update that section, ROADMAP, and CLAUDE.md's
