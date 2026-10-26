@@ -118,6 +118,12 @@ Paystack orders (`409 NOT_A_TRANSFER`) and settled ones (`409 TRANSFER_ALREADY_S
 it on needs the bank, name, and number; every change emails all active admins. The admin order list
 adds the stages `awaiting_transfer` and `transfer_reported`.
 
+**The password again** (`middleware/requirePassword.ts`): `PATCH /api/admin/bank-transfer`, `PATCH
+/api/admin/customer-email`, and `POST …/transfer-received` also need the admin's current password as
+`password` in the body (`400` with `errors.password` when missing, `400 WRONG_PASSWORD` when wrong,
+nothing changed). Wrong ones count toward one per-IP limit shared by the three (`429` after 5 in 15
+minutes in production). The password is removed before the change is validated and is never stored.
+
 `markOrderPaid` checks that Paystack reports `success` with exactly the order's amount and currency,
 then moves the order from unpaid (or failed) to `paid` with a conditional update. Only the caller
 that wins reduces counted stock (never below 0; recorded as `product.sale` in the product's history)
@@ -250,7 +256,7 @@ All admin responses are sent with `Cache-Control: no-store`.
   only for `ready_for_pickup`, `out_for_delivery`, and `cancelled`, only when the status really
   changes, and only while email is on; the history entry then has `customerEmailed: true`.
   `transfer-not-received` takes the same optional `{ notifyCustomer }` (the customer is told the
-  order is closed and asked for details if they did pay); `transfer-received` still takes no body. `POST /:reference/notes` as for
+  order is closed and asked for details if they did pay); `transfer-received` takes only `{ password }`. `POST /:reference/notes` as for
   contact requests. Orders are created by checkout; demo orders by `npm run seed:demo` (on the live
   database only with `--production`, removed before launch). Delivery orders include
   `deliveryAreaName`; every order has `customerNotes`.

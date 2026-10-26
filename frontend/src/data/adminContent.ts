@@ -79,6 +79,7 @@ export const bankTransferContent = {
     instructions: 'Optional, e.g. where to send proof of payment.',
     payWithinDays: 'Customers are asked to pay within this many days. Close unpaid orders by hand after that (“Payment not received” on the order).',
   },
+  passwordHint: 'To confirm it is you: these details decide where customers send their money.',
 }
 
 // Where customers' replies to the website's emails go. The emails are sent from an address nobody
@@ -91,6 +92,7 @@ export const customerEmailContent = {
   emailOff: 'The website is not sending emails yet (email is not set up), so this address is not used until it is.',
   label: 'Reply-to address',
   hint: 'Customers see this as the address their reply goes to, e.g. GPEC’s main email.',
+  passwordHint: 'To confirm it is you: customers’ replies, such as proof of payment, go to this address.',
 }
 
 export const requestStatusLabels: Record<RequestStatus, string> = {
@@ -116,6 +118,7 @@ export const ordersContent = {
   transferReceived: {
     title: 'Yes, it arrived',
     text: (emailOn: boolean) => `The order becomes paid and can then be moved along.${emailOn ? ' The customer is emailed their order confirmation.' : ''}`,
+    passwordHint: 'To confirm it is you: this marks the order paid, so the goods can be released.',
   },
   transferMissing: {
     title: 'No, it did not arrive',

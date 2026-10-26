@@ -3,6 +3,7 @@ import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import AdminNotes from './AdminNotes'
 import AdminOlderEntries from './AdminOlderEntries'
+import ConfirmPasswordField from './ConfirmPasswordField'
 import { fulfilmentMethodLabels, orderStageLabels, ordersContent, paymentMethodLabels, paymentStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { addOrderNote, closeUnpaidTransfer, confirmTransferReceived, getOlderOrderHistory, getOlderOrderNotes, getOrder, setOrderStatus } from '../../services/adminApi'
@@ -62,6 +63,8 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
   const [chosenStatus, setChosenStatus] = useState<FulfilmentStatus | null>(null)
   const [notifyOnStatus, setNotifyOnStatus] = useState(true)
   const [notifyOnClose, setNotifyOnClose] = useState(true)
+  // The password "transfer received" needs, refused by the server.
+  const [passwordError, setPasswordError] = useState('')
   const resultRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
@@ -106,17 +109,20 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
   }
 
   // A bank transfer staff have checked for in GPEC's account: it arrived, or it never did. The confirm
-  // checkbox makes "received" a deliberate statement; "not received" asks once more.
-  async function settleTransfer(received: boolean) {
+  // checkbox and the password make "received" a deliberate statement by the admin themselves; "not
+  // received" asks once more. password: only for "received".
+  async function settleTransfer(received: boolean, password = '') {
     if (!received && !window.confirm('Close this order as not received? Do this only if the transfer has not arrived. It cannot be undone.')) return
     setResult(null)
+    setPasswordError('')
     setIsSaving(true)
     const notify = !received && data?.emailOn === true && notifyOnClose
     try {
-      setData(await (received ? confirmTransferReceived(reference) : closeUnpaidTransfer(reference, notify)))
+      setData(await (received ? confirmTransferReceived(reference, password) : closeUnpaidTransfer(reference, notify)))
       setResult({ kind: 'success', message: received ? `Transfer confirmed: the order is paid${data?.emailOn ? ', and the customer has been emailed' : ''}.` : `Order closed as not received.${notify ? ' The customer has been emailed.' : ''}` })
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return onSessionEnded()
+      if (error instanceof ApiError) setPasswordError(error.errors.password ?? '')
       setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to update the payment.' })
     } finally {
       setIsSaving(false)
@@ -125,7 +131,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
 
   function handleTransferReceived(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    void settleTransfer(true)
+    void settleTransfer(true, String(new FormData(event.currentTarget).get('password') ?? ''))
   }
 
   function handleTransferMissing(event: SubmitEvent<HTMLFormElement>) {
@@ -223,6 +229,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
                   <div className="admin-field admin-checkbox">
                     <label><input type="checkbox" name="checked" required /> I have checked GPEC’s bank account: {money(order.total)} arrived with the narration {order.reference}.</label>
                   </div>
+                  <ConfirmPasswordField id="transfer-received-password" hint={ordersContent.transferReceived.passwordHint} error={passwordError} />
                   <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Confirm transfer received <Arrow /></>}</button>
                 </form>
                 <form className="admin-form admin-transfer-choice" aria-labelledby="admin-transfer-missing-title" onSubmit={handleTransferMissing}>

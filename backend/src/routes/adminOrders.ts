@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import type { RequestHandler } from 'express'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { addOrderNote, getOrder, listOrders, orderHistory, orderNotes, setFulfilmentStatus } from '../services/adminOrders.js'
@@ -13,11 +14,14 @@ import { validateOlderPageQuery } from '../validation/olderPage.js'
 // fulfilment along, and add internal notes. They cannot change items, amounts, or customer details.
 // Payment status is set by the server: after Paystack confirms a payment, or, for a bank transfer,
 // through the two recorded actions below (the money arrived, or it never did).
-export default function adminOrdersRouter(notifier: Notifier) {
+// confirmPassword (middleware/requirePassword.ts): marking a transfer received releases goods, so it
+// needs the admin's password as well as the session.
+export default function adminOrdersRouter(notifier: Notifier, confirmPassword: RequestHandler) {
   const router = Router()
 
-  function referenceParam(reference: string | undefined) {
-    if (!reference || !ORDER_REFERENCE_PATTERN.test(reference)) throw new NotFoundError('Order not found.')
+  // unknown: with a middleware before it (confirmPassword), Express types the parameter more loosely.
+  function referenceParam(reference: unknown) {
+    if (typeof reference !== 'string' || !ORDER_REFERENCE_PATTERN.test(reference)) throw new NotFoundError('Order not found.')
     return reference
   }
 
@@ -69,9 +73,9 @@ export default function adminOrdersRouter(notifier: Notifier) {
     }
   })
 
-  // No body: what happened is in the route, and who did it comes from the session. The customer is
-  // emailed that their order is paid, as after a Paystack payment.
-  router.post('/:reference/transfer-received', async (req, res, next) => {
+  // Only the password (taken out by confirmPassword): what happened is in the route, and who did it
+  // comes from the session. The customer is emailed that their order is paid, as after a Paystack payment.
+  router.post('/:reference/transfer-received', confirmPassword, async (req, res, next) => {
     try {
       const reference = referenceParam(req.params.reference)
       if (Object.keys(req.body ?? {}).length > 0) throw new ValidationError({ body: 'Send no details.' })

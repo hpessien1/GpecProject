@@ -111,6 +111,12 @@ export async function replacePassword(adminId: unknown, passwordHash: string) {
   return version !== null
 }
 
+// Whether this is the admin's current password (middleware/requirePassword.ts).
+export async function isCurrentPassword(adminId: string, password: string) {
+  const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
+  return verifyPassword(password, admin?.passwordHash ?? await getDecoyHash())
+}
+
 // Changes an admin's own password after checking the current one. Everything started under the old
 // password ends (replaceCredentials); this browser gets a new session token, so a copy of its old
 // cookie stops working too. Returns that token, or null if the current password is wrong.

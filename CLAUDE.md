@@ -245,6 +245,12 @@ add a frontend gate, confirm the backend enforces the same condition.
   were started under and are refused once it moves on, which covers a login whose password check
   ran while the password was changing. Established two-step login stays on. Any new way to set a
   password must use it.
+- **The password again for changes that decide where money or customers' replies go** (2026-10-26,
+  audit finding M-02; the owner chose to include confirming transfers): GPEC's bank details, the
+  reply-to address, and "transfer received" need the admin's current password with the change, as
+  well as the session (`middleware/requirePassword.ts`; one per-IP limit for wrong ones). A browser
+  left logged in, or a copied cookie, cannot make them. A new change of this kind uses the same
+  middleware.
 - Admins cannot demote, deactivate, or delete themselves.
 - **Two-step login** (built 2026-10-24, user's request; `services/twoFactor.ts`): **optional**, each
   admin turns it on or off for their own account at `#admin/security`. After the password, a 6-digit
@@ -493,7 +499,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── config.ts         # Zod-validated environment settings (the only reader of process.env)
 │       ├── app.ts            # helmet, CORS, JSON parsing, rate limits, routes, 404, error handler
 │       ├── errors.ts         # HttpError, ValidationError, NotFoundError, ConflictError
-│       ├── middleware/       # requireAdmin.ts: the one admin login check
+│       ├── middleware/       # requireAdmin.ts: the one admin login check; requirePassword.ts: the password again
 │       ├── routes/           # HTTP wiring: public (products, product images, contact, checkout, Paystack webhook) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord

@@ -14,6 +14,7 @@ import { s3ImageStore } from './services/imageStore.js'
 import type { ImageStore } from './services/imageStore.js'
 import { createNotifier } from './services/notifications.js'
 import { requireAdmin } from './middleware/requireAdmin.js'
+import { requirePassword } from './middleware/requirePassword.js'
 import { paystackClient } from './services/paystack.js'
 import type { PaystackClient } from './services/paystack.js'
 import adminAccountRouter from './routes/adminAccount.js'
@@ -99,10 +100,12 @@ export default function createApp(
   app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
   app.use('/api/admin/product-images', requireAdmin(config.clientOrigins), adminProductImagesRouter(imageStore))
   app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest', imageStore))
-  app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier))
+  // The password again, for changes that decide where money or customers' replies go (one shared limit).
+  const confirmPassword = requirePassword(config.adminLoginRateLimit)
+  app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier, confirmPassword))
   app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))
-  app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier))
-  app.use('/api/admin/customer-email', requireAdmin(config.clientOrigins), adminCustomerEmailRouter(notifier))
+  app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier, confirmPassword))
+  app.use('/api/admin/customer-email', requireAdmin(config.clientOrigins), adminCustomerEmailRouter(notifier, confirmPassword))
   app.use(SITE_CONTENT_ADMIN_PATH, requireAdmin(config.clientOrigins), express.json({ limit: '256kb' }), adminSiteContentRouter())
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

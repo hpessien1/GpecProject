@@ -497,8 +497,17 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, { area }]
   }
   if (path === '/api/admin/bank-transfer/history') return [200, historyReply(state.bankTransferHistory, url)]
+  // Like the real API: these three changes need the admin's password too, which is never stored.
+  const passwordRefusal = (): Reply | null => {
+    if (typeof body.password !== 'string' || !body.password) return [400, { message: 'Check the details and try again.', code: 'VALIDATION_ERROR', errors: { password: 'Enter your password.' } }]
+    if (body.password !== ADMIN.password) return [400, { message: 'Your password is incorrect.', code: 'WRONG_PASSWORD', errors: { password: 'Your password is incorrect.' } }]
+    delete body.password
+    return null
+  }
   if (path === '/api/admin/bank-transfer') {
     if (method === 'PATCH') {
+      const refused = passwordRefusal()
+      if (refused) return refused
       const changes = Object.entries(body).map(([field, to]) => ({ field, from: state.bankTransfer[field as keyof BankTransferSettings], to }))
       Object.assign(state.bankTransfer, body)
       state.bankTransferHistory = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: changes as BankTransferHistoryEntry['changes'], createdAt: new Date().toISOString() }, ...state.bankTransferHistory]
@@ -508,6 +517,8 @@ function reply(state: ApiState, request: Request): Reply {
   if (path === '/api/admin/customer-email/history') return [200, historyReply(state.customerEmailHistory, url)]
   if (path === '/api/admin/customer-email') {
     if (method === 'PATCH') {
+      const refused = passwordRefusal()
+      if (refused) return refused
       const replyTo = String(body.replyTo ?? '').trim().toLowerCase()
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) return [400, { message: 'Check the details and try again.', code: 'VALIDATION_ERROR', errors: { replyTo: 'replyTo must be a valid email address.' } }]
       if (replyTo !== state.customerReplyTo) {
@@ -542,6 +553,8 @@ function reply(state: ApiState, request: Request): Reply {
     if (orderMatch[2] === '/history') return [200, historyReply(state.orderHistory[order.reference] ?? [], url)]
     if (orderMatch[2] === '/notes' && method === 'GET') return [200, notesReply(state.requestNotes[order.reference] ?? [], url)]
     if (orderMatch[2] === '/transfer-received' || orderMatch[2] === '/transfer-not-received') {
+      const refused = orderMatch[2] === '/transfer-received' ? passwordRefusal() : null
+      if (refused) return refused
       if (order.paymentMethod !== 'bank_transfer' || order.paymentStatus !== 'pending_payment') return [409, { message: 'This order is no longer awaiting a transfer.', code: 'TRANSFER_ALREADY_SETTLED' }]
       const to = orderMatch[2] === '/transfer-received' ? 'paid' : 'failed'
       Object.assign(order, { paymentStatus: to, stage: to === 'paid' ? 'new' : 'payment_failed', paidAt: to === 'paid' ? new Date().toISOString() : null })

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import type { RequestHandler } from 'express'
 import { ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { customerEmailHistory, getCustomerEmailSettings, updateCustomerEmailSettings } from '../services/customerEmail.js'
@@ -7,8 +8,10 @@ import { validateCustomerEmailUpdate } from '../validation/customerEmail.js'
 import { validateOlderPageQuery } from '../validation/olderPage.js'
 
 // Settings for the emails customers receive (/api/admin/customer-email): the reply-to address.
-// Behind requireAdmin in app.ts. Every change is recorded and emailed to all active admins.
-export default function adminCustomerEmailRouter(notifier: Notifier) {
+// Behind requireAdmin in app.ts. Every change is recorded and emailed to all active admins, and needs the
+// admin's password (confirmPassword: middleware/requirePassword.ts), since customers' replies, such as
+// proof of payment, go to this address.
+export default function adminCustomerEmailRouter(notifier: Notifier, confirmPassword: RequestHandler) {
   const router = Router()
 
   router.get('/', async (_req, res, next) => {
@@ -31,7 +34,7 @@ export default function adminCustomerEmailRouter(notifier: Notifier) {
     }
   })
 
-  router.patch('/', async (req, res, next) => {
+  router.patch('/', confirmPassword, async (req, res, next) => {
     try {
       const { errors, value } = validateCustomerEmailUpdate(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)

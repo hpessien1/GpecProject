@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AuditRecord from '../src/models/AuditRecord.js'
 import Order from '../src/models/Order.js'
 import { seedDemoData } from '../src/services/demoData.js'
-import { RecordingMailer, TEST_EMAIL_SETTINGS, createTestAdmin, loggedInAgent, noBreaches, testApp, useTestDatabase } from './helpers.js'
+import { RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, createTestAdmin, loggedInAgent, noBreaches, testApp, useTestDatabase } from './helpers.js'
 
 useTestDatabase()
 const ORIGIN = 'http://localhost:5173'
@@ -115,7 +115,7 @@ describe('telling the customer an unpaid transfer order was closed', () => {
 
   it('accepts no other details, for either transfer action', async () => {
     expect((await closeTransfer({ notifyCustomer: true, paymentStatus: 'paid' })).status).toBe(400)
-    expect((await agent.post(`${LIST}/${UNREPORTED_TRANSFER}/transfer-received`).set('Origin', ORIGIN).send({ notifyCustomer: true })).status).toBe(400)
+    expect((await agent.post(`${LIST}/${UNREPORTED_TRANSFER}/transfer-received`).set('Origin', ORIGIN).send({ password: TEST_ADMIN.password, notifyCustomer: true })).status).toBe(400)
     expect((await Order.findOne({ reference: UNREPORTED_TRANSFER }).lean())?.paymentStatus).toBe('pending_payment')
     expect(await sent()).toEqual([])
   })

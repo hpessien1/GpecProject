@@ -61,7 +61,7 @@ describe('bank details (admin)', () => {
   })
 
   it('saves the details, records who changed what, and emails every active admin', async () => {
-    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ ...BANK, enabled: true })
+    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ ...BANK, enabled: true, password: TEST_ADMIN.password })
     expect(res.status).toBe(200)
     expect(res.body.settings).toEqual({ ...BANK, enabled: true })
     expect(res.body.isSample).toBe(false)
@@ -72,12 +72,12 @@ describe('bank details (admin)', () => {
     expect(mailer.sent[0].text).toContain('Account number: 0123456789')
 
     // Saving the same values again changes and records nothing.
-    await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ accountNumber: '0123456789' })
+    await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ accountNumber: '0123456789', password: TEST_ADMIN.password })
     expect(await AuditRecord.countDocuments({ targetType: 'bankTransfer' })).toBe(1)
   })
 
   it('refuses to switch it on before the bank, account name, and number are filled in', async () => {
-    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ enabled: true, accountNumber: '' })
+    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ enabled: true, accountNumber: '', password: TEST_ADMIN.password })
     expect(res.status).toBe(400)
     expect(res.body.errors).toHaveProperty('enabled')
     expect(await BankTransferSettings.countDocuments()).toBe(0)
@@ -94,7 +94,7 @@ describe('bank details (admin)', () => {
     [{ updatedAt: '2020-01-01' }, 'updatedAt'],
     [{}, 'body'],
   ])('refuses %j', async (body, field) => {
-    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send(body)
+    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ ...body, password: TEST_ADMIN.password })
     expect(res.status).toBe(400)
     expect(Object.keys(res.body.errors)).toContain(field)
   })
@@ -204,7 +204,8 @@ describe('staff confirming a transfer', () => {
   })
 
   function act(path: 'transfer-received' | 'transfer-not-received', origin = ORIGIN) {
-    return agent.post(`/api/admin/orders/${reference}/${path}`).set('Origin', origin).send()
+    const pending = agent.post(`/api/admin/orders/${reference}/${path}`).set('Origin', origin)
+    return path === 'transfer-received' ? pending.send({ password: TEST_ADMIN.password }) : pending.send()
   }
 
   it('lists the order as awaiting transfer, then as reported once the customer says so', async () => {
@@ -250,14 +251,14 @@ describe('staff confirming a transfer', () => {
   it('is for admins only, from GPEC’s own site, with no body', async () => {
     expect((await request(app).post(`/api/admin/orders/${reference}/transfer-received`).send()).status).toBe(401)
     expect((await act('transfer-received', 'https://evil.example')).status).toBe(403)
-    expect((await agent.post(`/api/admin/orders/${reference}/transfer-received`).set('Origin', ORIGIN).send({ amount: 1 })).status).toBe(400)
+    expect((await agent.post(`/api/admin/orders/${reference}/transfer-received`).set('Origin', ORIGIN).send({ password: TEST_ADMIN.password, amount: 1 })).status).toBe(400)
     expect((await Order.findOne({ reference }).lean())?.paymentStatus).toBe('pending_payment')
   })
 
   it('refuses a Paystack order: Paystack confirms those itself', async () => {
     const paystackApp = testApp({ payments: TEST_PAYMENTS }, null, undefined, null, paystack)
     const placed = await request(paystackApp).post('/api/checkout/orders').send({ ...customer, ...basket })
-    const res = await agent.post(`/api/admin/orders/${placed.body.reference}/transfer-received`).set('Origin', ORIGIN).send()
+    const res = await agent.post(`/api/admin/orders/${placed.body.reference}/transfer-received`).set('Origin', ORIGIN).send({ password: TEST_ADMIN.password })
     expect(res.status).toBe(409)
     expect(res.body.code).toBe('NOT_A_TRANSFER')
   })
@@ -272,9 +273,59 @@ describe('Nigerian accounts only, for now', () => {
   })
 })
 
+// A session alone (a browser left logged in, a copied cookie) must not be enough to change where
+// customers send money, or to mark an unpaid order paid (audit finding M-02).
+describe('changes that decide where money goes need the current password', () => {
+  const WRONG = 'not my password at all'
+
+  it.each([
+    ['missing', {}, 'VALIDATION_ERROR', 'Enter your password.'],
+    ['wrong', { password: WRONG }, 'WRONG_PASSWORD', 'Your password is incorrect.'],
+    ['not text', { password: { $ne: '' } }, 'VALIDATION_ERROR', 'Enter your password.'],
+  ])('refuses new bank details with the password %s: nothing saved, recorded, or emailed', async (_label, password, code, message) => {
+    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ ...BANK, enabled: true, ...password })
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ code, errors: { password: message } })
+    expect(await BankTransferSettings.countDocuments()).toBe(0)
+    expect(await AuditRecord.countDocuments()).toBe(0)
+    await settle()
+    expect(mailer.sent).toHaveLength(0)
+  })
+
+  it('never stores or records the password with the change', async () => {
+    await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ ...BANK, password: TEST_ADMIN.password }).expect(200)
+    const stored = JSON.stringify([await BankTransferSettings.find().lean(), await AuditRecord.find().lean()])
+    expect(stored).not.toContain(TEST_ADMIN.password)
+    expect(stored).not.toContain('"password"')
+  })
+
+  it('refuses "transfer received" without the right password: the order stays unpaid', async () => {
+    await turnOnBankTransfer()
+    const { reference } = (await placeTransferOrder()).body
+    const confirm = (body: object) => agent.post(`/api/admin/orders/${reference}/transfer-received`).set('Origin', ORIGIN).send(body)
+    expect((await confirm({})).body.errors).toEqual({ password: 'Enter your password.' })
+    expect((await confirm({ password: WRONG })).body.code).toBe('WRONG_PASSWORD')
+    expect((await Order.findOne({ reference }).lean())?.paymentStatus).toBe('pending_payment')
+    expect(await AuditRecord.countDocuments({ action: 'order.payment' })).toBe(0)
+    expect((await confirm({ password: TEST_ADMIN.password })).status).toBe(200)
+  })
+
+  it('counts wrong passwords toward one limit shared by all three changes', async () => {
+    await turnOnBankTransfer()
+    const limited = testApp({ email: TEST_EMAIL_SETTINGS, adminLoginRateLimit: { windowMs: 60_000, limit: 2 } }, mailer, undefined, null, null)
+    const limitedAgent = await loggedInAgent(limited)
+    const { reference } = (await request(limited).post('/api/checkout/orders').send({ ...customer, ...basket, paymentMethod: 'bank_transfer' })).body
+    expect((await limitedAgent.patch(SETTINGS).set('Origin', ORIGIN).send({ ...BANK, password: WRONG })).body.code).toBe('WRONG_PASSWORD')
+    expect((await limitedAgent.post(`/api/admin/orders/${reference}/transfer-received`).set('Origin', ORIGIN).send({ password: WRONG })).body.code).toBe('WRONG_PASSWORD')
+    const blocked = await limitedAgent.patch('/api/admin/customer-email').set('Origin', ORIGIN).send({ replyTo: 'orders@example.com', password: TEST_ADMIN.password })
+    expect(blocked.status).toBe(429)
+    expect(blocked.body.message).toBe('Too many wrong passwords. Please wait 15 minutes and try again.')
+  })
+})
+
 describe('the sample bank details', () => {
   async function switchOnSample(target = agent) {
-    return target.patch(SETTINGS).set('Origin', ORIGIN).send({ enabled: true })
+    return target.patch(SETTINGS).set('Origin', ORIGIN).send({ enabled: true, password: TEST_ADMIN.password })
   }
 
   it('can be tried in development, labelled "do not send money" everywhere', async () => {

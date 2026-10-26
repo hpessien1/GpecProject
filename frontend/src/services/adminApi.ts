@@ -198,8 +198,9 @@ export function getOlderBankTransferHistory(before: string) {
   return historyPage<BankTransferHistoryEntry>('/admin/bank-transfer/history', before)
 }
 
-export function updateBankTransfer(changes: Partial<BankTransferSettings>) {
-  return requestJson<BankTransferResponse>('/admin/bank-transfer', 'Unable to save the bank details.', { ...admin, method: 'PATCH', payload: changes })
+// password: the admin's current one, which these three changes need as well as the session.
+export function updateBankTransfer(changes: Partial<BankTransferSettings>, password: string) {
+  return requestJson<BankTransferResponse>('/admin/bank-transfer', 'Unable to save the bank details.', { ...admin, method: 'PATCH', payload: { ...changes, password } })
 }
 
 export function getCustomerEmail() {
@@ -210,13 +211,13 @@ export function getOlderCustomerEmailHistory(before: string) {
   return historyPage<CustomerEmailHistoryEntry>('/admin/customer-email/history', before)
 }
 
-export function updateCustomerEmail(settings: CustomerEmailSettings) {
-  return requestJson<CustomerEmailResponse>('/admin/customer-email', 'Unable to save the email settings.', { ...admin, method: 'PATCH', payload: settings })
+export function updateCustomerEmail(settings: CustomerEmailSettings, password: string) {
+  return requestJson<CustomerEmailResponse>('/admin/customer-email', 'Unable to save the email settings.', { ...admin, method: 'PATCH', payload: { ...settings, password } })
 }
 
 // Staff checked GPEC's bank account: the transfer arrived, or it never did. Both are recorded.
-export function confirmTransferReceived(reference: string) {
-  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}/transfer-received`, 'Unable to confirm the transfer.', { ...admin, method: 'POST' })
+export function confirmTransferReceived(reference: string, password: string) {
+  return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}/transfer-received`, 'Unable to confirm the transfer.', { ...admin, method: 'POST', payload: { password } })
 }
 
 export function closeUnpaidTransfer(reference: string, notifyCustomer: boolean) {

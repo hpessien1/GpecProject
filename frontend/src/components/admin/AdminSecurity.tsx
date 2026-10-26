@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
-import PasswordInput from './PasswordInput'
+import ConfirmPasswordField from './ConfirmPasswordField'
 import QrCode from './QrCode'
 import RecoveryCodes from './RecoveryCodes'
 import SecondStepFields, { readSecondStep } from './SecondStepFields'
@@ -117,11 +117,7 @@ export default function AdminSecurity({ email, onSessionEnded, onChanged }: Admi
   const back = () => { setStep({ kind: 'overview' }); setMessage(null); setErrors({}); setUseRecovery(false) }
   const resendButton = <button type="button" className="admin-link-button" onClick={() => void run(sendAccountCode, (sent) => setMessage({ kind: 'status', text: sent.message }))}>Email me a code</button>
   // Every change here asks for the password: a browser left logged in is not enough.
-  const passwordField = (idPrefix: string) => <div className="admin-field">
-    <label htmlFor={`${idPrefix}-password`}>Password</label>
-    <PasswordInput id={`${idPrefix}-password`} name="password" required autoComplete="current-password" aria-describedby={errors.password ? `${idPrefix}-password-error` : undefined} />
-    {errors.password && <small className="admin-field-error" id={`${idPrefix}-password-error`}>{errors.password}</small>}
-  </div>
+  const passwordField = (idPrefix: string) => <ConfirmPasswordField id={`${idPrefix}-password`} error={errors.password} />
 
   let body = null
   if (loadError) body = <p className="form-error" role="alert">{loadError}</p>

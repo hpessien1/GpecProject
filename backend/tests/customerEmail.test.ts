@@ -23,7 +23,7 @@ beforeEach(async () => {
   agent = await loggedInAgent(app)
 })
 
-const change = (body: unknown, origin = ORIGIN) => agent.patch(SETTINGS).set('Origin', origin).send(body as object)
+const change = (body: object, origin = ORIGIN) => agent.patch(SETTINGS).set('Origin', origin).send({ ...body, password: TEST_ADMIN.password })
 
 describe('the reply-to address for customer emails (admin)', () => {
   it('is for logged-in admins only', async () => {
@@ -68,12 +68,30 @@ describe('the reply-to address for customer emails (admin)', () => {
     [{ replyTo: `${'a'.repeat(250)}@example.com` }, 'replyTo', 'replyTo must be 254 characters or fewer.'],
     [{ replyTo: { $gt: '' } }, 'replyTo', 'replyTo must be text.'],
     [{ replyTo: 'x@example.com', fromAddress: 'boss@example.com' }, 'fromAddress', 'fromAddress is not an editable field.'],
-  ])('refuses %j, saving nothing', async (body, field, message) => {
+  ])('refuses %j, saving nothing', async (body: object, field, message) => {
     const res = await change(body)
     expect(res.status).toBe(400)
     expect(res.body.errors[field]).toBe(message)
     expect(await CustomerEmailSettings.countDocuments()).toBe(0)
     expect(await AuditRecord.countDocuments()).toBe(0)
+  })
+})
+
+// Customers' replies, such as proof of payment, go to this address: a session alone (a browser left
+// logged in, a copied cookie) must not be enough to change it (audit finding M-02).
+describe('changing the reply-to address needs the current password', () => {
+  it.each([
+    ['missing', {}, 'VALIDATION_ERROR'],
+    ['wrong', { password: 'not my password at all' }, 'WRONG_PASSWORD'],
+  ])('refuses it with the password %s: nothing saved, recorded, or emailed', async (_label, password, code) => {
+    const res = await agent.patch(SETTINGS).set('Origin', ORIGIN).send({ replyTo: 'thief@example.com', ...password })
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe(code)
+    expect(res.body.errors).toHaveProperty('password')
+    expect(await CustomerEmailSettings.countDocuments()).toBe(0)
+    expect(await AuditRecord.countDocuments()).toBe(0)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(mailer.sent).toHaveLength(0)
   })
 })
 

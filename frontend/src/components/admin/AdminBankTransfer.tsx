@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import AdminOlderEntries from './AdminOlderEntries'
+import ConfirmPasswordField from './ConfirmPasswordField'
 import { bankTransferContent, bankTransferFieldLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { getBankTransfer, getOlderBankTransferHistory, updateBankTransfer } from '../../services/adminApi'
@@ -69,7 +70,7 @@ export default function AdminBankTransfer({ currency, onSessionEnded }: AdminBan
     setServerErrors({})
     setIsSaving(true)
     try {
-      setData(await updateBankTransfer(changes))
+      setData(await updateBankTransfer(changes, String(formData.get('password') ?? '')))
       setSavedVersion((version) => version + 1)
       setResult({ kind: 'success', message: 'Bank details saved. All admins have been emailed about the change.' })
     } catch (error) {
@@ -117,6 +118,7 @@ export default function AdminBankTransfer({ currency, onSessionEnded }: AdminBan
             <label><input name="enabled" type="checkbox" defaultChecked={data.settings.enabled} /> {bankTransferFieldLabels.enabled}: customers can choose bank transfer and see these details.</label>
             {serverErrors.enabled && <small className="admin-field-error">{serverErrors.enabled}</small>}
           </div>
+          <ConfirmPasswordField id="bank-password" hint={bankTransferContent.passwordHint} error={serverErrors.password} />
           <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Save bank details <Arrow /></>}</button>
         </form>
         <section className="admin-history" aria-labelledby="admin-bank-history-title">

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import type { RequestHandler } from 'express'
 import { ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { bankTransferHistory, getBankTransferSettings, isSampleAccount, updateBankTransferSettings } from '../services/bankTransfer.js'
@@ -7,8 +8,9 @@ import { validateBankTransferUpdate } from '../validation/bankTransfer.js'
 import { validateOlderPageQuery } from '../validation/olderPage.js'
 
 // GPEC's bank details for bank-transfer payments (/api/admin/bank-transfer), behind requireAdmin in
-// app.ts. Every change is recorded and emailed to all active admins.
-export default function adminBankTransferRouter(notifier: Notifier) {
+// app.ts. Every change is recorded and emailed to all active admins, and needs the admin's password
+// (confirmPassword: middleware/requirePassword.ts), since these details decide where customers' money goes.
+export default function adminBankTransferRouter(notifier: Notifier, confirmPassword: RequestHandler) {
   const router = Router()
 
   router.get('/', async (_req, res, next) => {
@@ -31,7 +33,7 @@ export default function adminBankTransferRouter(notifier: Notifier) {
     }
   })
 
-  router.patch('/', async (req, res, next) => {
+  router.patch('/', confirmPassword, async (req, res, next) => {
     try {
       const { errors, value } = validateBankTransferUpdate(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)

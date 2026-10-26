@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import AdminOlderEntries from './AdminOlderEntries'
+import ConfirmPasswordField from './ConfirmPasswordField'
 import { customerEmailContent } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { getCustomerEmail, getOlderCustomerEmailHistory, updateCustomerEmail } from '../../services/adminApi'
@@ -18,7 +19,7 @@ export default function AdminCustomerEmail({ onSessionEnded }: AdminCustomerEmai
   const [data, setData] = useState<CustomerEmailResponse | null>(null)
   const [loadError, setLoadError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const [fieldError, setFieldError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [result, setResult] = useState<{ kind: 'success' | 'error', message: string } | null>(null)
   const [savedVersion, setSavedVersion] = useState(0)
   const resultRef = useRef<HTMLParagraphElement>(null)
@@ -40,21 +41,22 @@ export default function AdminCustomerEmail({ onSessionEnded }: AdminCustomerEmai
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!data) return
-    const replyTo = String(new FormData(event.currentTarget).get('replyTo') ?? '').trim().toLowerCase()
+    const formData = new FormData(event.currentTarget)
+    const replyTo = String(formData.get('replyTo') ?? '').trim().toLowerCase()
     if (replyTo === data.settings.replyTo) {
       setResult({ kind: 'success', message: 'No changes to save.' })
       return
     }
     setResult(null)
-    setFieldError('')
+    setFieldErrors({})
     setIsSaving(true)
     try {
-      setData(await updateCustomerEmail({ replyTo }))
+      setData(await updateCustomerEmail({ replyTo }, String(formData.get('password') ?? '')))
       setSavedVersion((version) => version + 1)
       setResult({ kind: 'success', message: 'Reply-to address saved. All admins have been emailed about the change.' })
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return onSessionEnded()
-      if (error instanceof ApiError) setFieldError(error.errors.replyTo ?? '')
+      if (error instanceof ApiError) setFieldErrors(error.errors)
       setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to save the email settings.' })
     } finally {
       setIsSaving(false)
@@ -75,10 +77,11 @@ export default function AdminCustomerEmail({ onSessionEnded }: AdminCustomerEmai
         <form key={savedVersion} className="admin-form" onSubmit={handleSubmit}>
           <div className="admin-field">
             <label htmlFor="customer-email-replyTo">{customerEmailContent.label}</label>
-            <input id="customer-email-replyTo" name="replyTo" type="email" required maxLength={254} autoComplete="off" defaultValue={data.settings.replyTo} aria-describedby={`customer-email-replyTo-hint${fieldError ? ' customer-email-replyTo-error' : ''}`} />
+            <input id="customer-email-replyTo" name="replyTo" type="email" required maxLength={254} autoComplete="off" defaultValue={data.settings.replyTo} aria-describedby={`customer-email-replyTo-hint${fieldErrors.replyTo ? ' customer-email-replyTo-error' : ''}`} />
             <small id="customer-email-replyTo-hint">{customerEmailContent.hint}</small>
-            {fieldError && <small className="admin-field-error" id="customer-email-replyTo-error">{fieldError}</small>}
+            {fieldErrors.replyTo && <small className="admin-field-error" id="customer-email-replyTo-error">{fieldErrors.replyTo}</small>}
           </div>
+          <ConfirmPasswordField id="customer-email-password" hint={customerEmailContent.passwordHint} error={fieldErrors.password} />
           <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Save reply-to address <Arrow /></>}</button>
         </form>
         <section className="admin-history" aria-labelledby="admin-customer-email-history-title">
