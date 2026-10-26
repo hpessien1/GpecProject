@@ -36,6 +36,13 @@ const adminUserSchema = new mongoose.Schema({
   accountCodeExpiresAt: { type: Date, default: null },
   accountCodeAttempts: { type: Number, default: 0 },
   accountCodeSentAt: { type: Date, default: null },
+  // Hourly limits for the whole account, whoever is logging in and from where (services/twoFactor.ts):
+  // login codes emailed, and wrong 6-digit codes entered at login. Each counts from the start of its
+  // hour. Missing on accounts stored before 2026-10-26: read as no use yet.
+  loginEmailWindowStart: { type: Date, default: null },
+  loginEmailsInWindow: { type: Number, default: 0 },
+  wrongCodeWindowStart: { type: Date, default: null },
+  wrongCodesInWindow: { type: Number, default: 0 },
 }, { timestamps: true, strict: 'throw' })
 
 export default mongoose.model('AdminUser', adminUserSchema)

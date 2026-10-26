@@ -257,6 +257,13 @@ add a frontend gate, confirm the backend enforces the same condition.
     `gpec_admin_login`, path `/api/admin/session`, 10 minutes), not a session. Five wrong codes end
     it; wrong codes also count toward the failed-login limit. An app code's time step is recorded in
     the same conditional update that accepts it, so a code works once even if sent twice at once.
+  - **Limits per account** (2026-10-26, audit finding M-03), against someone who knows the password:
+    a new login cancels the account's earlier one waiting for its code; at most 5 login codes are
+    emailed per account per hour (past that none is sent and the last code carries over); after 10
+    wrong 6-digit codes in an hour only recovery codes work until the hour is up (they cannot be
+    guessed, so the owner is never locked out). Counted on `AdminUser` with conditional updates.
+    The per-IP limit counts a password step that waits for its code as failed until the code is
+    entered (the code step takes it back from the limiter's own store).
   - Turning it on needs the password and a first code from the chosen method (the password since
     2026-10-26, audit finding M-01: a session alone, such as a browser left logged in, must not put
     someone else's phone on the account), ends the admin's other sessions, and shows the recovery
@@ -397,7 +404,8 @@ name), and logs which database it found. The guard only works if production sets
   `lastLoginAt`, `passwordChangedAt`, `credentialVersion` (up by one at each password change; missing
   on accounts, sessions, and challenges stored before 2026-10-26, read as 0); two-step login: `twoFactorMethod` (`app` | `email` | null),
   `twoFactorSecret` (encrypted), `twoFactorEnabledAt`, `lastTotpStep`, `recoveryCodeHashes`, and a
-  setup or emailed code in progress (`pendingTwoFactor*`, `accountCode*`). Accounts created before
+  setup or emailed code in progress (`pendingTwoFactor*`, `accountCode*`), and the hourly login
+  limits (`loginEmail*`, `wrongCode*`, from 2026-10-26). Accounts created before
   2026-10-24 have none of these stored: code reading them with `.lean()` must allow for missing
   fields. **AdminSession** — `tokenHash`, `admin`, `credentialVersion`, `expiresAt` (TTL
   index deletes expired sessions), `twoFactorPromptDismissed`. **AdminLoginChallenge** — a login

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import request from 'supertest'
 import type TestAgent from 'supertest/lib/agent.js'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -230,7 +231,7 @@ describe('logging in with an authenticator app', () => {
     expect(codes).toHaveLength(10)
     const { client, res } = await startLogin()
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ twoFactorRequired: true, method: 'app', emailHint: null, emailAvailable: true })
+    expect(res.body).toEqual({ twoFactorRequired: true, method: 'app', emailHint: null, emailAvailable: true, emailCodeSent: false })
     // Not logged in yet: only the challenge cookie, for the login routes alone.
     expect(String(res.headers['set-cookie'])).toMatch(/gpec_admin_login=[\w-]{43}; Max-Age=600; Path=\/api\/admin\/session; .*HttpOnly; SameSite=Strict/)
     expect(String(res.headers['set-cookie'])).not.toContain('gpec_admin_session')
@@ -260,8 +261,15 @@ describe('logging in with an authenticator app', () => {
   it('lets one code complete only one of two logins sent at the same moment', async () => {
     await turnOnApp()
     const code = totpCode(await appSecret(), currentStep() + 1)
-    const [first, second] = await Promise.all([startLogin(), startLogin()])
-    const statuses = await Promise.all([first, second].map(({ client }) => post(client, `${LOGIN}/two-factor`, { code }).then((res) => res.status)))
+    const first = await startLogin()
+    // A new login cancels earlier ones, but two started at the same instant can both stay open.
+    const secondToken = 'B'.repeat(43)
+    const admin = await AdminUser.findOne({ email: TEST_ADMIN.email }).lean()
+    await AdminLoginChallenge.create({ tokenHash: createHash('sha256').update(secondToken).digest('hex'), admin: admin?._id, expiresAt: new Date(Date.now() + 60_000) })
+    const statuses = await Promise.all([
+      post(first.client, `${LOGIN}/two-factor`, { code }),
+      request(app).post(`${LOGIN}/two-factor`).set('Origin', ORIGIN).set('Cookie', `gpec_admin_login=${secondToken}`).send({ code }),
+    ].map((pending) => pending.then((res) => res.status)))
     expect(statuses.sort()).toEqual([200, 400])
   })
 
@@ -342,7 +350,7 @@ describe('email codes', () => {
     await turnOnEmail()
     expect((await agent.get(ACCOUNT)).body.method).toBe('email')
     const { client, res } = await startLogin()
-    expect(res.body).toEqual({ twoFactorRequired: true, method: 'email', emailHint: 'a•••@example.test', emailAvailable: true })
+    expect(res.body).toEqual({ twoFactorRequired: true, method: 'email', emailHint: 'a•••@example.test', emailAvailable: true, emailCodeSent: true })
     await settle()
     expect(mailer.sent.at(-1)).toMatchObject({ to: [TEST_ADMIN.email], subject: 'Your GPEC admin login code' })
     expect((await post(client, `${LOGIN}/two-factor`, { code: lastEmailedCode() })).status).toBe(200)
@@ -453,6 +461,87 @@ describe('admin accounts created before two-step login existed', () => {
     await AdminLoginChallenge.collection.updateMany({}, { $unset: { credentialVersion: '' } })
     expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: first })).status).toBe(200)
     expect((await client.get(LOGIN)).status).toBe(200)
+  })
+})
+
+// Someone who knows the password could otherwise start login after login: an email each time, and
+// five fresh guesses at the code each time (audit finding M-03).
+describe('limits per account, for someone who knows the password', () => {
+  const loginEmails = () => mailer.sent.filter((email) => email.subject === 'Your GPEC admin login code')
+
+  it('emails at most five login codes an hour, however many logins are started; the last code sent still works', async () => {
+    await turnOnEmail()
+    const logins = []
+    for (let i = 0; i < 7; i++) logins.push(await startLogin())
+    await settle()
+    expect(loginEmails()).toHaveLength(5)
+    expect(logins.map(({ res }) => res.body.emailCodeSent)).toEqual([true, true, true, true, true, false, false])
+    const lastCode = /\n(\d{6})\n/.exec(loginEmails().at(-1)?.text ?? '')?.[1]
+    expect((await post(logins[6].client, `${LOGIN}/two-factor`, { code: lastCode })).status).toBe(200)
+  })
+
+  it('counts codes sent again toward the same five', async () => {
+    await turnOnEmail()
+    for (let i = 0; i < 3; i++) await startLogin()
+    const { client } = await startLogin()
+    const resend = async () => {
+      await AdminLoginChallenge.updateMany({}, { emailCodeSentAt: new Date(Date.now() - 2 * 60 * 1000) })
+      return post(client, `${LOGIN}/two-factor/email-code`)
+    }
+    expect((await resend()).status).toBe(202)
+    const refused = await resend()
+    expect(refused.status).toBe(429)
+    expect(refused.body.code).toBe('CODE_LIMIT')
+    await settle()
+    expect(loginEmails()).toHaveLength(5)
+  })
+
+  it('cancels a login waiting for its code when a new one starts', async () => {
+    const [first] = await turnOnApp()
+    const older = await startLogin()
+    await startLogin()
+    expect(await AdminLoginChallenge.countDocuments()).toBe(1)
+    expect((await post(older.client, `${LOGIN}/two-factor`, { recoveryCode: first })).body.code).toBe('LOGIN_EXPIRED')
+  })
+
+  it('pauses 6-digit codes after ten wrong ones in an hour; a recovery code still works', async () => {
+    const [first] = await turnOnApp()
+    const secret = await appSecret()
+    const wrong = ['000000', '111111'].find((code) => [-1, 0, 1, 2].every((offset) => totpCode(secret, currentStep() + offset) !== code))
+    for (let login = 0; login < 2; login++) {
+      const { client } = await startLogin()
+      for (let attempt = 0; attempt < 5; attempt++) expect((await post(client, `${LOGIN}/two-factor`, { code: wrong })).status).toBe(attempt < 4 ? 400 : 401)
+    }
+    const paused = await startLogin()
+    const res = await post(paused.client, `${LOGIN}/two-factor`, { code: totpCode(secret, currentStep() + 1) })
+    expect(res.status).toBe(429)
+    expect(res.body.code).toBe('CODES_PAUSED')
+    expect((await post(paused.client, `${LOGIN}/two-factor`, { recoveryCode: first })).status).toBe(200)
+  })
+
+  it('works for accounts stored before these limits existed (2026-10-26)', async () => {
+    await turnOnEmail()
+    await AdminUser.collection.updateOne({ email: TEST_ADMIN.email }, { $unset: { loginEmailWindowStart: '', loginEmailsInWindow: '', wrongCodeWindowStart: '', wrongCodesInWindow: '' } })
+    const { client, res } = await startLogin()
+    expect(res.body.emailCodeSent).toBe(true)
+    await settle()
+    expect((await post(client, `${LOGIN}/two-factor`, { code: lastEmailedCode() })).status).toBe(200)
+  })
+
+  it('counts a password step that waits for its code as a failed login until the code is entered', async () => {
+    const [first, second, third] = await turnOnApp()
+    const limited = testApp({ email: TEST_EMAIL_SETTINGS, adminLoginRateLimit: { windowMs: 60_000, limit: 2 } }, mailer)
+    const passwordStep = (client: TestAgent) => post(client, LOGIN, { email: TEST_ADMIN.email, password: TEST_ADMIN.password })
+    // Finished logins cost nothing, however many.
+    for (const code of [first, second, third]) {
+      const client = request.agent(limited)
+      await passwordStep(client).expect(200)
+      await post(client, `${LOGIN}/two-factor`, { recoveryCode: code }).expect(200)
+    }
+    // Unfinished ones count: the third is refused.
+    await passwordStep(request.agent(limited)).expect(200)
+    await passwordStep(request.agent(limited)).expect(200)
+    expect((await passwordStep(request.agent(limited))).status).toBe(429)
   })
 })
 

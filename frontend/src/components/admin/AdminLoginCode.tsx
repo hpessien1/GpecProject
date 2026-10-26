@@ -36,6 +36,8 @@ export default function AdminLoginCode({ challenge, onLoggedIn, onRestart }: Adm
       onLoggedIn(await submitLoginCode(readSecondStep(new FormData(event.currentTarget))))
     } catch (error) {
       if (error instanceof ApiError && error.code === 'LOGIN_EXPIRED') return onRestart(error.message)
+      // Too many wrong 6-digit codes for this account: only a recovery code works for now.
+      if (error instanceof ApiError && error.code === 'CODES_PAUSED') setUseRecovery(true)
       if (error instanceof ApiError) setErrors(error.errors)
       setMessage({ kind: 'error', text: error instanceof Error ? error.message : 'Unable to check the code. Please try again.' })
     } finally {
@@ -57,10 +59,12 @@ export default function AdminLoginCode({ challenge, onLoggedIn, onRestart }: Adm
   }
 
   // Without email, say so whichever field is showing: it explains why a recovery code is needed.
+  const emailHint = challenge.emailHint ?? 'your email address'
   const help = challenge.method === 'email' && !challenge.emailAvailable ? twoFactorContent.loginHelp.emailUnavailable
     : useRecovery ? twoFactorContent.loginHelp.recovery
     : challenge.method === 'app' ? twoFactorContent.loginHelp.app
-    : twoFactorContent.loginHelp.email(challenge.emailHint ?? 'your email address')
+    : challenge.emailCodeSent ? twoFactorContent.loginHelp.email(emailHint)
+    : twoFactorContent.loginHelp.emailLimitReached(emailHint)
 
   return <section className="admin-login" aria-labelledby="admin-login-code-title">
     <p className="eyebrow"><span /> GPEC staff only</p>
@@ -71,7 +75,8 @@ export default function AdminLoginCode({ challenge, onLoggedIn, onRestart }: Adm
       {message && <p className={message.kind === 'error' ? 'form-error' : 'success-message'} role={message.kind === 'error' ? 'alert' : 'status'} tabIndex={-1} ref={messageRef}>{message.text}</p>}
       <button className="button button-primary" type="submit" disabled={isSending}>{isSending ? 'Checking…' : <>Log in <Arrow /></>}</button>
     </form>
-    {challenge.method === 'email' && challenge.emailAvailable && !useRecovery && <p className="admin-help"><button type="button" className="admin-link-button" onClick={() => void resend()} aria-busy={isResending}>{isResending ? 'Sending…' : 'Send a new code'}</button></p>}
+    {/* Past the account's hourly limit a new code would be refused too, so the button is not offered. */}
+    {challenge.method === 'email' && challenge.emailAvailable && challenge.emailCodeSent && !useRecovery && <p className="admin-help"><button type="button" className="admin-link-button" onClick={() => void resend()} aria-busy={isResending}>{isResending ? 'Sending…' : 'Send a new code'}</button></p>}
     <p className="admin-help"><button type="button" className="admin-link-button" onClick={() => onRestart('')}>Back to email and password</button></p>
   </section>
 }

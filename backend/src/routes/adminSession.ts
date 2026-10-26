@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import type { CookieOptions } from 'express'
-import { rateLimit } from 'express-rate-limit'
+import type { CookieOptions, Request } from 'express'
+import { MemoryStore, ipKeyGenerator, rateLimit } from 'express-rate-limit'
 import { HttpError, ValidationError } from '../errors.js'
 import { requireAdmin, currentAdmin } from '../middleware/requireAdmin.js'
 import type { BreachedPasswordCheck } from '../services/breachedPasswords.js'
@@ -36,8 +36,19 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
   const challengeCookieOptions: CookieOptions = { ...cookieOptions, path: '/api/admin/session' }
 
   const limiterSettings = { ...config.adminLoginRateLimit, standardHeaders: 'draft-8', legacyHeaders: false } as const
-  // Counts failed attempts only, so a mistyped password does not lock out someone who then gets it right.
-  const loginLimiter = rateLimit({ ...limiterSettings, skipSuccessfulRequests: true, message: { message: 'Too many failed login attempts. Please wait 15 minutes and try again.' } })
+  // Counts failed attempts only, so a mistyped password does not lock out someone who then gets it
+  // right. A right password that still waits for its two-step code counts as failed until the code is
+  // entered: the code step then takes that count back from this store (its own, for that reason).
+  const loginStore = new MemoryStore()
+  const loginKey = (req: Request) => ipKeyGenerator(req.ip ?? '')
+  const loginLimiter = rateLimit({
+    ...limiterSettings,
+    store: loginStore,
+    keyGenerator: loginKey,
+    skipSuccessfulRequests: true,
+    requestWasSuccessful: (_req, res) => res.statusCode < 400 && res.locals.waitingForCode !== true,
+    message: { message: 'Too many failed login attempts. Please wait 15 minutes and try again.' },
+  })
   // Counts only wrong current passwords (the guessing risk if a session is stolen), not a new password
   // that is too short.
   const passwordLimiter = rateLimit({
@@ -79,9 +90,18 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
       const result = await logIn(value.email, value.password)
       if (!result) throw new HttpError(401, 'Email or password is incorrect.', 'INVALID_CREDENTIALS')
       if (result.kind === 'challenge') {
+        res.locals.waitingForCode = true
         res.cookie(CHALLENGE_COOKIE, result.token, { ...challengeCookieOptions, maxAge: CHALLENGE_MINUTES * 60 * 1000 })
         // emailAvailable false: the code cannot be emailed (email is off), so only a recovery code works.
-        res.json({ twoFactorRequired: true, method: result.method, emailHint: result.method === 'email' ? maskEmail(result.admin.email) : null, emailAvailable: notifier.isOn })
+        // emailCodeSent false (email codes): the account's hourly limit was reached, so no new code was
+        // sent; the last one sent still works.
+        res.json({
+          twoFactorRequired: true,
+          method: result.method,
+          emailHint: result.method === 'email' ? maskEmail(result.admin.email) : null,
+          emailAvailable: notifier.isOn,
+          emailCodeSent: result.emailCode !== null && notifier.isOn,
+        })
         // After answering; never throws (a failed email is logged).
         if (result.emailCode) return notifier.loginCode(result.admin, result.emailCode, EMAIL_CODE_MINUTES)
         return
@@ -105,6 +125,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
         throw new HttpError(401, LOGIN_EXPIRED_MESSAGE, 'LOGIN_EXPIRED')
       }
       if (result.status === 'unavailable') throw new HttpError(409, 'Codes from the authenticator app cannot be checked right now. Use one of your recovery codes, or ask the site administrator.', 'APP_CODES_UNAVAILABLE')
+      if (result.status === 'codes-paused') throw new HttpError(429, 'Too many wrong codes have been entered for this account in the last hour, so 6-digit codes are paused. Use one of your recovery codes, or try again later.', 'CODES_PAUSED')
       if (result.status === 'wrong') {
         if (result.attemptsLeft <= 0) {
           res.clearCookie(CHALLENGE_COOKIE, challengeCookieOptions)
@@ -115,6 +136,8 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
       }
       const admin = { id: String(result.admin._id), email: result.admin.email, name: result.admin.name }
       const token = await startSession(result.admin._id, result.admin.credentialVersion)
+      // The login is complete: take back the count its password step added.
+      await loginStore.decrement(loginKey(req))
       res.clearCookie(CHALLENGE_COOKIE, challengeCookieOptions)
       res.cookie(SESSION_COOKIE, token, { ...cookieOptions, maxAge: SESSION_DURATION_MS })
       res.json(await sessionInfo(admin, token))
@@ -131,7 +154,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
       const result = await resendLoginEmailCode(readCookie(req.headers.cookie, CHALLENGE_COOKIE))
       if (!result) throw new HttpError(401, LOGIN_EXPIRED_MESSAGE, 'LOGIN_EXPIRED')
       if (result === 'too-soon') throw new HttpError(429, 'A code was sent less than a minute ago. Check your inbox and spam folder, then try again.', 'CODE_TOO_SOON')
-      if (result === 'limit') throw new HttpError(429, 'No more codes can be sent for this login. Use a recovery code, or log in again later.', 'CODE_LIMIT')
+      if (result === 'limit') throw new HttpError(429, 'No more codes can be sent right now. Use the last code we emailed you (it works for 10 minutes), or a recovery code.', 'CODE_LIMIT')
       res.status(202).json({ message: 'A new code is on its way.' })
       return notifier.loginCode(result.admin, result.code, EMAIL_CODE_MINUTES)
     } catch (error) {

@@ -152,6 +152,28 @@ test.describe('logging in with two-step login on', () => {
     await expect(page.getByRole('status').filter({ hasText: 'A new code is on its way.' })).toBeVisible()
   })
 
+  test('with email codes past the hourly limit, says no new code was sent and offers no new one', async ({ page }) => {
+    await mockApi(page, { twoFactorMethod: 'email', recoveryCodes: [...SAMPLE_RECOVERY_CODES], loginEmailLimitReached: true })
+    await enterPassword(page)
+    await expect(page.getByText('No new code was emailed: several were sent to a•••@example.com in the last hour.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Send a new code' })).toHaveCount(0)
+    // The last code sent still works.
+    await page.getByLabel('6-digit code').fill(SAMPLE_CODE)
+    await page.getByRole('button', { name: 'Log in' }).click()
+    await expect(page.getByRole('navigation', { name: 'Admin sections' })).toBeVisible()
+  })
+
+  test('when 6-digit codes are paused for the account, switches to a recovery code', async ({ page }) => {
+    await mockApi(page, { twoFactorMethod: 'app', recoveryCodes: [...SAMPLE_RECOVERY_CODES], codesPaused: true })
+    await enterPassword(page)
+    await page.getByLabel('6-digit code').fill(SAMPLE_CODE)
+    await page.getByRole('button', { name: 'Log in' }).click()
+    await expect(page.getByRole('alert')).toContainText('6-digit codes are paused. Use one of your recovery codes')
+    await page.getByRole('textbox', { name: 'Recovery code' }).fill(SAMPLE_RECOVERY_CODES[0])
+    await page.getByRole('button', { name: 'Log in' }).click()
+    await expect(page.getByRole('navigation', { name: 'Admin sections' })).toBeVisible()
+  })
+
   test('without email, goes straight to a recovery code', async ({ page }) => {
     await mockApi(page, { twoFactorMethod: 'email', recoveryCodes: [...SAMPLE_RECOVERY_CODES], twoFactorAvailable: { app: true, email: false } })
     await enterPassword(page)

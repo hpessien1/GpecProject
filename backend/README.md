@@ -156,13 +156,17 @@ All admin responses are sent with `Cache-Control: no-store`.
   production). `GET` returns the logged-in admin, the configured currency (`{ code, minorUnitDigits }`
   or `null`), and `twoFactor: { enabled, prompt }`; `DELETE` logs out.
 - **Two-step login.** For an admin who has it on, the right password answers `{ twoFactorRequired:
-  true, method: 'app' | 'email', emailHint, emailAvailable }` and sets the `gpec_admin_login` cookie
-  (10 minutes) instead of a session; for email, the code is emailed after answering. `POST
-  /api/admin/session/two-factor` with `{ code }` (6 digits) or `{ recoveryCode }` completes the login:
-  `400 WRONG_CODE` with tries left, `401 LOGIN_EXPIRED` after five wrong codes or 10 minutes, `409
-  APP_CODES_UNAVAILABLE` without the encryption key. `…/two-factor/email-code` sends a new email code
-  (`429 CODE_TOO_SOON` within a minute, `CODE_LIMIT` after five). `…/two-factor-prompt/dismiss` closes
-  the banner until the next login.
+  true, method: 'app' | 'email', emailHint, emailAvailable, emailCodeSent }` and sets the
+  `gpec_admin_login` cookie (10 minutes) instead of a session, cancelling any earlier login waiting
+  for its code; for email, the code is emailed after answering, at most five login codes per account
+  per hour (`emailCodeSent: false` past that: the last code sent still works). Until the code is
+  entered, this answer counts toward the failed-login limit. `POST /api/admin/session/two-factor`
+  with `{ code }` (6 digits) or `{ recoveryCode }` completes the login: `400 WRONG_CODE` with tries
+  left, `401 LOGIN_EXPIRED` after five wrong codes or 10 minutes, `409 APP_CODES_UNAVAILABLE` without
+  the encryption key, `429 CODES_PAUSED` after ten wrong 6-digit codes for the account in an hour
+  (recovery codes still work). `…/two-factor/email-code` sends a new email code (`429 CODE_TOO_SOON`
+  within a minute, `CODE_LIMIT` after five for the login or the account's hour).
+  `…/two-factor-prompt/dismiss` closes the banner until the next login.
 - `/api/admin/account/two-factor` (logged in, own account only): `GET` → `{ method, enabledAt,
   recoveryCodesLeft, available: { app, email } }`; `POST /app` → `{ secret, uri }` (Base32 key and
   `otpauth://` link, 15 minutes to confirm); `POST /email-code` emails a code; `POST /enable` with

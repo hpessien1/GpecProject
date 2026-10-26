@@ -21,12 +21,43 @@ export const MAX_CODE_ATTEMPTS = 5
 export const EMAIL_CODE_COOLDOWN_MS = 60 * 1000
 export const MAX_EMAIL_CODES = 5
 export const RECOVERY_CODE_COUNT = 10
+// For the whole account, per hour, whoever is logging in and from where: login codes emailed (at
+// login and "send a new code"), and wrong 6-digit codes entered at login. Someone who knows the
+// password could otherwise start login after login, each with an email and five fresh guesses. Once
+// the wrong codes reach the limit, only recovery codes work until the hour is up: they cannot be
+// guessed, so the owner always has a way in.
+export const LOGIN_EMAILS_PER_HOUR = 5
+export const WRONG_CODES_PER_HOUR = 10
+const HOUR_MS = 60 * 60 * 1000
 // An app being set up must be confirmed within this time.
 const SETUP_MINUTES = 15
 const ISSUER = 'GPEC Admin'
 
 const minutesFromNow = (minutes: number) => new Date(Date.now() + minutes * 60 * 1000)
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex')
+
+interface HourlyLimit {
+  start: 'loginEmailWindowStart' | 'wrongCodeWindowStart'
+  count: 'loginEmailsInWindow' | 'wrongCodesInWindow'
+  limit: number
+}
+const LOGIN_EMAILS: HourlyLimit = { start: 'loginEmailWindowStart', count: 'loginEmailsInWindow', limit: LOGIN_EMAILS_PER_HOUR }
+const WRONG_CODES: HourlyLimit = { start: 'wrongCodeWindowStart', count: 'wrongCodesInWindow', limit: WRONG_CODES_PER_HOUR }
+
+// Uses one of the account's allowance for this hour; false once it is used up. The count is part of
+// the update's condition, so two requests at the same moment cannot both take the last one.
+async function takeHourly(adminId: unknown, { start, count, limit }: HourlyLimit) {
+  const hourAgo = new Date(Date.now() - HOUR_MS)
+  const newHour = await AdminUser.updateOne({ _id: adminId, $or: [{ [start]: null }, { [start]: { $lte: hourAgo } }] }, { [start]: new Date(), [count]: 1 })
+  if (newHour.matchedCount === 1) return true
+  const taken = await AdminUser.updateOne({ _id: adminId, [start]: { $gt: hourAgo }, [count]: { $lt: limit } }, { $inc: { [count]: 1 } })
+  return taken.matchedCount === 1
+}
+
+function hourlyUsedUp(admin: Partial<Record<HourlyLimit['start'], Date | null> & Record<HourlyLimit['count'], number | null>>, { start, count, limit }: HourlyLimit) {
+  const started = admin[start]
+  return Boolean(started && started.getTime() > Date.now() - HOUR_MS && (admin[count] ?? 0) >= limit)
+}
 
 function sameHash(hash: string | null | undefined, value: string) {
   if (!hash) return false
@@ -97,18 +128,27 @@ async function useRecoveryCode(adminId: unknown, code: string) {
 
 // --- Logging in -----------------------------------------------------------------------------------
 
-// The password was right and the admin uses two-step login: a challenge for the code, and for email
-// codes the first code to send. It carries the admin's credentialVersion, so a password change
-// cancels it (services/adminAuth.ts).
+// The password was right and the admin uses two-step login: a challenge for the code, replacing any
+// earlier one for the account (so guesses cannot pile up across many open logins), and for email
+// codes the code to send, while the hourly limit allows. Past the limit no email is sent and the
+// last code sent carries over, so it still works within its 10 minutes. It carries the admin's
+// credentialVersion, so a password change cancels it (services/adminAuth.ts).
 export async function startLoginChallenge(admin: { _id: unknown, twoFactorMethod?: string | null, credentialVersion?: number | null }) {
   const token = randomBytes(32).toString('base64url')
-  const emailCode = admin.twoFactorMethod === 'email' ? newEmailCode() : null
+  const earlier = await AdminLoginChallenge.findOne({ admin: admin._id, emailCodeHash: { $ne: null } }).sort({ emailCodeSentAt: -1 }).lean()
+  await AdminLoginChallenge.deleteMany({ admin: admin._id })
+  let emailCode: string | null = null
+  let carried = {}
+  if (admin.twoFactorMethod === 'email') {
+    if (await takeHourly(admin._id, LOGIN_EMAILS)) emailCode = newEmailCode()
+    else if (earlier) carried = { emailCodeHash: earlier.emailCodeHash, emailCodeSentAt: earlier.emailCodeSentAt, emailCodesSent: earlier.emailCodesSent }
+  }
   await AdminLoginChallenge.create({
     tokenHash: sha256(token),
     admin: admin._id,
     credentialVersion: admin.credentialVersion ?? 0,
     expiresAt: minutesFromNow(CHALLENGE_MINUTES),
-    ...(emailCode ? { emailCodeHash: sha256(emailCode), emailCodeSentAt: new Date(), emailCodesSent: 1 } : {}),
+    ...(emailCode ? { emailCodeHash: sha256(emailCode), emailCodeSentAt: new Date(), emailCodesSent: 1 } : carried),
   })
   return { token, emailCode }
 }
@@ -118,6 +158,8 @@ export type ChallengeResult =
   | { status: 'wrong', attemptsLeft: number }
   | { status: 'expired' }
   | { status: 'unavailable' }
+  // Too many wrong 6-digit codes for the account this hour: only a recovery code works.
+  | { status: 'codes-paused' }
 
 // Checks the second step of a login. Each try is counted before the code is checked, so no more than
 // MAX_CODE_ATTEMPTS codes can be tried for one login; the challenge is used up on success.
@@ -136,6 +178,7 @@ export async function completeLoginChallenge(token: string, step: SecondStep, ke
     await AdminLoginChallenge.deleteOne({ _id: challenge._id })
     return { status: 'expired' }
   }
+  if (!('recoveryCode' in step) && hourlyUsedUp(admin, WRONG_CODES)) return { status: 'codes-paused' }
 
   let passed: boolean | 'unavailable' = false
   if ('recoveryCode' in step) passed = await useRecoveryCode(admin._id, step.recoveryCode)
@@ -144,6 +187,7 @@ export async function completeLoginChallenge(token: string, step: SecondStep, ke
 
   if (passed === 'unavailable') return { status: 'unavailable' }
   if (!passed) {
+    if (!('recoveryCode' in step)) await takeHourly(admin._id, WRONG_CODES)
     const attemptsLeft = MAX_CODE_ATTEMPTS - challenge.attempts
     if (attemptsLeft <= 0) await AdminLoginChallenge.deleteOne({ _id: challenge._id })
     return { status: 'wrong', attemptsLeft }
@@ -166,6 +210,7 @@ export async function resendLoginEmailCode(token: string) {
   if (!admin) return null
   if (challenge.emailCodesSent >= MAX_EMAIL_CODES) return 'limit' as const
   if (challenge.emailCodeSentAt && challenge.emailCodeSentAt.getTime() > Date.now() - EMAIL_CODE_COOLDOWN_MS) return 'too-soon' as const
+  if (!await takeHourly(admin._id, LOGIN_EMAILS)) return 'limit' as const
   const code = newEmailCode()
   // Conditional on the count read above, so two clicks at once send one email.
   const updated = await AdminLoginChallenge.updateOne(

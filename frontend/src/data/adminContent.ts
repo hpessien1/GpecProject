@@ -246,6 +246,7 @@ export const twoFactorContent = {
     app: 'Open your authenticator app and enter the 6-digit code for GPEC Admin.',
     email: (hint: string) => `We have emailed a 6-digit code to ${hint}. It works for 10 minutes. Check your spam folder if it does not arrive.`,
     emailUnavailable: 'Codes cannot be emailed right now. Use one of your recovery codes instead.',
+    emailLimitReached: (hint: string) => `No new code was emailed: several were sent to ${hint} in the last hour. Use the most recent one (each works for 10 minutes), or one of your recovery codes.`,
     recovery: 'Enter one of the recovery codes you saved when you turned on two-step login. Each one works once.',
   },
 }

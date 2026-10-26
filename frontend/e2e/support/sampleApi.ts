@@ -147,6 +147,10 @@ export interface ApiState {
   twoFactorAvailable: { app: boolean, email: boolean }
   promptDismissed: boolean
   pendingLogin: boolean
+  // The account's hourly limits (backend services/twoFactor.ts): no more login codes emailed, and
+  // 6-digit codes paused after too many wrong ones.
+  loginEmailLimitReached: boolean
+  codesPaused: boolean
   // The FAQ, refunds policy, and privacy notice, their change histories, and making them fail to load.
   siteContent: Record<SiteContentKey, SiteContentPage>
   siteContentHistory: Record<SiteContentKey, SiteContentHistoryEntry[]>
@@ -210,6 +214,8 @@ function initialState(): ApiState {
     twoFactorAvailable: { app: true, email: true },
     promptDismissed: false,
     pendingLogin: false,
+    loginEmailLimitReached: false,
+    codesPaused: false,
     requests: [],
   }
 }
@@ -378,7 +384,8 @@ function reply(state: ApiState, request: Request): Reply {
     if (body.email !== ADMIN.email || body.password !== ADMIN.password) return [401, { message: 'Email or password is incorrect.', code: 'INVALID_CREDENTIALS' }]
     if (state.twoFactorMethod) {
       state.pendingLogin = true
-      return [200, { twoFactorRequired: true, method: state.twoFactorMethod, emailHint: state.twoFactorMethod === 'email' ? 'a•••@example.com' : null, emailAvailable: state.twoFactorAvailable.email }]
+      const emailCodeSent = state.twoFactorMethod === 'email' && state.twoFactorAvailable.email && !state.loginEmailLimitReached
+      return [200, { twoFactorRequired: true, method: state.twoFactorMethod, emailHint: state.twoFactorMethod === 'email' ? 'a•••@example.com' : null, emailAvailable: state.twoFactorAvailable.email, emailCodeSent }]
     }
     state.loggedIn = true
     state.promptDismissed = false
@@ -386,6 +393,7 @@ function reply(state: ApiState, request: Request): Reply {
   }
   if (path === '/api/admin/session/two-factor') {
     if (!state.pendingLogin) return [401, { message: 'Your login has timed out. Enter your email and password again.', code: 'LOGIN_EXPIRED' }]
+    if (state.codesPaused && typeof body.code === 'string') return [429, { message: 'Too many wrong codes have been entered for this account in the last hour, so 6-digit codes are paused. Use one of your recovery codes, or try again later.', code: 'CODES_PAUSED' }]
     if (!secondStepPasses()) {
       const field = typeof body.recoveryCode === 'string' ? 'recoveryCode' : 'code'
       return [400, { message: 'That code is not right. Check it and try again. 4 tries left.', code: 'WRONG_CODE', errors: { [field]: 'That code is not right. Check it and try again.' } }]

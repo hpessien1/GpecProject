@@ -187,6 +187,9 @@ export interface LoginChallenge {
   emailHint: string | null
   // false: email is off on the server, so only a recovery code works.
   emailAvailable: boolean
+  // Email codes: false when the account's hourly limit was reached, so no new code was sent (the last
+  // one sent still works).
+  emailCodeSent: boolean
 }
 
 // A 6-digit code, or one of the recovery codes instead.
