@@ -1,4 +1,4 @@
-type AdminSection = 'products' | 'orders' | 'delivery' | 'bank-transfer' | 'contact-requests' | 'content' | 'emails' | null
+type AdminSection = 'products' | 'orders' | 'delivery' | 'bank-transfer' | 'contact-requests' | 'content' | 'emails' | 'security-log' | null
 
 interface AdminSectionNavProps {
   current: AdminSection
@@ -12,6 +12,8 @@ const sections = [
   { id: 'contact-requests', label: 'Contact requests', href: '#admin/contact-requests' },
   { id: 'content', label: 'Site content', href: '#admin/content' },
   { id: 'emails', label: 'Emails', href: '#admin/emails' },
+  // When GPEC adds roles with fewer permissions, this stays with full admins (backend routes/adminSecurityLog.ts).
+  { id: 'security-log', label: 'Security log', href: '#admin/security-log' },
 ] as const
 
 // The admin's main sections. Inside the page rather than the header, so it stays visible on phones.

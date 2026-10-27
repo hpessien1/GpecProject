@@ -154,12 +154,20 @@ export async function startLoginChallenge(admin: { _id: unknown, twoFactorMethod
 }
 
 export type ChallengeResult =
-  | { status: 'ok', admin: { _id: unknown, email: string, name: string, credentialVersion: number }, recoveryCodeUsed: boolean, recoveryCodesLeft: number }
+  // method: the account's kind of code (app or email), for the security log.
+  | { status: 'ok', admin: { _id: unknown, email: string, name: string, credentialVersion: number }, method: string, recoveryCodeUsed: boolean, recoveryCodesLeft: number }
   | { status: 'wrong', attemptsLeft: number }
   | { status: 'expired' }
   | { status: 'unavailable' }
   // Too many wrong 6-digit codes for the account this hour: only a recovery code works.
   | { status: 'codes-paused' }
+
+// The account a login waiting for its code belongs to, for the security log; null if there is none.
+export async function loginChallengeAdminId(token: string) {
+  if (!token) return null
+  const challenge = await AdminLoginChallenge.findOne({ tokenHash: sha256(token) }).select('admin').lean()
+  return challenge ? String(challenge.admin) : null
+}
 
 // Checks the second step of a login. Each try is counted before the code is checked, so no more than
 // MAX_CODE_ATTEMPTS codes can be tried for one login; the challenge is used up on success.
@@ -197,7 +205,7 @@ export async function completeLoginChallenge(token: string, step: SecondStep, ke
   if (removed.deletedCount !== 1) return { status: 'expired' }
   const stored = admin.recoveryCodeHashes?.length ?? 0
   const left = 'recoveryCode' in step ? stored - 1 : stored
-  return { status: 'ok', admin: { _id: admin._id, email: admin.email, name: admin.name, credentialVersion }, recoveryCodeUsed: 'recoveryCode' in step, recoveryCodesLeft: left }
+  return { status: 'ok', admin: { _id: admin._id, email: admin.email, name: admin.name, credentialVersion }, method: admin.twoFactorMethod ?? '', recoveryCodeUsed: 'recoveryCode' in step, recoveryCodesLeft: left }
 }
 
 // A new emailed code for a login waiting on one. 'too-soon' within a minute of the last; null when the

@@ -445,6 +445,45 @@
   color: var(--muted);
   font-size: 0.8rem;
 }
+/* The security log (components/admin/AdminSecurityLog.tsx): the history list's look, wider, with
+   failed attempts marked so they stand out when scanning. */
+.admin-security-filter {
+  max-width: 420px;
+  margin-bottom: 1.5rem;
+}
+/* Its options name each admin with their email, which would otherwise widen a small phone's page. */
+.admin-security-filter select {
+  min-width: 0;
+}
+/* The order or contact request an entry is about, as on the request screen. */
+.admin-security-what a {
+  color: var(--forest);
+  font-weight: 700;
+  text-decoration: underline;
+}
+.admin-security-log {
+  max-width: 820px;
+}
+.admin-security-log li {
+  padding-left: 0.9rem;
+  border-left: 3px solid var(--line);
+}
+.admin-security-log li.admin-security-failed {
+  border-left-color: var(--lime);
+}
+.admin-security-what,
+.admin-security-where {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.admin-security-what .admin-status {
+  margin-right: 0.5rem;
+}
+.admin-security-where {
+  color: var(--muted);
+}
 @media (max-width: 980px) {
   /* minmax(0, …): wide content such as the order's items table scrolls inside its own box
      (.admin-table-wrap) instead of making the page wider than a small phone. */
@@ -488,6 +527,11 @@
 .admin-status-awaiting_transfer,
 .admin-status-transfer_reported {
   border-style: dashed;
+}
+/* A failed attempt in the security log. */
+.admin-status-failed {
+  border-style: dashed;
+  background: var(--sand);
 }
 /* The customer says they paid: staff should check the bank account, so it stands out. */
 .admin-status-transfer_reported {

@@ -1,4 +1,4 @@
-import type { AdminRequestKind, BankTransferSettings, EditableDeliveryAreaFields, EditableProductFields, PaymentMethod, FulfilmentMethod, OrderStage, PaymentCheckOutcome, PaymentStatus, RequestStatus, EditableSiteContentFields, SiteContentKey } from '../types'
+import type { AdminRequestKind, BankTransferSettings, EditableDeliveryAreaFields, EditableProductFields, PaymentMethod, FulfilmentMethod, OrderStage, PaymentCheckOutcome, PaymentStatus, SecurityAction, RequestStatus, EditableSiteContentFields, SiteContentKey } from '../types'
 
 // Labels for product fields, shared by the edit form and the change history.
 export const productFieldLabels: Record<keyof EditableProductFields | 'id', string> = {
@@ -199,6 +199,7 @@ export const requestNotesContent = {
 export const olderEntriesContent = {
   history: { button: 'Show older changes', end: 'That is every change, back to the first.', error: 'Unable to load older changes.' },
   notes: { button: 'Show older notes', end: 'That is every note, back to the first.', error: 'Unable to load older notes.' },
+  securityLog: { button: 'Show older entries', end: 'That is every entry kept (entries are kept for 12 months).', error: 'Unable to load older entries.' },
 }
 
 // Site content (#admin/content): the FAQ, the refunds policy, and the privacy notice, edited by staff.
@@ -270,4 +271,72 @@ export const twoFactorContent = {
     emailLimitReached: (hint: string) => `No new code was emailed: several were sent to ${hint} in the last hour. Use the most recent one (each works for 10 minutes), or one of your recovery codes.`,
     recovery: 'Enter one of the recovery codes you saved when you turned on two-step login. Each one works once.',
   },
+}
+
+// The security log (#admin/security-log): who logged in or tried to, changes to admins' own logins,
+// and customer records staff opened. Kept for 12 months.
+export const securityLogContent = {
+  eyebrow: 'Security',
+  title: 'Security log',
+  intro: 'Every login and failed attempt, every change to an admin’s own password or two-step login, and every order, contact request, and attached file opened, with when, from which internet address, and in which browser. Look here if something seems wrong: logins you do not recognise, many failed attempts, or records opened at odd times. Entries cannot be changed or deleted, and are removed after 12 months.',
+  filterLabel: 'Show entries for',
+  allAccounts: 'All accounts',
+  empty: 'Nothing recorded yet.',
+  unknownAccount: 'No admin account (the address typed was not an admin’s, or the link was not valid)',
+  commandLine: 'On the server (the admin command)',
+  failed: 'Failed',
+  actions: {
+    'login.password': 'Logged in',
+    'login.code': 'Two-step code accepted',
+    logout: 'Logged out',
+    'password.change': 'Changed their password',
+    'password.resetRequest': 'Asked for a password reset link',
+    'password.reset': 'Set a new password with a reset link',
+    'password.confirm': 'Gave their password again for a sensitive change',
+    'twoFactor.enable': 'Turned on two-step login',
+    'twoFactor.disable': 'Turned off two-step login',
+    'twoFactor.recoveryCodes': 'Made new recovery codes',
+    'access.refused': 'A change sent from another website',
+    'record.order': 'Opened order',
+    'record.contactRequest': 'Opened contact request',
+    'record.file': 'Opened a file attached to contact request',
+    'command.create': 'Account created on the server',
+    'command.reset': 'Password reset on the server',
+    'command.disableTwoFactor': 'Two-step login turned off on the server',
+  } satisfies Record<SecurityAction, string>,
+  // What failed, in plain words, for each action that can fail.
+  failedActions: {
+    'login.password': 'Login failed',
+    'login.code': 'Two-step code refused',
+    'password.change': 'Password change failed',
+    'password.resetRequest': 'Reset link not sent',
+    'password.reset': 'Reset link refused',
+    'password.confirm': 'Wrong password for a sensitive change',
+    'twoFactor.enable': 'Turning on two-step login failed',
+    'twoFactor.disable': 'Turning off two-step login failed',
+    'twoFactor.recoveryCodes': 'New recovery codes refused',
+    'access.refused': 'A change sent from another website was refused',
+  } as Partial<Record<SecurityAction, string>>,
+  details: {
+    code_needed: 'password correct, waiting for the two-step code',
+    app: 'authenticator app',
+    email: 'emailed code',
+    recovery_code: 'recovery code',
+  } as Record<string, string>,
+  reasons: {
+    INVALID_CREDENTIALS: 'wrong email or password',
+    ACCOUNT_INACTIVE: 'the account is deactivated',
+    TOO_MANY_ATTEMPTS: 'too many attempts from this address',
+    WRONG_CODE: 'wrong code',
+    WRONG_PASSWORD: 'wrong password',
+    LOGIN_EXPIRED: 'the login timed out or had too many wrong codes',
+    CODES_PAUSED: '6-digit codes paused after too many wrong ones',
+    RESET_LINK_INVALID: 'the link had expired or was already used',
+    UNKNOWN_ACCOUNT: 'the address is not an admin’s',
+    EMAIL_LIMIT: 'too many links asked for this address in an hour',
+    ORIGIN_NOT_ALLOWED: 'it did not come from GPEC’s site',
+    PASSWORD_BREACHED: 'the new password is known from a data breach',
+    VALIDATION_ERROR: 'details missing or not valid',
+    NOT_FOUND: 'not found',
+  } as Record<string, string>,
 }

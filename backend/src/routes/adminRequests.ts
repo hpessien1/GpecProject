@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
+import { securityEvent } from '../middleware/securityEvent.js'
 import { adminRequests } from '../services/adminRequests.js'
 import type { ImageStore } from '../services/imageStore.js'
 import { REQUEST_FILE_ID_PATTERN, requestFileKey } from '../services/requestFiles.js'
@@ -15,8 +16,9 @@ export default function adminRequestsRouter(kind: keyof typeof adminRequests, st
   const router = Router()
   const service = adminRequests[kind]
 
-  function referenceParam(reference: string | undefined) {
-    if (!reference || !REFERENCE_PATTERNS[kind].test(reference)) throw new NotFoundError('Request not found.')
+  // unknown: with a middleware before a route (securityEvent), Express types the parameter more loosely.
+  function referenceParam(reference: unknown) {
+    if (typeof reference !== 'string' || !REFERENCE_PATTERNS[kind].test(reference)) throw new NotFoundError('Request not found.')
     return reference
   }
 
@@ -30,7 +32,9 @@ export default function adminRequestsRouter(kind: keyof typeof adminRequests, st
     }
   })
 
-  router.get('/:reference', async (req, res, next) => {
+  // Opening a request, and each file, goes in the security log (audit M-06), by reference only.
+  const param = (value: unknown) => String(value ?? '').slice(0, 60)
+  router.get('/:reference', securityEvent('record.contactRequest', { signedInOnly: true, target: (req) => ({ type: 'contactRequest', id: param(req.params.reference) }) }), async (req, res, next) => {
     try {
       return res.json(await service.get(referenceParam(req.params.reference)))
     } catch (error) {
@@ -56,11 +60,12 @@ export default function adminRequestsRouter(kind: keyof typeof adminRequests, st
   // only (the session cookie is sent with the admin panel's <img> and links, which are same-site).
   // Photos may be shown in the panel; PDFs are always downloaded, never opened inside the site, and
   // the sandbox stops anything in a file running as part of the API's origin.
-  router.get('/:reference/files/:fileId', async (req, res, next) => {
+  router.get('/:reference/files/:fileId', securityEvent('record.file', { signedInOnly: true, target: (req) => ({ type: 'file', id: `${param(req.params.reference)}/${param(req.params.fileId)}` }) }), async (req, res, next) => {
     try {
       const reference = referenceParam(req.params.reference)
-      if (!store || !REQUEST_FILE_ID_PATTERN.test(req.params.fileId)) throw new NotFoundError('File not found.')
-      const file = await service.attachment(reference, req.params.fileId)
+      const fileId = req.params.fileId
+      if (!store || typeof fileId !== 'string' || !REQUEST_FILE_ID_PATTERN.test(fileId)) throw new NotFoundError('File not found.')
+      const file = await service.attachment(reference, fileId)
       const stored = await store.get(requestFileKey(file.id))
       if (!stored) throw new NotFoundError('File not found.')
       res.set({

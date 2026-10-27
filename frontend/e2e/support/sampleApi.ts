@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentCheckOutcome, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
+import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentCheckOutcome, PaymentStatus, SecurityLogEntry, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -142,6 +142,9 @@ export interface ApiState {
   // Whether email is set up, which "forgot password" needs.
   emailOn: boolean
   formsFail: boolean
+  // The security log (backend models/SecurityEvent.ts), newest first, and making it fail to load.
+  securityLog: SecurityLogEntry[]
+  securityLogFails: boolean
   // The real API's answer when three forms with files are already arriving (backend routes/contactRequests.ts).
   uploadsBusy: boolean
   loggedIn: boolean
@@ -215,6 +218,8 @@ function initialState(): ApiState {
     currency: NGN,
     emailOn: true,
     formsFail: false,
+    securityLog: sampleSecurityLog(),
+    securityLogFails: false,
     uploadsBusy: false,
     loggedIn: false,
     twoFactorMethod: null,
@@ -240,6 +245,31 @@ function listPage<Item>(items: Item[], url: URL) {
 
 // One page of a history or of notes, newest first. The real cursor names the last entry shown; here
 // it is simply how many entries come before the next page. Without a URL, the newest page.
+export const SECOND_ADMIN = { id: '0123456789abcdef01234599', name: 'Second Admin', email: 'second@example.com' }
+const SAMPLE_BROWSER = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36'
+
+// Twelve entries, newest first: more than a page, of each kind the screen words differently.
+function sampleSecurityLog(): SecurityLogEntry[] {
+  const admin = { name: ADMIN.name, email: ADMIN.email, role: 'admin' }
+  const second = { name: SECOND_ADMIN.name, email: SECOND_ADMIN.email, role: 'admin' }
+  const at = (minutesAgo: number) => new Date(Date.parse(now) - minutesAgo * 60_000).toISOString()
+  const entry = (minutesAgo: number, fields: Partial<SecurityLogEntry> & Pick<SecurityLogEntry, 'action'>): SecurityLogEntry => ({ outcome: 'success', reason: null, detail: null, account: admin, target: null, via: 'website', ip: '102.89.34.10', userAgent: SAMPLE_BROWSER, createdAt: at(minutesAgo), ...fields })
+  return [
+    entry(1, { action: 'record.order', target: { type: 'order', id: ORDER_REF } }),
+    entry(2, { action: 'record.file', target: { type: 'file', id: `${CONTACT_REF}/${SAMPLE_ATTACHMENTS[0].id}` } }),
+    entry(3, { action: 'record.contactRequest', target: { type: 'contactRequest', id: CONTACT_REF } }),
+    entry(4, { action: 'login.code', detail: 'app' }),
+    entry(5, { action: 'login.password', detail: 'code_needed' }),
+    entry(9, { action: 'login.password', outcome: 'failure', reason: 'INVALID_CREDENTIALS', ip: '45.155.205.3', userAgent: 'python-requests/2.31' }),
+    entry(10, { action: 'login.password', outcome: 'failure', reason: 'INVALID_CREDENTIALS', account: null, ip: '45.155.205.3', userAgent: 'python-requests/2.31' }),
+    entry(30, { action: 'logout', account: second }),
+    entry(40, { action: 'password.change', account: second, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36' }),
+    entry(41, { action: 'login.password', account: second, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36' }),
+    entry(60, { action: 'twoFactor.enable', detail: 'app' }),
+    entry(600, { action: 'command.create', account: second, via: 'command line', ip: '', userAgent: '' }),
+  ]
+}
+
 function olderPage<Entry>(entries: Entry[], url: URL | null) {
   const start = Number(url?.searchParams.get('before') ?? 0)
   const next = start + ADMIN_PAGE_SIZE
@@ -526,6 +556,14 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, { settings: state.bankTransfer, isSample: state.bankTransfer.accountNumber === '0000000000', ...historyReply(state.bankTransferHistory) }]
   }
   if (path === '/api/admin/customer-email/history') return [200, historyReply(state.customerEmailHistory, url)]
+  if (path === '/api/admin/security-log') {
+    if (state.securityLogFails) return [500, { message: 'Something went wrong on our side. Please try again.' }]
+    const account = url.searchParams.get('account')
+    const chosen = account === SECOND_ADMIN.id ? SECOND_ADMIN.email : account ? ADMIN.email : null
+    const entries = chosen ? state.securityLog.filter((entry) => entry.account?.email === chosen) : state.securityLog
+    const { entries: shown, cursor } = olderPage(entries, url)
+    return [200, { entries: shown, cursor, accounts: [{ id: '0123456789abcdef01234598', name: ADMIN.name, email: ADMIN.email }, SECOND_ADMIN] }]
+  }
   if (path === '/api/admin/customer-email') {
     if (method === 'PATCH') {
       const refused = passwordRefusal()

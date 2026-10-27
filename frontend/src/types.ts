@@ -521,3 +521,36 @@ export interface SiteContentResponse {
   history: SiteContentHistoryEntry[]
   historyCursor: string | null
 }
+
+// The security log (backend models/SecurityEvent.ts, #admin/security-log): logins, changes to an
+// admin's own login, and customer records staff opened.
+export type SecurityAction =
+  | 'login.password' | 'login.code' | 'logout'
+  | 'password.change' | 'password.resetRequest' | 'password.reset' | 'password.confirm'
+  | 'twoFactor.enable' | 'twoFactor.disable' | 'twoFactor.recoveryCodes'
+  | 'access.refused'
+  | 'record.order' | 'record.contactRequest' | 'record.file'
+  | 'command.create' | 'command.reset' | 'command.disableTwoFactor'
+
+export interface SecurityLogEntry {
+  action: SecurityAction
+  outcome: 'success' | 'failure'
+  // The API's error code when it failed (WRONG_PASSWORD, TOO_MANY_ATTEMPTS, …).
+  reason: string | null
+  // code_needed, or the kind of code used: app, email, recovery_code.
+  detail: string | null
+  // null when no admin account could be named.
+  account: { name: string, email: string, role: string } | null
+  target: { type: 'order' | 'contactRequest' | 'file', id: string } | null
+  via: 'website' | 'command line'
+  ip: string
+  userAgent: string
+  createdAt: string
+}
+
+export interface SecurityLogResponse {
+  entries: SecurityLogEntry[]
+  cursor: string | null
+  // Every admin account, to show one account's entries.
+  accounts: { id: string, name: string, email: string }[]
+}

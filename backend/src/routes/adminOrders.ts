@@ -2,6 +2,7 @@ import { Router } from 'express'
 import type { RequestHandler } from 'express'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
+import { securityEvent } from '../middleware/securityEvent.js'
 import { addOrderNote, getOrder, listOrders, orderHistory, orderNotes, setFulfilmentStatus } from '../services/adminOrders.js'
 import { checkPaymentForStaff, closeUnpaidTransfer, confirmTransferReceived } from '../services/checkout.js'
 import type { Notifier } from '../services/notifications.js'
@@ -43,7 +44,8 @@ export default function adminOrdersRouter(notifier: Notifier, confirmPassword: R
     return { ...await order, emailOn: notifier.isOn, paystackOn: paystack !== null }
   }
 
-  router.get('/:reference', async (req, res, next) => {
+  // Opening an order goes in the security log (audit M-06), by reference only.
+  router.get('/:reference', securityEvent('record.order', { signedInOnly: true, target: (req) => ({ type: 'order', id: String(req.params.reference ?? '').slice(0, 60) }) }), async (req, res, next) => {
     try {
       return res.json(await detail(getOrder(referenceParam(req.params.reference))))
     } catch (error) {

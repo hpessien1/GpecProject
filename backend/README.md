@@ -57,7 +57,7 @@ process (`utils/freshness.ts`). Product photos are kept in memory (`services/ima
   `GET`, `POST /api/admin/delivery-areas`; `GET`, `PATCH /api/admin/delivery-areas/:id`;
   `GET /api/admin/delivery-areas/:id/history`; `GET`, `PATCH /api/admin/bank-transfer`,
   `GET /api/admin/bank-transfer/history`; `GET`, `PATCH /api/admin/customer-email`,
-  `GET /api/admin/customer-email/history`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
+  `GET /api/admin/customer-email/history`; `GET /api/admin/security-log`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
   `GET /api/admin/content/:page/history`;
   `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`,
   `POST /api/admin/orders/:reference/check-payment`;
@@ -125,6 +125,13 @@ Paystack orders (`409 NOT_A_TRANSFER`) and settled ones (`409 TRANSFER_ALREADY_S
 `isSample` (still the starting sample details, labelled "do not send money" wherever shown); turning
 it on needs the bank, name, and number; every change emails all active admins. The admin order list
 adds the stages `awaiting_transfer` and `transfer_reported`.
+
+**Security log** (audit M-06): `GET /api/admin/security-log` (admin only, read only; `?account=<admin
+ID>` for one account, `?before=<cursor>` for older entries, ten per page) answers `{ entries, cursor,
+accounts }`. Each entry: `action`, `outcome`, `reason` (the API error code when it failed),
+`detail`, `account { name, email, role }` or `null`, `target { type, id }` or `null`, `via`, `ip`,
+`userAgent`, `createdAt`. Written by the server for logins, account changes, refused origins, the
+admin command, and opening an order, contact request, or attached file; kept 12 months.
 
 **The password again** (`middleware/requirePassword.ts`): `PATCH /api/admin/bank-transfer`, `PATCH
 /api/admin/customer-email`, and `POST …/transfer-received` also need the admin's current password as

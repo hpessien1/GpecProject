@@ -4,6 +4,7 @@ import type { RateLimitSettings } from '../config.js'
 import { HttpError, ValidationError } from '../errors.js'
 import { currentAdmin } from './requireAdmin.js'
 import { isCurrentPassword } from '../services/adminAuth.js'
+import { recordSecurityEvent } from '../services/securityLog.js'
 import { asFields } from '../validation/fields.js'
 
 const WRONG_PASSWORD = 'Your password is incorrect.'
@@ -30,6 +31,8 @@ export function requirePassword(limit: RateLimitSettings): RequestHandler {
       if (password.length > 200) throw new ValidationError({ password: 'Passwords are at most 200 characters.' })
       if (!await isCurrentPassword(currentAdmin(res).id, password)) {
         res.locals.wrongPassword = true
+        // Recorded (audit M-06): someone with the session may be guessing the password.
+        void recordSecurityEvent(req, { action: 'password.confirm', outcome: 'failure', reason: 'WRONG_PASSWORD', adminId: currentAdmin(res).id })
         throw new HttpError(400, WRONG_PASSWORD, 'WRONG_PASSWORD', { password: WRONG_PASSWORD })
       }
       req.body = rest

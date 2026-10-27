@@ -1,5 +1,5 @@
 import { apiBaseUrl, requestJson } from './apiClient'
-import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, PaymentCheckOutcome, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
+import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, PaymentCheckOutcome, SecurityLogResponse, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -244,4 +244,11 @@ export function getOlderSiteContentHistory(key: SiteContentKey, before: string) 
 // Saved changes go live on the site straight away.
 export function updateSiteContent(key: SiteContentKey, changes: Partial<EditableSiteContentFields>) {
   return requestJson<SiteContentResponse>(`/admin/content/${key}`, 'Unable to save this page.', { ...admin, method: 'PATCH', payload: changes })
+}
+
+// The security log, newest first: one account's entries when accountId is given. before: the cursor
+// of the page already shown, for the next, older page.
+export function getSecurityLog(accountId: string | null, before?: string) {
+  const query = new URLSearchParams({ ...(accountId ? { account: accountId } : {}), ...(before ? { before } : {}) }).toString()
+  return requestJson<SecurityLogResponse>(`/admin/security-log${query ? `?${query}` : ''}`, 'Unable to load the security log.', admin)
 }

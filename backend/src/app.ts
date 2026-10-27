@@ -24,6 +24,7 @@ import adminBankTransferRouter from './routes/adminBankTransfer.js'
 import adminCustomerEmailRouter from './routes/adminCustomerEmail.js'
 import adminDeliveryAreasRouter from './routes/adminDeliveryAreas.js'
 import adminOrdersRouter from './routes/adminOrders.js'
+import adminSecurityLogRouter from './routes/adminSecurityLog.js'
 import adminProductImagesRouter from './routes/adminProductImages.js'
 import adminProductsRouter from './routes/adminProducts.js'
 import adminRequestsRouter from './routes/adminRequests.js'
@@ -48,6 +49,28 @@ export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRat
 function isBodyReadError(error: unknown): error is { status: number } {
   return typeof error === 'object' && error !== null && 'type' in error && 'status' in error
     && typeof error.status === 'number' && error.status >= 400 && error.status < 500
+}
+
+// The route's pattern with the router's mount path in front, e.g. /api/admin/orders/:reference.
+// Express forgets the mount path once the error leaves the router, so it is what remains of the
+// address after taking off as many parts as the route's own pattern has (mount paths have no
+// parameters).
+function routePattern(originalUrl: string, routePath: string) {
+  const parts = (originalUrl.split('?')[0] ?? '').split('/')
+  const own = routePath.split('/').filter(Boolean).length
+  return `${parts.slice(0, parts.length - own).join('/')}${routePath === '/' ? '/' : routePath}`
+}
+
+// What the server's log keeps about an unexpected error (audit M-06): its type, its code if any, the
+// route's pattern (never the address itself, which can hold a payment reference), and where in the
+// code it happened. Not its message, which can quote stored values (a duplicate email address), nor
+// anything from the request.
+function unexpectedErrorReport(error: unknown, req: Request) {
+  const name = error instanceof Error ? error.name : typeof error
+  const code = typeof error === 'object' && error !== null && 'code' in error && (typeof error.code === 'string' || typeof error.code === 'number') ? ` (${error.code})` : ''
+  const route = typeof req.route?.path === 'string' ? routePattern(req.originalUrl, req.route.path) : '(no route)'
+  const where = error instanceof Error ? (error.stack ?? '').split('\n').filter((line) => line.trim().startsWith('at ')).slice(0, 8).join('\n') : ''
+  return `Unexpected error on ${req.method} ${route}: ${name}${code}${where ? `\n${where}` : ''}`
 }
 
 // Each public form route gets its own per-IP budget (the contact form, and the checkout's routes).
@@ -118,14 +141,19 @@ export default function createApp(
   app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest', images))
   // The password again, for changes that decide where money or customers' replies go (one shared limit).
   const confirmPassword = requirePassword(config.adminLoginRateLimit)
+  app.use('/api/admin/security-log', requireAdmin(config.clientOrigins), adminSecurityLogRouter())
   app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier, confirmPassword, paystack))
   app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))
   app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier, confirmPassword))
   app.use('/api/admin/customer-email', requireAdmin(config.clientOrigins), adminCustomerEmailRouter(notifier, confirmPassword))
   app.use(SITE_CONTENT_ADMIN_PATH, requireAdmin(config.clientOrigins), express.json({ limit: '256kb' }), adminSiteContentRouter())
   app.use((_req, res) => res.status(404).json({ message: 'Route not found.' }))
-  app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    if (error instanceof HttpError) return res.status(error.status).json({ message: error.message, code: error.code, errors: error.errors })
+  app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
+    if (error instanceof HttpError) {
+      // For the security log (middleware/securityEvent.ts): why the request was refused.
+      if (error.code) res.locals.errorCode = error.code
+      return res.status(error.status).json({ message: error.message, code: error.code, errors: error.errors })
+    }
     if (error instanceof SyntaxError && 'body' in error) return res.status(400).json({ message: 'Request body must be valid JSON.' })
     // The body readers' own refusals (too large, unreadable encoding) are the client's mistake, not a
     // server error.
@@ -135,7 +163,7 @@ export default function createApp(
         : res.status(error.status).json({ message: 'The request could not be read.' })
     }
     if (error instanceof Error && (error.name === 'ValidationError' || error.name === 'StrictModeError')) return res.status(400).json({ message: 'Check the details and try again.' })
-    console.error(error)
+    console.error(unexpectedErrorReport(error, req))
     return res.status(500).json({ message: 'Something went wrong on our side. Please try again.' })
   })
   return app

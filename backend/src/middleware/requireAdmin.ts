@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { HttpError } from '../errors.js'
 import { SESSION_COOKIE, findSessionAdmin, readCookie } from '../services/adminAuth.js'
 import type { AdminIdentity } from '../services/adminAuth.js'
+import { recordSecurityEvent } from '../services/securityLog.js'
 
 // Lets routes read res.locals.admin with its type.
 declare global {
@@ -10,6 +11,13 @@ declare global {
       admin?: AdminIdentity
       // Set when a password change fails on the current password; read by its rate limiter.
       wrongPassword?: boolean
+      // The API error code of a refused request (app.ts's error handler), and what a route adds for
+      // the security log (middleware/securityEvent.ts).
+      errorCode?: string
+      securityReason?: string
+      securityDetail?: string
+      securityAccountId?: string
+      securityAccountEmail?: string
     }
   }
 }
@@ -23,6 +31,8 @@ export function requireAdmin(clientOrigins: string[]) {
       // second guard, changes must come from the GPEC site itself when the browser says where from.
       const origin = req.headers.origin
       if (req.method !== 'GET' && req.method !== 'HEAD' && origin && !clientOrigins.includes(origin)) {
+        // Recorded (audit M-06): another site trying to make a change with an admin's browser.
+        void recordSecurityEvent(req, { action: 'access.refused', outcome: 'failure', reason: 'ORIGIN_NOT_ALLOWED' })
         throw new HttpError(403, 'This request is not allowed from this site.', 'ORIGIN_NOT_ALLOWED')
       }
       const admin = await findSessionAdmin(readCookie(req.headers.cookie, SESSION_COOKIE))

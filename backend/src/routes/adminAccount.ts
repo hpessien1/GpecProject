@@ -3,6 +3,7 @@ import type { Response } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { HttpError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
+import { securityEvent } from '../middleware/securityEvent.js'
 import { SESSION_COOKIE, readCookie } from '../services/adminAuth.js'
 import type { Notifier } from '../services/notifications.js'
 import { EMAIL_CODE_MINUTES, createAccountEmailCode, disableTwoFactor, enableTwoFactor, regenerateRecoveryCodes, startAppSetup, twoFactorStatus } from '../services/twoFactor.js'
@@ -80,7 +81,8 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
 
   // Turns it on with the password and a first code from the chosen method. The ten recovery codes are
   // in this answer only; the admin's other sessions end.
-  router.post('/two-factor/enable', verifyLimiter, async (req, res, next) => {
+  // Turning two-step login on or off, and new recovery codes, go in the security log (audit M-06).
+  router.post('/two-factor/enable', securityEvent('twoFactor.enable', { signedInOnly: true }), verifyLimiter, async (req, res, next) => {
     try {
       const admin = currentAdmin(res)
       const { errors, value } = validateEnable(req.body)
@@ -97,6 +99,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
         res.locals.wrongPassword = true
         throw new HttpError(400, WRONG_CODE, 'WRONG_CODE', { code: WRONG_CODE })
       }
+      res.locals.securityDetail = value.method
       res.json({ recoveryCodes: result.recoveryCodes, ...await statusReply(admin.id) })
       return notifier.twoFactorChanged(admin, { on: true, method: value.method })
     } catch (error) {
@@ -104,7 +107,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
     }
   })
 
-  router.post('/two-factor/disable', verifyLimiter, async (req, res, next) => {
+  router.post('/two-factor/disable', securityEvent('twoFactor.disable', { signedInOnly: true }), verifyLimiter, async (req, res, next) => {
     try {
       const admin = currentAdmin(res)
       const { errors, value } = validateVerifiedAction(req.body)
@@ -119,7 +122,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
   })
 
   // Ten new recovery codes, in this answer only; the old ones stop working.
-  router.post('/two-factor/recovery-codes', verifyLimiter, async (req, res, next) => {
+  router.post('/two-factor/recovery-codes', securityEvent('twoFactor.recoveryCodes', { signedInOnly: true }), verifyLimiter, async (req, res, next) => {
     try {
       const admin = currentAdmin(res)
       const { errors, value } = validateVerifiedAction(req.body)

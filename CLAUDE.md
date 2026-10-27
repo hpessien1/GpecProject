@@ -300,6 +300,27 @@ customer emails' reply-to address, and site content (`models/AuditRecord.ts`, `s
 Only fields whose value actually changes are recorded. Transactions need a replica set: Atlas is
 one, and the tests use an in-memory replica set.
 
+**Security log** (2026-10-27, audit finding M-06; the user chose 12 months and recording opened
+records): business changes are in AuditRecord; **who got in and what they looked at** is in
+`SecurityEvent` (`services/securityLog.ts`), shown read-only at `#admin/security-log`. Recorded:
+every login step and attempt (also unknown addresses, deactivated accounts, and the login rate
+limit's refusals), logouts, password changes, reset requests and resets, two-step login on/off and
+new recovery codes, a wrong password given again (`requirePassword`), changes refused for their
+`Origin`, the admin command's create/reset/disable-2fa, and staff **opening** an order, a contact
+request, or an attached file (lists, histories, and notes are not recorded). Each entry: action,
+success or failure with the API's error code, the account (copied, with its role), the record's
+reference, the IP address and browser, and when. Never passwords, codes, links, cookies, the
+address typed for an unknown account, or customers' details. A route records with the
+`securityEvent` middleware (mounted before its rate limiter, so refusals are recorded) or
+`recordSecurityEvent`; a log that cannot be written never stops the request. MongoDB deletes entries
+after 12 months (TTL index); nothing on the site changes or deletes one. Any new login step,
+account change, or screen that opens customer data records the same way. **Roles:** two people use
+the admin side today; GPEC plans roles with fewer permissions (2026-10-27). When they come, the
+security log stays with full admins; the entries already carry the role. Staff should be told their
+logins are recorded (GPEC's matter, not the customers' privacy notice, the user's decision).
+The server's own log of an unexpected error keeps only its type, code, the route's pattern, and
+code locations (`unexpectedErrorReport` in `app.ts`), never its message or the request.
+
 ### 4.7 Rate limiting and spam protection
 
 Implemented in `backend/src/app.ts` with `express-rate-limit`: `POST /api/contact-requests` has a
@@ -464,6 +485,11 @@ name), and logs which database it found. The guard only works if production sets
   `siteContent.update` (sections recorded whole, before and after).
   Orders also have `paymentMethod` (`paystack` | `bank_transfer`, default `paystack`), `bankTransfer`
   (the details given, copied), and `transferReportedAt`.
+- **SecurityEvent** (`backend/src/models/SecurityEvent.ts`, 2026-10-27) — `action`, `outcome`
+  (`success` | `failure`), `reason` (the API error code), `detail`, `account { adminId, email, name,
+  role }` (copied; null when no admin account could be named), `target { type, id }` (order, contact
+  request, or file reference), `via` (`website` | `command line`), `ip`, `userAgent`, `createdAt`
+  (TTL: deleted after 12 months). Never edited or deleted by the application (Section 4.6).
 - **WebhookEvent** (`backend/src/models/WebhookEvent.ts`) — `eventId` (unique), `event`,
   `reference`, `outcome` (`received` | `processed` | `ignored`), timestamps (Section 4.1).
 
@@ -519,10 +545,10 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── config.ts         # Zod-validated environment settings (the only reader of process.env)
 │       ├── app.ts            # helmet, CORS, JSON parsing, rate limits, routes, 404, error handler
 │       ├── errors.ts         # HttpError, ValidationError, NotFoundError, ConflictError
-│       ├── middleware/       # requireAdmin.ts: the one admin login check; requirePassword.ts: the password again
+│       ├── middleware/       # requireAdmin.ts: the one admin login check; requirePassword.ts: the password again; securityEvent.ts: the security log
 │       ├── routes/           # HTTP wiring: public (products, product images, contact, checkout, Paystack webhook) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
-│       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord
+│       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord, SecurityEvent
 │       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, photos, productImages, requestFiles, customerEmail
 │       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers; paging.ts: admin page size, cursors

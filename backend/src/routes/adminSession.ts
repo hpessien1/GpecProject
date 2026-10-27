@@ -3,10 +3,14 @@ import type { CookieOptions, Request } from 'express'
 import { MemoryStore, ipKeyGenerator, rateLimit } from 'express-rate-limit'
 import { HttpError, ValidationError } from '../errors.js'
 import { requireAdmin, currentAdmin } from '../middleware/requireAdmin.js'
+import { securityEvent } from '../middleware/securityEvent.js'
+import AdminUser from '../models/AdminUser.js'
+import { recordSecurityEvent } from '../services/securityLog.js'
+import { asFields } from '../validation/fields.js'
 import type { BreachedPasswordCheck } from '../services/breachedPasswords.js'
-import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, createPasswordReset, dismissTwoFactorPrompt, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
+import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, createPasswordReset, dismissTwoFactorPrompt, findSessionAdmin, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
 import type { AdminIdentity } from '../services/adminAuth.js'
-import { CHALLENGE_MINUTES, EMAIL_CODE_MINUTES, completeLoginChallenge, maskEmail, resendLoginEmailCode } from '../services/twoFactor.js'
+import { CHALLENGE_MINUTES, EMAIL_CODE_MINUTES, completeLoginChallenge, loginChallengeAdminId, maskEmail, resendLoginEmailCode } from '../services/twoFactor.js'
 import { currencyInfo } from '../services/currency.js'
 import type { Notifier } from '../services/notifications.js'
 import { validateLogin, validatePasswordChange, validatePasswordReset, validatePasswordResetRequest } from '../validation/adminSession.js'
@@ -83,13 +87,26 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
     return { admin: { name: admin.name, email: admin.email }, currency: currencyInfo(config.currency), imageUploads, twoFactor: await sessionTwoFactor(token, admin.id) }
   }
 
-  router.post('/', loginLimiter, async (req, res, next) => {
+  // Every login and attempt goes in the security log (audit M-06), against the account whose address
+  // was typed, if it is an admin's.
+  const loginAccount = async (req: Request) => {
+    const { email } = asFields(req.body)
+    return typeof email === 'string' ? { email } : null
+  }
+
+  router.post('/', securityEvent('login.password', { account: loginAccount }), loginLimiter, async (req, res, next) => {
     try {
       const { errors, value } = validateLogin(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       const result = await logIn(value.email, value.password)
-      if (!result) throw new HttpError(401, 'Email or password is incorrect.', 'INVALID_CREDENTIALS')
+      if (!result) {
+        // Same answer either way; the log tells a deactivated account apart.
+        if (await AdminUser.exists({ email: value.email, isActive: false })) res.locals.securityReason = 'ACCOUNT_INACTIVE'
+        throw new HttpError(401, 'Email or password is incorrect.', 'INVALID_CREDENTIALS')
+      }
+      res.locals.securityAccountId = result.admin.id
       if (result.kind === 'challenge') {
+        res.locals.securityDetail = 'code_needed'
         res.locals.waitingForCode = true
         res.cookie(CHALLENGE_COOKIE, result.token, { ...challengeCookieOptions, maxAge: CHALLENGE_MINUTES * 60 * 1000 })
         // emailAvailable false: the code cannot be emailed (email is off), so only a recovery code works.
@@ -115,7 +132,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
 
   // The second step of a login: the code from the app or the email, or a recovery code. Wrong codes
   // count toward the failed-login limit, and a login allows only a few.
-  router.post('/two-factor', loginLimiter, async (req, res, next) => {
+  router.post('/two-factor', securityEvent('login.code', { account: async (req) => ({ adminId: await loginChallengeAdminId(readCookie(req.headers.cookie, CHALLENGE_COOKIE)) }) }), loginLimiter, async (req, res, next) => {
     try {
       const { errors, value } = validateLoginCode(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
@@ -135,6 +152,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
         throw new HttpError(400, `${message} ${result.attemptsLeft} ${result.attemptsLeft === 1 ? 'try' : 'tries'} left.`, 'WRONG_CODE', { ['recoveryCode' in value ? 'recoveryCode' : 'code']: message })
       }
       const admin = { id: String(result.admin._id), email: result.admin.email, name: result.admin.name }
+      res.locals.securityDetail = result.recoveryCodeUsed ? 'recovery_code' : result.method
       const token = await startSession(result.admin._id, result.admin.credentialVersion)
       // The login is complete: take back the count its password step added.
       await loginStore.decrement(loginKey(req))
@@ -180,7 +198,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
     }
   })
 
-  router.post('/password', requireAdmin(config.clientOrigins), passwordLimiter, async (req, res, next) => {
+  router.post('/password', requireAdmin(config.clientOrigins), securityEvent('password.change', { signedInOnly: true }), passwordLimiter, async (req, res, next) => {
     try {
       const { errors, value } = validatePasswordChange(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
@@ -211,13 +229,17 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
     const { errors, value: { email } } = validatePasswordResetRequest(req.body)
     if (Object.keys(errors).length > 0) return next(new ValidationError(errors))
     res.status(202).json({ message: RESET_REQUESTED_MESSAGE })
-    if (!mayEmailReset(email)) return
+    if (!mayEmailReset(email)) return void recordSecurityEvent(req, { action: 'password.resetRequest', outcome: 'failure', reason: 'EMAIL_LIMIT', email })
     createPasswordReset(email)
-      .then((reset) => reset && notifier.passwordResetRequested(reset.admin, reset.token, RESET_LINK_MINUTES))
+      .then(async (reset) => {
+        // In the security log (audit M-06); an address that is not an admin's is not kept.
+        await recordSecurityEvent(req, reset ? { action: 'password.resetRequest', outcome: 'success', email } : { action: 'password.resetRequest', outcome: 'failure', reason: 'UNKNOWN_ACCOUNT' })
+        if (reset) await notifier.passwordResetRequested(reset.admin, reset.token, RESET_LINK_MINUTES)
+      })
       .catch((error: unknown) => console.error(`Password reset request could not be handled: ${error instanceof Error ? error.name : 'unknown error'}`))
   })
 
-  router.post('/password-reset/confirm', resetLimiter, async (req, res, next) => {
+  router.post('/password-reset/confirm', securityEvent('password.reset'), resetLimiter, async (req, res, next) => {
     try {
       const { errors, value } = validatePasswordReset(req.body)
       if (errors.token) {
@@ -234,6 +256,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
         res.locals.wrongPassword = true
         throw new HttpError(400, RESET_LINK_INVALID_MESSAGE, 'RESET_LINK_INVALID')
       }
+      res.locals.securityAccountEmail = admin.email
       // This browser may hold one of the sessions just ended.
       res.clearCookie(SESSION_COOKIE, cookieOptions)
       res.status(204).end()
@@ -245,7 +268,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
   })
 
   // Works even if the session has already expired, so the browser's cookie is always cleared.
-  router.delete('/', async (req, res, next) => {
+  router.delete('/', securityEvent('logout', { account: async (req) => ({ adminId: (await findSessionAdmin(readCookie(req.headers.cookie, SESSION_COOKIE)))?.id ?? null }) }), async (req, res, next) => {
     try {
       await logOut(readCookie(req.headers.cookie, SESSION_COOKIE))
       res.clearCookie(SESSION_COOKIE, cookieOptions)

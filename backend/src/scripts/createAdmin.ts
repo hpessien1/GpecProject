@@ -13,6 +13,7 @@ import { loadConfig } from '../config.js'
 import AdminSession from '../models/AdminSession.js'
 import AdminUser from '../models/AdminUser.js'
 import { replacePassword } from '../services/adminAuth.js'
+import { recordSecurityEvent } from '../services/securityLog.js'
 import { generatePassword, hashPassword } from '../services/passwords.js'
 import { emailPattern } from '../validation/fields.js'
 
@@ -48,6 +49,8 @@ try {
     const admin = await AdminUser.findOneAndUpdate({ email }, { twoFactorMethod: null, twoFactorSecret: null, twoFactorEnabledAt: null, lastTotpStep: null, recoveryCodeHashes: [], pendingTwoFactorSecret: null, pendingTwoFactorExpiresAt: null, accountCodeHash: null, accountCodeExpiresAt: null }, { new: true })
     if (!admin) throw new Error(`No admin with email ${email}.`)
     await AdminSession.deleteMany({ admin: admin._id })
+    // In the security log (audit M-06): done on the server, not through the website.
+    await recordSecurityEvent(null, { action: 'command.disableTwoFactor', outcome: 'success', adminId: String(admin._id) })
     console.log(`Database "${databaseName}": two-step login turned off for ${email}; all of their sessions were ended. They can log in with their password and turn it on again.`)
     await mongoose.disconnect()
     process.exit(0)
@@ -60,10 +63,12 @@ try {
     // A reset usually means the old password may be known to someone else: log out everywhere, and
     // cancel reset links and logins waiting for a code.
     if (!admin || !await replacePassword(admin._id, passwordHash)) throw new Error(`No admin with email ${email}.`)
+    await recordSecurityEvent(null, { action: 'command.reset', outcome: 'success', adminId: String(admin._id) })
     console.log(`Database "${databaseName}": password reset for ${email}; all of their sessions, reset links, and unfinished logins were ended.`)
   } else {
     if (await AdminUser.exists({ email })) throw new Error(`An admin with email ${email} already exists. Use --reset to give them a new password.`)
-    await AdminUser.create({ email, name, passwordHash })
+    const created = await AdminUser.create({ email, name, passwordHash })
+    await recordSecurityEvent(null, { action: 'command.create', outcome: 'success', adminId: String(created._id) })
     console.log(`Database "${databaseName}": admin created for ${name} <${email}>.`)
   }
   // Shown once and never stored in readable form. Pass it to the admin privately.

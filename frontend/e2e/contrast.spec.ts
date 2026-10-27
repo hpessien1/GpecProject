@@ -324,6 +324,13 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.locator('.admin-field-error').waitFor()
     await audit.page(page, `${label} admin customer emails refused, email off`)
     api.emailOn = true
+    // The security log: entries, failed ones marked, and every older one shown.
+    await open('#admin/security-log', '.admin-security-failed')
+    await audit.page(page, `${label} admin security log`)
+    if (hovering) await audit.hover(page, `${label} admin security log`)
+    await page.getByRole('button', { name: 'Show older entries' }).click()
+    await page.locator('.admin-older-end').waitFor()
+    await audit.page(page, `${label} admin security log, every entry`)
     await open('#admin/delivery', '.admin-area-list')
     await audit.page(page, `${label} admin delivery areas`)
     if (hovering) await audit.hover(page, `${label} admin delivery areas`)
