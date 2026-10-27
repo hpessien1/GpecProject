@@ -1,7 +1,7 @@
 # Next-session handover
 
-Last updated: 2026-10-26, evening (end of session: four security-audit findings fixed and committed,
-**not pushed or deployed**; the next finding explained and waiting for the user's go-ahead).
+Last updated: 2026-10-27 (end of session: eight security-audit findings fixed, pushed, CI green, and
+**deployed**; the next finding not yet chosen).
 Start a new session with:
 
 ```text
@@ -11,12 +11,11 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** pushed up to `5b052ce` (CI green, run 40247407746). **Not pushed yet:** `a7b89ab`
-  (the previous handover), the four audit fixes `b342b0f`, `1481f43`, `2027a69`, `b2eae90`, then
-  `34b7eab` (git-ignores audit reports), and this handover update. Every CI step passed locally
-  on 2026-10-26: backend 556 tests, browser 328 (+4 skipped), contrast 20, lint, type-check, build.
-  The user pushes; check with `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can
-  read this repository's runs; it cannot push).
+- **Git and CI:** everything up to `ed9463e` is pushed, CI green (run 40508801771, 6 min 15 s), plus
+  this handover update (not pushed yet). Every CI step also passed locally on 2026-10-27: backend
+  624 tests, browser 348 (+4 skipped), contrast 20, lint, type-check, format, build. The user pushes;
+  check with `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this
+  repository's runs; it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23). GPEC's team uses it to see how everything behaves. So: every feature comes with demo
   data there too (`seed:demo`), sample values are labelled rather than blocked, and "replace/remove
@@ -26,26 +25,26 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `5b052ce`. **Waiting to deploy: the four audit fixes, which
-  change both `gpec-api` and `gpec-web`.** Deploy both, one straight after the other, soon after
-  pushing (the public commit messages name what they fix): the new API wants the admin's password on
-  bank details, reply-to, "transfer received", and turning on two-step login, which only the new
-  site sends, so those four forms fail until `gpec-web` is deployed too. Admins already logged in
-  stay logged in (records from before have no `credentialVersion`, read as 0; tested). After
-  deploying, check `/api/health`, log in, and save the bank details with the password.
-- **Confirmed by the user this session:** `TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify; GPEC may
-  name Afrizone; a live test-mode card payment of about ₦27,000 went through.
+- **What is deployed:** everything up to `ed9463e` (both `gpec-api` and `gpec-web`, 2026-10-27,
+  the user). The security log started empty at that deploy and fills from then on.
+- **Two owner steps from this session, not confirmed done** (ask the user): RUNBOOK 1.2 item 7 (a
+  1 GB memory limit on `gpec-api` in Coolify, audit M-04) and item 8 (check that port 5001 on the
+  server's IP cannot be reached directly, audit M-08: the per-visitor limits trust the proxy's
+  address).
+- **Admin roles are planned** (user, 2026-10-27): two people run the admin side today; GPEC intends
+  to add roles that can do some admin functions but not all. Design new admin features so they can be
+  limited per role later (only `admin` exists now; the security log stays with full admins).
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (test mode), and 6 are done;
   step 3 (deploy) is live with the Atlas lock-down still to do.
 - **Company facts:** [`README.md`](README.md) "Company Profile", from GPEC's PDF (git-ignored, 23 MB,
   public repository; never commit it).
 - **Rules:** [`CLAUDE.md`](CLAUDE.md): Paystack and bank transfer (4.1), admin access and two-step
-  login (4.5), audit trail (4.6), data model (5), deployment, launch checklist, and CI (7), email,
-  order update emails, photos, and contact-form files (8), styling and contrast (9), product
-  catalogue checklist (11), known gaps (14), lessons learned (15). Every command:
+  login (4.5), audit trail and security log (4.6), data model (5), deployment, launch checklist, and
+  CI (7), email, order update emails, photos, and contact-form files (8), styling and contrast (9),
+  product catalogue checklist (11), known gaps (14), lessons learned (15). Every command:
   [`docs/COMMANDS.md`](docs/COMMANDS.md).
 
-## This session (2026-10-26, afternoon and evening): security audit
+## Security audit (2026-10-26 and 2026-10-27)
 
 The user had an outside assessment written to `SECURITY_AUDIT_FIRST.md` at the repository root. **It
 is git-ignored on purpose (`34b7eab`): it describes weaknesses still open and the repository is
@@ -56,12 +55,40 @@ fixed (with commits) and what is open; each fixed finding has a Status line.
 is needed, and **wait for the user's confirmation before changing anything**. Then write tests that
 fail first, fix, break each safeguard to see a test fail, run every CI step locally (one suite at a
 time), look at screenshots of changed screens at desktop and 390px, update CLAUDE.md /
-`backend/README.md` / `ECOMMERCE_REQUIREMENTS.md` and the audit file's status, and commit only when
-asked.
+`backend/README.md` / `ECOMMERCE_REQUIREMENTS.md` / RUNBOOK and the audit file's status, and commit
+only when asked.
 
-Fixed and committed (not deployed): H-01 (`b342b0f`), M-01 (`1481f43`), M-03 (`2027a69`), M-02
-(`b2eae90`; the user chose to include "transfer received"). What each does for staff is in CLAUDE.md
-Section 4.5 (search for "audit finding").
+Fixed, committed, and deployed:
+
+- 2026-10-26: H-01 (`b342b0f`), M-01 (`1481f43`), M-03 (`2027a69`), M-02 (`b2eae90`; the user chose
+  to include "transfer received"). What each does for staff is in CLAUDE.md Section 4.5 (search for
+  "audit finding").
+- 2026-10-27:
+  - **M-07** (`f64aab4`): a Paystack webhook event is marked processed only once the order is
+    settled, so Paystack's retry finishes interrupted work; staff have a "Check payment with
+    Paystack" button on unpaid Paystack orders. No automatic periodic check (user's choice).
+  - **M-04** (`556a844`): contact-form uploads limited before they are read: 25 MB of files per form
+    (the user lowered it from 50), one upload per sender, 3 at once site-wide, 5 minutes to arrive;
+    photos re-saved one at a time.
+  - **Photo preview** on the contact form (`0773e95`, user's request).
+  - **M-08** (`be9c89d`): the catalogue and site content kept for 30 s, the health check for 5 s,
+    product photos in a 50 MB memory cache; per-visitor budgets for public reads.
+  - **M-06** (`ed9463e`): a **Security log** tab in the admin panel (logins and failures, account
+    changes, wrong re-entered passwords, refused origins, the admin command, and each order, contact
+    request, or file staff open), kept 12 months (user's choice). The privacy notice was left
+    unchanged: the user decided it is for customers, not staff.
+
+Still open (each explained to the user first, as above):
+
+- **L-02**: the in-memory email-cap maps (customer confirmations, reset emails) never shrink and
+  keep addresses. A code fix.
+- **L-03**: the breached-password check and the stored password may treat the same text differently
+  (Unicode normalisation), so a breached password can slip through in another form. A code fix.
+- **M-05**: PDFs on the contact form are not scanned. Needs a decision: a scanning service (a new
+  external service, needs the user's approval) or accepting the risk as it stands (PDFs are only ever
+  downloaded, never shown in the site).
+- **L-01**: file permissions on the developer's `backend/.env`; needs the user's go-ahead.
+- **H-02** (the Atlas owner) and data retention (GPEC) are not code changes.
 
 ## Previous session (2026-10-25/26), in order
 
@@ -100,14 +127,16 @@ Section 4.5 (search for "audit finding").
   `#shop/category/<category>`), checkout (`#shop/order`), payment result
   (`#shop/payment/<reference>`; Paystack returns to `/shop/payment-complete`, which `main.tsx`
   turns into that route), policies (`#privacy`, `#refunds`, text from the API), admin (`#admin`,
-  tabs Products, Orders, Delivery, Bank details, Contact requests, Site content, Emails).
+  tabs Products, Orders, Delivery, Bank details, Contact requests, Site content, Emails, Security
+  log).
 - **Backend** (`backend/`): Express 5 + Mongoose 8. Routes in `backend/README.md`. Checkout in
   `services/checkout.ts`, Paystack only in `services/paystack.ts`, site content in
   `services/siteContent.ts`, two-step login in `services/twoFactor.ts`, contact-form files in
   `services/requestFiles.ts` (photo re-saving shared in `services/photos.ts`), reply-to in
-  `services/customerEmail.ts`, all emails in `services/notifications.ts` and `emailTemplates.ts`.
-- **Tests:** 556 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 328 behaviour tests at desktop and phone (plus 4 skipped: 2 from before, the
+  `services/customerEmail.ts`, all emails in `services/notifications.ts` and `emailTemplates.ts`,
+  security log in `services/securityLog.ts`, short-lived public copies in `utils/freshness.ts`.
+- **Tests:** 624 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 348 behaviour tests at desktop and phone (plus 4 skipped: 2 from before, the
   attach button's keyboard check on desktop, and the phone-menu test on desktop) and 20 contrast
   tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
@@ -147,13 +176,9 @@ Section 4.5 (search for "audit finding").
 
 ## Open items for the next session
 
-0. **Security audit, next finding: M-07** (see the audit file). Explained to the user on 2026-10-26
-   with a proposed fix: record the webhook event as received, then processed only after the order is
-   settled, so a retry redoes unfinished work; and a staff "Check payment with Paystack" button on
-   unpaid Paystack orders. An automatic periodic check was offered as an option and not recommended
-   for now. **The user has not confirmed yet:** ask before starting. After M-07, continue with the
-   remaining open findings the same way; H-02 and data retention need the Atlas owner and GPEC, and
-   L-01 (file permissions on the developer's `.env`) needs the user's go-ahead.
+0. **Security audit, next finding** (see "Still open" above): suggest L-02 or L-03 (code fixes), or
+   put M-05 to the user as a decision. Explain it plainly and **wait for the user's go-ahead** before
+   changing anything. Also ask whether RUNBOOK 1.2 items 7 and 8 were done.
 1. **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD). The user
    is asking them with the explanation in `ECOMMERCE_REQUIREMENTS.md` Section 6. When they answer:
    GPEC switches methods in its Paystack dashboard; update that section, ROADMAP, and CLAUDE.md's
@@ -161,7 +186,7 @@ Section 4.5 (search for "audit finding").
 2. **Tidy-up on the live site:** delete the `[TEST]` contact request from the 2026-10-24 deploy check
    if it is still there (only a check; CLAUDE.md Section 10.3; needs the user, in the database), and
    drop the empty `enquiries` collection in `gpec` (CLAUDE.md Known Gaps).
-3. **SES production access** (requested 2026-10-23): if nothing by about 2026-10-27, check the AWS
+3. **SES production access** (requested 2026-10-23): if nothing by now (2026-10-27), check the AWS
    support case for questions. Alternatives only if refused (see item 7 above).
 4. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
