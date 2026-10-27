@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { formatFileSize } from '../utils/fileSize'
 
@@ -20,6 +20,31 @@ function problemWith(file: File) {
   if (!UPLOAD_TYPES.includes(file.type)) return `“${file.name}” is not a JPEG, PNG, or WebP photo or a PDF.`
   if (file.size > MAX_FILE_BYTES) return `“${file.name}” is ${formatFileSize(file.size)}. Each file must be 10 MB or smaller.`
   return ''
+}
+
+interface FilePreviewProps {
+  file: File
+}
+
+// A small preview beside each file, so the customer can see they picked the right photo: the photo
+// itself, read in the browser (nothing is sent until the form is), or a tile saying PDF. Decorative:
+// the file's name is next to it. A photo the browser cannot show gets a plain tile instead.
+function FilePreview({ file }: FilePreviewProps) {
+  const isPhoto = file.type.startsWith('image/')
+  const [failed, setFailed] = useState(false)
+  const imageRef = useRef<HTMLImageElement>(null)
+  // The browser's own address for the file, given to the image directly and released when the file
+  // leaves the list, so its memory is freed.
+  useEffect(() => {
+    const image = imageRef.current
+    if (!isPhoto || !image) return
+    const address = URL.createObjectURL(file)
+    image.src = address
+    return () => URL.revokeObjectURL(address)
+  }, [file, isPhoto, failed])
+  if (!isPhoto) return <span className="quote-file-preview" aria-hidden="true">PDF</span>
+  if (failed) return <span className="quote-file-preview" aria-hidden="true">Photo</span>
+  return <img ref={imageRef} className="quote-file-preview" alt="" onError={() => setFailed(true)} />
 }
 
 // Choosing a file already in the list does not add it twice.
@@ -67,6 +92,7 @@ export default function RequestFilesField({ files, onChange, disabled }: Request
     <small id="contact-files-hint">Up to {MAX_FILES} files, each up to 10 MB and 25 MB together: JPEG, PNG, or WebP photos, or PDF documents, such as a nameplate, a drawing, or the site. Only GPEC staff can see them. Photos are re-saved without hidden details such as where they were taken.</small>
     {files.length > 0 && <ul className="quote-file-list" aria-label="Attached files">
       {files.map((file, index) => <li key={`${file.name}-${file.size}`}>
+        <FilePreview file={file} />
         <span className="quote-file-name">{file.name}</span>
         <span className="quote-file-size">{formatFileSize(file.size)}</span>
         <button type="button" disabled={disabled} onClick={() => remove(index)} aria-label={`Remove ${file.name}`}>Remove</button>

@@ -876,6 +876,9 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
   multer, memory storage, limits checked while reading, file names read as UTF-8). The per-IP form
   budget runs **before** the body is read; the spam trap discards files too; the text fields are
   validated before any file is processed.
+- The form shows a small preview of each chosen photo (2026-10-27, the user's request), read in the
+  customer's own browser (a `blob:` address, released when the file is removed), so nothing is sent
+  before the form is; PDFs show a "PDF" tile, and a photo the browser cannot show a "Photo" tile.
 - **Upload limits** (2026-10-27, audit finding M-04; the user chose the numbers): the files are held
   in memory while they arrive and are checked, so before any of a form with files is read, its
   stated size must fit 25 MB of files plus the text (`413 FILES_TOO_LARGE`; no stated size `411`),

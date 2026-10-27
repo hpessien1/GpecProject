@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { mockApi } from './support/sampleApi'
 
@@ -85,6 +87,31 @@ test.describe('contact form', () => {
     await form.getByLabel('Attach photos or PDFs').setInputFiles(Array.from({ length: 6 }, (_, i) => photo(`photo-${i + 1}.jpg`)))
     await expect(form.getByRole('list', { name: 'Attached files' }).getByRole('listitem')).toHaveCount(5)
     await expect(form.getByRole('alert')).toHaveText('“photo-6.jpg” was not added: you can attach up to 5 files.')
+  })
+
+  test('shows a preview of each attached photo, and a PDF tile for documents', async ({ page }) => {
+    await mockApi(page)
+    const form = await fillContactForm(page)
+    await form.getByLabel('Attach photos or PDFs').setInputFiles([
+      { name: 'nameplate.jpg', mimeType: 'image/jpeg', buffer: readFileSync(join(process.cwd(), 'public/assets/portfolio-afrizone-panel-poster.jpg')) },
+      { name: 'drawing.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') },
+      photo('unreadable.jpg'),
+    ])
+    const items = form.getByRole('list', { name: 'Attached files' }).getByRole('listitem')
+    // The photo itself, read in the browser and actually shown.
+    const preview = items.nth(0).locator('img.quote-file-preview')
+    await expect(preview).toHaveAttribute('src', /^blob:/)
+    await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
+    // Decorative: the name beside it says what it is.
+    await expect(preview).toHaveAttribute('alt', '')
+    await expect(items.nth(1).locator('.quote-file-preview')).toHaveText('PDF')
+    // A file that says it is a photo but cannot be shown gets a plain tile, not a broken image.
+    await expect(items.nth(2).locator('.quote-file-preview')).toHaveText('Photo')
+    await expect(items.nth(2).locator('img')).toHaveCount(0)
+    // Removing a photo removes its preview with it.
+    await items.nth(0).getByRole('button', { name: 'Remove nameplate.jpg' }).click()
+    await expect(form.locator('img.quote-file-preview')).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0)
   })
 
   test('attaches files up to 25 MB together, and says why one more would not fit', async ({ page }) => {
