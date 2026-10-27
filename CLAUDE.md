@@ -343,8 +343,8 @@ Outside production it stays off, so a forged `X-Forwarded-For` header cannot dod
 
 - `helmet()` sets security headers on every API response; JSON bodies are capped at 32kb,
   except the admin site-content routes (256kb, read only after the admin login check: a whole
-  policy is saved at once). The contact form with attachments is multipart, capped by multer at 5
-  files of 10 MB and read only after its rate limit (Section 8).
+  policy is saved at once). The contact form with attachments is multipart, capped at 5 files of
+  10 MB and 25 MB together, and read only after its rate limit and its upload limits (Section 8).
 - **Query-operator injection** (e.g. `{ "fullName": { "$gt": "" } }`) is blocked by the validators,
   not by a sanitising middleware: `validation/fields.ts`'s `text()` keeps only strings, so objects
   become empty values. Every new validator must coerce fields to primitive types this way before
@@ -548,8 +548,8 @@ name), and logs which database it found. The guard only works if production sets
 
 ### 6.3 Runtime topology
 
-Run **exactly one API instance**. The rate limiters and the per-recipient email confirmation cap
-keep their counts in memory. Before running two instances, move that state to a shared store. In Coolify, set the
+Run **exactly one API instance**. The rate limiters, the per-recipient email confirmation cap, and
+the contact form's upload places keep their counts in memory. Before running two instances, move that state to a shared store. In Coolify, set the
 API replica count to 1 and do not enable autoscaling; this is enforced only by that setting, not
 by code.
 
@@ -868,13 +868,24 @@ takes a site image path (`/assets/…`) and the session reply's `imageUploads` i
   (a few hundred kB each).
 
 ### Files on the contact form (Amazon S3)
-Built 2026-10-24 (the user's request and choices: photos and PDFs, up to 5 files of 10 MB each, the
+Built 2026-10-24 (the user's request and choices: photos and PDFs, up to 5 files of 10 MB each (25 MB
+together since 2026-10-27), the
 same bucket in its own folder, the `multer` package). **Optional**: the form works the same without
 files. Offered only while the `S3_*` settings are set (`GET /api/contact-requests/options`).
 - The form is sent as multipart form data when files are attached (`routes/contactRequests.ts`;
   multer, memory storage, limits checked while reading, file names read as UTF-8). The per-IP form
   budget runs **before** the body is read; the spam trap discards files too; the text fields are
   validated before any file is processed.
+- **Upload limits** (2026-10-27, audit finding M-04; the user chose the numbers): the files are held
+  in memory while they arrive and are checked, so before any of a form with files is read, its
+  stated size must fit 25 MB of files plus the text (`413 FILES_TOO_LARGE`; no stated size `411`),
+  files are refused at once while storage is off, each sender (IP) sends one at a time
+  (`429 UPLOAD_IN_PROGRESS`), and at most 3 are handled at once across the site (`503 UPLOADS_BUSY`,
+  `Retry-After: 60`; the form keeps the message and files). One that takes over 5 minutes is
+  stopped (`408 UPLOAD_TOO_SLOW`; 5 minutes lets 25 MB arrive at about 0.7 Mbit/s, as on slow mobile
+  connections). Forms without files are never held up. `services/photos.ts` opens one photo at a
+  time across the whole API (contact files and product photos), as a large one takes up to about
+  200 MB for a moment. The API container has a memory limit in Coolify (RUNBOOK 1.2).
 - `services/requestFiles.ts` checks each file by its content, never its name or declared type:
   photos are re-encoded as WebP (fit in 2400×2400, upright, camera details dropped;
   `services/photos.ts`, shared with product photos); PDFs must start with `%PDF-` and end with

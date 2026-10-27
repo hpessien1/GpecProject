@@ -1,7 +1,10 @@
+import http from 'node:http'
+import type { AddressInfo } from 'node:net'
 import request from 'supertest'
 import sharp from 'sharp'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ContactRequest from '../src/models/ContactRequest.js'
+import { UPLOAD_LIMITS } from '../src/routes/contactRequests.js'
 import { seedDemoData } from '../src/services/demoData.js'
 import { MemoryImageStore, RecordingMailer, TEST_EMAIL_SETTINGS, createTestAdmin, loggedInAgent, noBreaches, testApp, useTestDatabase } from './helpers.js'
 
@@ -278,5 +281,143 @@ describe('staff opening attached files', () => {
     const { reference, photoFile } = await requestWithFiles()
     store.objects.delete(`request-files/${photoFile.id}`)
     expect((await agent.get(`${LIST}/${reference}/files/${photoFile.id}`)).status).toBe(404)
+  })
+})
+
+// Audit M-04: anyone can send a form with files, and the server holds them in memory while checking
+// them, so the server limits how much arrives and how many arrive at once. A form with files that
+// starts arriving and stalls stands for a slow or deliberately stuck sender.
+describe('limits on forms with files', () => {
+  const MB = 1024 * 1024
+  const BOUNDARY = 'gpec-test-boundary'
+  const LIMITS = { concurrent: 3, timeoutMs: 60_000 }
+  const servers: http.Server[] = []
+  const uploads: http.ClientRequest[] = []
+  let limited: ReturnType<typeof testApp>
+
+  beforeEach(() => {
+    // Production: behind the proxy, each sender's address comes from X-Forwarded-For.
+    limited = testApp({ isProduction: true, uploadLimits: LIMITS }, null, noBreaches, store)
+  })
+
+  afterEach(async () => {
+    for (const upload of uploads.splice(0)) upload.destroy()
+    for (const server of servers.splice(0)) {
+      server.closeAllConnections()
+      await new Promise((resolve) => server.close(resolve))
+    }
+  })
+
+  interface Answer { status: number, headers: http.IncomingHttpHeaders, body: { code?: string, message?: string } | null }
+
+  // Sends the text fields and the start of a PDF, then nothing more: the upload never finishes. The
+  // answer comes only if the server replies before the rest arrives.
+  async function stalledUpload(target: ReturnType<typeof testApp>, sender: string, { contentLength = 5 * MB, chunked = false } = {}) {
+    const server = await new Promise<http.Server>((resolve) => { const started = target.listen(0, () => resolve(started)) })
+    servers.push(server)
+    const headers: Record<string, string> = { 'Content-Type': `multipart/form-data; boundary=${BOUNDARY}`, 'X-Forwarded-For': sender }
+    if (!chunked) headers['Content-Length'] = String(contentLength)
+    const upload = http.request({ port: (server.address() as AddressInfo).port, method: 'POST', path: '/api/contact-requests', headers })
+    upload.on('error', () => {})
+    uploads.push(upload)
+    const answer = new Promise<Answer>((resolve) => upload.on('response', (res) => {
+      let text = ''
+      res.on('data', (chunk) => { text += chunk })
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: text ? JSON.parse(text) : null }))
+    }))
+    upload.write(`--${BOUNDARY}\r\nContent-Disposition: form-data; name="fullName"\r\n\r\nAda Buyer\r\n--${BOUNDARY}\r\nContent-Disposition: form-data; name="files"; filename="big.pdf"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.4\n`)
+    // Long enough for the server to take it in and hold its place.
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    return { answer, upload }
+  }
+
+  // An answer that has already come, or null if the server is still waiting for the upload.
+  function answered(answer: Promise<Answer>) {
+    return Promise.race([answer, new Promise<null>((resolve) => setTimeout(() => resolve(null), 500))])
+  }
+
+  function sendFrom(sender: string, files: [Buffer, string][] = [[PDF, 'a.pdf']]) {
+    const req = request(limited).post('/api/contact-requests').set('X-Forwarded-For', sender)
+    for (const [name, value] of Object.entries(FIELDS)) req.field(name, value)
+    for (const [body, filename] of files) req.attach('files', body, filename)
+    return req
+  }
+
+  const pdfOf = (size: number) => Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(size - 15), Buffer.from('\n%%EOF')])
+
+  it('refuses files over 25 MB in total before they arrive', async () => {
+    const { answer } = await stalledUpload(limited, '203.0.113.1', { contentLength: 26 * MB })
+    const res = await answered(answer)
+    expect(res).toMatchObject({ status: 413, body: { code: 'FILES_TOO_LARGE', message: 'The files together must be 25 MB or smaller.' } })
+  })
+
+  it('refuses files over 25 MB in total even when the size given leaves room for them', async () => {
+    const res = await sendFrom('203.0.113.1', [[pdfOf(10 * MB), 'a.pdf'], [pdfOf(10 * MB), 'b.pdf'], [pdfOf(5 * MB + 1), 'c.pdf']])
+    expect(res.status).toBe(413)
+    expect(res.body).toMatchObject({ code: 'FILES_TOO_LARGE' })
+    expect(await ContactRequest.countDocuments()).toBe(0)
+    expect(requestFileKeys()).toEqual([])
+  })
+
+  it('accepts files of exactly 25 MB in total', async () => {
+    const res = await sendFrom('203.0.113.1', [[pdfOf(10 * MB), 'a.pdf'], [pdfOf(10 * MB), 'b.pdf'], [pdfOf(5 * MB), 'c.pdf']])
+    expect(res.status).toBe(201)
+    expect(requestFileKeys()).toHaveLength(3)
+  })
+
+  it('refuses a form with files that does not say its size (browsers always do)', async () => {
+    const { answer } = await stalledUpload(limited, '203.0.113.1', { chunked: true })
+    expect(await answered(answer)).toMatchObject({ status: 411 })
+  })
+
+  it('refuses files at once while storage is off, rather than reading them first', async () => {
+    const off = testApp({ isProduction: true, uploadLimits: LIMITS })
+    const { answer } = await stalledUpload(off, '203.0.113.1')
+    expect(await answered(answer)).toMatchObject({ status: 503, body: { code: 'FILE_UPLOADS_OFF' } })
+  })
+
+  it('takes one form with files at a time from each sender', async () => {
+    const first = await stalledUpload(limited, '203.0.113.1')
+    const again = await sendFrom('203.0.113.1')
+    expect(again.status).toBe(429)
+    expect(again.body).toMatchObject({ code: 'UPLOAD_IN_PROGRESS', message: 'Your earlier message with files is still being sent. Wait for it to finish, then try again.' })
+    expect((await sendFrom('203.0.113.2')).status).toBe(201)
+    // Once the first is over, the sender can send again.
+    first.upload.destroy()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect((await sendFrom('203.0.113.1')).status).toBe(201)
+  })
+
+  it('takes at most three forms with files at once, and says the site is busy to a fourth', async () => {
+    const [first] = await Promise.all(['203.0.113.1', '203.0.113.2', '203.0.113.3'].map((sender) => stalledUpload(limited, sender)))
+    const fourth = await sendFrom('203.0.113.4')
+    expect(fourth.status).toBe(503)
+    expect(fourth.headers['retry-after']).toBe('60')
+    expect(fourth.body).toMatchObject({ code: 'UPLOADS_BUSY', message: 'Many people are sending files right now. Please try again in a minute: your message and files are still in the form.' })
+    expect(await ContactRequest.countDocuments()).toBe(0)
+    // Forms without files are never held up.
+    expect((await request(limited).post('/api/contact-requests').set('X-Forwarded-For', '203.0.113.4').send(FIELDS)).status).toBe(201)
+    // A place frees up when an upload ends, finished or not.
+    first.upload.destroy()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect((await sendFrom('203.0.113.4')).status).toBe(201)
+  })
+
+  it('frees the place of a refused form, too', async () => {
+    for (let i = 0; i < 4; i++) expect((await sendFrom('203.0.113.1', [[PDF, 'notes.txt'], [Buffer.from('hello'), 'notes.txt']])).status).toBe(400)
+    expect((await sendFrom('203.0.113.1')).status).toBe(201)
+  })
+
+  it('stops a form with files that takes longer than the time limit, and frees its place', async () => {
+    const quick = testApp({ isProduction: true, uploadLimits: { concurrent: 1, timeoutMs: 300 } }, null, noBreaches, store)
+    const { answer } = await stalledUpload(quick, '203.0.113.1')
+    const res = await Promise.race([answer, new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))])
+    expect(res).toMatchObject({ status: 408, body: { code: 'UPLOAD_TOO_SLOW' } })
+    const next = request(quick).post('/api/contact-requests').set('X-Forwarded-For', '203.0.113.1').field('fullName', FIELDS.fullName).field('email', FIELDS.email).field('subject', FIELDS.subject).field('message', FIELDS.message).attach('files', PDF, 'a.pdf')
+    expect((await next).status).toBe(201)
+  })
+
+  it('allows five minutes by default', () => {
+    expect(UPLOAD_LIMITS).toEqual({ concurrent: 3, timeoutMs: 5 * 60_000 })
   })
 })

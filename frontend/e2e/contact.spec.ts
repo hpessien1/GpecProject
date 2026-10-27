@@ -87,6 +87,36 @@ test.describe('contact form', () => {
     await expect(form.getByRole('alert')).toHaveText('“photo-6.jpg” was not added: you can attach up to 5 files.')
   })
 
+  test('attaches files up to 25 MB together, and says why one more would not fit', async ({ page }) => {
+    await mockApi(page)
+    const form = await fillContactForm(page)
+    await expect(form.getByText('Up to 5 files, each up to 10 MB and 25 MB together')).toBeVisible()
+    const nineMB = 9 * 1024 * 1024
+    await form.getByLabel('Attach photos or PDFs').setInputFiles([photo('one.jpg', nineMB), photo('two.jpg', nineMB), photo('three.jpg', nineMB), photo('four.jpg', 2048)])
+    const list = form.getByRole('list', { name: 'Attached files' })
+    await expect(list.getByRole('listitem')).toHaveCount(3)
+    await expect(list).toContainText('four.jpg')
+    await expect(form.getByRole('alert')).toHaveText('“three.jpg” was not added: the files together must be 25 MB or smaller, and this would make 27.0 MB.')
+    // Removing one makes room again.
+    await form.getByRole('button', { name: 'Remove one.jpg' }).click()
+    await form.getByLabel('Add more files').setInputFiles([photo('three.jpg', nineMB)])
+    await expect(list.getByRole('listitem')).toHaveCount(3)
+    await expect(form.getByRole('alert')).toHaveCount(0)
+  })
+
+  test('says when the site is busy with other files, and keeps the message and files to try again', async ({ page }) => {
+    const api = await mockApi(page, { uploadsBusy: true })
+    const form = await fillContactForm(page)
+    await form.getByLabel('Attach photos or PDFs').setInputFiles([photo('nameplate.jpg')])
+    await form.getByRole('button', { name: 'Send inquiry' }).click()
+    await expect(form.locator('.form-error')).toHaveText('Many people are sending files right now. Please try again in a minute: your message and files are still in the form.')
+    await expect(form.getByLabel('Your requirement')).toHaveValue('A solar system for my shop.')
+    await expect(form.getByRole('list', { name: 'Attached files' })).toContainText('nameplate.jpg')
+    api.uploadsBusy = false
+    await form.getByRole('button', { name: 'Send inquiry' }).click()
+    await expect(form.locator('.success-message')).toContainText('GPEC-C-2026-AAAAAAAA')
+  })
+
   test('keeps the attached files when sending fails', async ({ page }) => {
     await mockApi(page, { formsFail: true })
     const form = await fillContactForm(page)

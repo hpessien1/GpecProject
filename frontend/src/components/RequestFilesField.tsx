@@ -6,6 +6,7 @@ import { formatFileSize } from '../utils/fileSize'
 const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 const MAX_FILES = 5
 const MAX_FILE_BYTES = 10 * 1024 * 1024
+const MAX_TOTAL_BYTES = 25 * 1024 * 1024
 
 interface RequestFilesFieldProps {
   files: File[]
@@ -37,12 +38,17 @@ export default function RequestFilesField({ files, onChange, disabled }: Request
     event.target.value = ''
     const found: string[] = []
     const next = [...files]
+    let total = files.reduce((sum, file) => sum + file.size, 0)
     for (const file of chosen) {
       const problem = problemWith(file)
       if (problem) found.push(problem)
       else if (next.some((kept) => sameFile(kept, file))) continue
       else if (next.length >= MAX_FILES) found.push(`“${file.name}” was not added: you can attach up to ${MAX_FILES} files.`)
-      else next.push(file)
+      else if (total + file.size > MAX_TOTAL_BYTES) found.push(`“${file.name}” was not added: the files together must be 25 MB or smaller, and this would make ${formatFileSize(total + file.size)}.`)
+      else {
+        next.push(file)
+        total += file.size
+      }
     }
     setProblems(found)
     onChange(next)
@@ -58,7 +64,7 @@ export default function RequestFilesField({ files, onChange, disabled }: Request
     <p className="quote-files-title">Photos or drawings <span>(optional)</span></p>
     <input ref={inputRef} id="contact-files" className="visually-hidden" type="file" multiple accept={UPLOAD_TYPES.join(',')} disabled={disabled} onChange={handleChange} aria-describedby={problems.length > 0 ? 'contact-files-hint contact-files-problems' : 'contact-files-hint'} />
     <label className="quote-files-button" htmlFor="contact-files">{files.length > 0 ? 'Add more files' : 'Attach photos or PDFs'}</label>
-    <small id="contact-files-hint">Up to {MAX_FILES} files, each up to 10 MB: JPEG, PNG, or WebP photos, or PDF documents, such as a nameplate, a drawing, or the site. Only GPEC staff can see them. Photos are re-saved without hidden details such as where they were taken.</small>
+    <small id="contact-files-hint">Up to {MAX_FILES} files, each up to 10 MB and 25 MB together: JPEG, PNG, or WebP photos, or PDF documents, such as a nameplate, a drawing, or the site. Only GPEC staff can see them. Photos are re-saved without hidden details such as where they were taken.</small>
     {files.length > 0 && <ul className="quote-file-list" aria-label="Attached files">
       {files.map((file, index) => <li key={`${file.name}-${file.size}`}>
         <span className="quote-file-name">{file.name}</span>

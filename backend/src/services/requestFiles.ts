@@ -12,6 +12,8 @@ import { reencodePhoto } from './photos.js'
 export const REQUEST_FILE_UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 export const MAX_REQUEST_FILES = 5
 export const MAX_REQUEST_FILE_BYTES = 10 * 1024 * 1024
+// All the files on one form together (audit M-04: the server holds them in memory while checking them).
+export const MAX_REQUEST_FILES_TOTAL_BYTES = 25 * 1024 * 1024
 // What is stored, and so what the admin panel is sent.
 export const STORED_REQUEST_FILE_TYPES = ['image/webp', 'application/pdf'] as const
 export type StoredRequestFileType = typeof STORED_REQUEST_FILE_TYPES[number]

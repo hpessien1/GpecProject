@@ -109,6 +109,13 @@ Coolify with the `gpec-prod` string and redeploy the API.
    ever switched on, set path `/api/health` and port `5001` first.
 6. Replicas: **1**. Do not enable autoscaling or a second instance — the rate limiter keeps its
    counts in memory.
+7. **Memory limit: 1 GB** (added 2026-10-27, security audit M-04). In the resource's *Resource
+   Limits* settings, set the maximum memory to `1g` (leave CPU as it is), save, and restart the
+   resource. If the API ever uses more (for example during an attack with large uploads), Docker
+   restarts only the API container, which comes back within about a minute, instead of the whole
+   server (4 GB, shared with the website, Coolify, and its proxy) running out of memory. Normal use
+   stays well under it: a few hundred MB at most while photos are being re-saved. If the API keeps
+   restarting, look at *Logs* for "out of memory" before raising the limit.
 
 ### 1.3 Coolify: website
 

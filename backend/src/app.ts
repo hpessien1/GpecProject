@@ -29,6 +29,7 @@ import adminSessionRouter from './routes/adminSession.js'
 import adminSiteContentRouter from './routes/adminSiteContent.js'
 import checkoutRouter from './routes/checkout.js'
 import contactRequestsRouter from './routes/contactRequests.js'
+import type { UploadLimits } from './routes/contactRequests.js'
 import paystackWebhookRouter from './routes/paystackWebhook.js'
 import productImagesRouter from './routes/productImages.js'
 import productsRouter from './routes/products.js'
@@ -36,7 +37,10 @@ import siteContentRouter from './routes/siteContent.js'
 
 const SITE_CONTENT_ADMIN_PATH = '/api/admin/content'
 
-export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments' | 'twoFactorKey'>
+export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments' | 'twoFactorKey'> & {
+  // Limits on contact forms with files (routes/contactRequests.ts); tests set shorter ones.
+  uploadLimits?: UploadLimits
+}
 
 // Errors from express.json and express.raw carry a 4xx status and type (e.g. 'entity.too.large').
 function isBodyReadError(error: unknown): error is { status: number } {
@@ -91,7 +95,7 @@ export default function createApp(
   app.use('/api/products', productsRouter(config.currency))
   app.use('/api/product-images', productImagesRouter(imageStore))
   app.use('/api/content', siteContentRouter())
-  app.use('/api/contact-requests', contactRequestsRouter(notifier, imageStore, formLimiter(config.formRateLimit)))
+  app.use('/api/contact-requests', contactRequestsRouter(notifier, imageStore, formLimiter(config.formRateLimit), config.uploadLimits))
   app.use('/api/checkout', checkoutRouter(config, paystack, notifier, { read: formLimiter(config.checkoutReadRateLimit), order: formLimiter(config.orderRateLimit) }))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.
   app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })

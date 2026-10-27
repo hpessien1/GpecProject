@@ -142,6 +142,8 @@ export interface ApiState {
   // Whether email is set up, which "forgot password" needs.
   emailOn: boolean
   formsFail: boolean
+  // The real API's answer when three forms with files are already arriving (backend routes/contactRequests.ts).
+  uploadsBusy: boolean
   loggedIn: boolean
   // Two-step login: the admin's method (null: off), unused recovery codes, which methods the "server"
   // offers, whether the banner was closed this login, and a login waiting for its code.
@@ -213,6 +215,7 @@ function initialState(): ApiState {
     currency: NGN,
     emailOn: true,
     formsFail: false,
+    uploadsBusy: false,
     loggedIn: false,
     twoFactorMethod: null,
     recoveryCodes: [],
@@ -383,6 +386,9 @@ function reply(state: ApiState, request: Request): Reply {
     return found ? [200, found] : [404, { message: 'Page not found.', code: 'NOT_FOUND' }]
   }
   if (path === '/api/contact-requests/options') return [200, { fileUploads: state.imageUploads }]
+  // Only a form with files (multipart, recorded with its files) waits for a place.
+  const sentFiles = (state.requests.at(-1)?.body as { files?: unknown[] } | undefined)?.files ?? []
+  if (path === '/api/contact-requests' && state.uploadsBusy && sentFiles.length > 0) return [503, { message: 'Many people are sending files right now. Please try again in a minute: your message and files are still in the form.', code: 'UPLOADS_BUSY' }]
   if (path === '/api/contact-requests') return state.formsFail ? [400, { message: 'Check your details and try again.' }] : [201, { reference: 'GPEC-C-2026-AAAAAAAA', createdAt: now }]
 
   if (path === '/api/admin/session' && method === 'POST') {

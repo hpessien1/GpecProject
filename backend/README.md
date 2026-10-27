@@ -144,12 +144,18 @@ Both public form routes have a spam trap: a request whose `website` field has a 
 `POST /api/contact-requests` accepts the landing-page contact form: `fullName`, `email`, and `message` (required), plus optional `company`, `phone`, and `subject` (one of the form's listed options). It saves the request and returns a `GPEC-C-YYYY-XXXXXXXX` reference.
 
 Files are optional. With files, the same fields come as `multipart/form-data`, plus up to 5 files in
-`files` (each up to 10 MB): JPEG, PNG, or WebP photos, re-saved as WebP (upright, at most 2400×2400,
+`files` (each up to 10 MB, 25 MB together): JPEG, PNG, or WebP photos, re-saved as WebP (upright, at most 2400×2400,
 camera details removed), or PDFs (checked to start with `%PDF-` and end with `%%EOF`, stored as
 sent). They go to the private S3 bucket under `request-files/<random id>`, never a public address.
 Refusals: a file that is neither gets `400 VALIDATION_ERROR` naming it (and nothing is saved); more
-than 5 files `400 TOO_MANY_FILES`; a file over 10 MB `413 FILE_TOO_LARGE`; files while the `S3_*`
-settings are unset `503 FILE_UPLOADS_OFF`. The text fields are checked first. The emails say how many
+than 5 files `400 TOO_MANY_FILES`; a file over 10 MB `413 FILE_TOO_LARGE`; files over 25 MB together
+`413 FILES_TOO_LARGE` (refused before reading when the stated size is too large; a multipart form with
+no stated size gets `411`); files while the `S3_*` settings are unset `503 FILE_UPLOADS_OFF` (also
+before reading). Upload limits (audit M-04; `UPLOAD_LIMITS` in `routes/contactRequests.ts`): one form
+with files at a time per sender, `429 UPLOAD_IN_PROGRESS`; at most 3 at once across the site,
+`503 UPLOADS_BUSY` with `Retry-After: 60`; over 5 minutes to arrive, `408 UPLOAD_TOO_SLOW`. Forms
+without files (JSON) are never held up. Photos are re-saved one at a time across the API. The text
+fields are checked first. The emails say how many
 files came, without attaching them. `GET /api/contact-requests/options` answers `{ fileUploads }`
 (whether the form offers attachments); it is outside the form's rate limit.
 
