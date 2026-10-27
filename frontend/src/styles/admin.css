@@ -493,7 +493,7 @@
 .admin-status-transfer_reported {
   background: var(--sand);
 }
-/* Confirming a bank transfer (components/admin/AdminOrderDetail.tsx) */
+/* Confirming a bank transfer, and asking Paystack about a payment (components/admin/AdminOrderDetail.tsx) */
 .admin-transfer-actions {
   display: grid;
   gap: 1rem;
@@ -502,11 +502,11 @@
 .admin-transfer-actions .admin-notice {
   margin: 0;
 }
-/* "Did the money arrive?" is the column's first heading, so no space above it. */
+/* "Did the money arrive?" (or "Has the customer paid?") is the column's first heading, so no space above it. */
 .admin-request-side .admin-transfer-actions h2 {
   margin: 0;
 }
-/* Its two answers, each a box with its own heading, explanation, and button. */
+/* Its answers, each a box with its own heading, explanation, and button. */
 .admin-transfer-choice {
   display: grid;
   gap: 0.8rem;

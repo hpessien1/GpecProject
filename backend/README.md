@@ -52,7 +52,8 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
   `GET /api/admin/bank-transfer/history`; `GET`, `PATCH /api/admin/customer-email`,
   `GET /api/admin/customer-email/history`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
   `GET /api/admin/content/:page/history`;
-  `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`;
+  `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`,
+  `POST /api/admin/orders/:reference/check-payment`;
   `POST /api/admin/product-images`
 - Public product photos: `GET /api/product-images/:hash.webp`
 
@@ -247,7 +248,7 @@ All admin responses are sent with `Cache-Control: no-store`.
   `cancelled`), with `counts` per stage, the total, the currency, and pickup or delivery. `q`
   searches as for contact requests. `GET /:reference` returns the order (items with prices at order
   time, amounts in the smallest unit, `currency` info, `paymentReference` for Paystack), its status
-  history, and staff `notes` (newest pages), plus `emailOn`. `PATCH /:reference` with
+  history, and staff `notes` (newest pages), plus `emailOn` and `paystackOn` (online payment is set up). `PATCH /:reference` with
   `{ fulfilmentStatus, notifyCustomer? }` (and nothing else)
   moves a **paid** order along and records it: unpaid orders get `409 ORDER_NOT_PAID`, a pickup
   order cannot be `out_for_delivery` nor a delivery order `ready_for_pickup` (`400`). Payment status,
@@ -256,7 +257,14 @@ All admin responses are sent with `Cache-Control: no-store`.
   only for `ready_for_pickup`, `out_for_delivery`, and `cancelled`, only when the status really
   changes, and only while email is on; the history entry then has `customerEmailed: true`.
   `transfer-not-received` takes the same optional `{ notifyCustomer }` (the customer is told the
-  order is closed and asked for details if they did pay); `transfer-received` takes only `{ password }`. `POST /:reference/notes` as for
+  order is closed and asked for details if they did pay); `transfer-received` takes only `{ password }`. `POST /:reference/check-payment` (no body; audit
+  finding M-07) asks Paystack about a Paystack order not yet paid, through the same `markOrderPaid`
+  as the webhook, and answers the order plus `paymentCheck`: `paid` (now, recorded as `order.payment`
+  with who asked, paid emails sent), `already_paid` (Paystack not asked), `failed` (recorded),
+  `not_paid` (unfinished or abandoned), `not_found` (no such transaction), or `mismatch` (amount or
+  currency differ; not paid). Bank-transfer orders get `409 NOT_A_PAYSTACK_ORDER`; with payments off
+  `503 PAYMENT_CONFIG_ERROR`; Paystack unreachable `502 PAYMENT_CHECK_FAILED`. No password: Paystack
+  decides, not the admin. `POST /:reference/notes` as for
   contact requests. Orders are created by checkout; demo orders by `npm run seed:demo` (on the live
   database only with `--production`, removed before launch). Delivery orders include
   `deliveryAreaName`; every order has `customerNotes`.

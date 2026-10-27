@@ -3,8 +3,9 @@ import type { RequestHandler } from 'express'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { addOrderNote, getOrder, listOrders, orderHistory, orderNotes, setFulfilmentStatus } from '../services/adminOrders.js'
-import { closeUnpaidTransfer, confirmTransferReceived } from '../services/checkout.js'
+import { checkPaymentForStaff, closeUnpaidTransfer, confirmTransferReceived } from '../services/checkout.js'
 import type { Notifier } from '../services/notifications.js'
+import type { PaystackClient } from '../services/paystack.js'
 import { ORDER_REFERENCE_PATTERN, validateFulfilmentChange, validateOrderListQuery, validateTransferClose } from '../validation/adminOrder.js'
 import { validateNote } from '../validation/adminRequest.js'
 import { validateOlderPageQuery } from '../validation/olderPage.js'
@@ -12,11 +13,12 @@ import { validateOlderPageQuery } from '../validation/olderPage.js'
 // Orders (/api/admin/orders) for GPEC staff. Mounted behind requireAdmin in app.ts: customers'
 // details never reach an anonymous visitor. Admins can read and search orders, move a paid order's
 // fulfilment along, and add internal notes. They cannot change items, amounts, or customer details.
-// Payment status is set by the server: after Paystack confirms a payment, or, for a bank transfer,
-// through the two recorded actions below (the money arrived, or it never did).
+// Payment status is set by the server: after Paystack confirms a payment (staff can ask Paystack
+// themselves), or, for a bank transfer, through the two recorded actions below (the money arrived, or
+// it never did).
 // confirmPassword (middleware/requirePassword.ts): marking a transfer received releases goods, so it
-// needs the admin's password as well as the session.
-export default function adminOrdersRouter(notifier: Notifier, confirmPassword: RequestHandler) {
+// needs the admin's password as well as the session. paystack: null while payments are not set up.
+export default function adminOrdersRouter(notifier: Notifier, confirmPassword: RequestHandler, paystack: PaystackClient | null) {
   const router = Router()
 
   // unknown: with a middleware before it (confirmPassword), Express types the parameter more loosely.
@@ -35,9 +37,10 @@ export default function adminOrdersRouter(notifier: Notifier, confirmPassword: R
     }
   })
 
-  // An order as the detail screen shows it, with emailOn: whether customers can be told about changes.
+  // An order as the detail screen shows it, with emailOn: whether customers can be told about changes,
+  // and paystackOn: whether Paystack can be asked about a payment.
   async function detail(order: ReturnType<typeof getOrder>) {
-    return { ...await order, emailOn: notifier.isOn }
+    return { ...await order, emailOn: notifier.isOn, paystackOn: paystack !== null }
   }
 
   router.get('/:reference', async (req, res, next) => {
@@ -81,6 +84,19 @@ export default function adminOrdersRouter(notifier: Notifier, confirmPassword: R
       if (Object.keys(req.body ?? {}).length > 0) throw new ValidationError({ body: 'Send no details.' })
       await confirmTransferReceived(currentAdmin(res), reference, notifier)
       return res.json(await detail(getOrder(reference)))
+    } catch (error) {
+      return next(error)
+    }
+  })
+
+  // Ask Paystack about an unpaid Paystack order (audit M-07). No password: Paystack decides, not the
+  // admin, and the answer is checked against the order's amount and currency as for the webhook.
+  router.post('/:reference/check-payment', async (req, res, next) => {
+    try {
+      const reference = referenceParam(req.params.reference)
+      if (Object.keys(req.body ?? {}).length > 0) throw new ValidationError({ body: 'Send no details.' })
+      const paymentCheck = await checkPaymentForStaff(currentAdmin(res), reference, paystack, notifier)
+      return res.json({ ...await detail(getOrder(reference)), paymentCheck })
     } catch (error) {
       return next(error)
     }

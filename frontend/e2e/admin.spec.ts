@@ -356,6 +356,51 @@ test.describe('orders', () => {
     await expect(page.getByText('Payment has not been completed, so this order cannot be moved along.')).toBeVisible()
   })
 
+  // Audit M-07: Paystack's confirmation may never have reached the website.
+  test('staff can ask Paystack about an unpaid order, which becomes paid only on Paystack’s word', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000D')
+    const check = page.getByRole('region', { name: 'Has the customer paid?' }).getByRole('form', { name: 'Ask Paystack' })
+    await check.getByRole('button', { name: 'Check payment with Paystack' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Paystack confirms the payment: the order is now paid and can be moved along. The customer has been emailed their order confirmation.')
+    await expect(page.locator('.success-message')).toBeFocused()
+    expect(api.requests.find((r) => r.path.endsWith('/check-payment'))?.body).toEqual({})
+    await expect(page.locator('.admin-history li').first()).toContainText('Payment: Awaiting payment → Paid (checked with Paystack)')
+    await expect(page.getByLabel('Order status')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Check payment with Paystack' })).toHaveCount(0)
+  })
+
+  test('asking Paystack changes nothing when it has no payment, and says so', async ({ page }) => {
+    await mockApi(page, { paymentCheck: 'not_found' })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000D')
+    await page.getByRole('button', { name: 'Check payment with Paystack' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Paystack has no payment for this order: the customer did not get as far as paying. Nothing changed.')
+    await expect(page.locator('.admin-status')).toHaveText('Awaiting payment')
+    await expect(page.getByRole('button', { name: 'Check payment with Paystack' })).toBeEnabled()
+  })
+
+  test('a payment that does not match the order, or Paystack being unreachable, shows as an error', async ({ page }) => {
+    const api = await mockApi(page, { paymentCheck: 'mismatch' })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000D')
+    await page.getByRole('button', { name: 'Check payment with Paystack' }).click()
+    await expect(page.locator('.form-error')).toHaveText('Paystack reports a payment that does not match this order’s amount or currency, so the order was not marked paid. Look up the Paystack reference in Paystack’s dashboard.')
+    api.paymentCheckFails = true
+    await page.getByRole('button', { name: 'Check payment with Paystack' }).click()
+    await expect(page.locator('.form-error')).toHaveText('Paystack could not be reached just now. Nothing changed; try again in a moment.')
+    await expect(page.locator('.admin-status')).toHaveText('Awaiting payment')
+  })
+
+  test('without online payment set up, an unpaid order only says why it cannot move', async ({ page }) => {
+    await mockApi(page, { paymentsOn: false })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000D')
+    await expect(page.getByText('Payment has not been completed, so this order cannot be moved along.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Check payment with Paystack' })).toHaveCount(0)
+  })
+
   test('adds a note to an order', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)

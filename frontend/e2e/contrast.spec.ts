@@ -361,8 +361,17 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.getByText('Email is not set up').waitFor()
     await audit.page(page, `${label} admin order, email off`)
     api.emailOn = true
-    await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-notice')
+    await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-transfer-actions')
     await audit.page(page, `${label} admin unpaid order`)
+    if (hovering) await audit.hover(page, `${label} admin unpaid order`)
+    api.paymentCheck = 'mismatch'
+    await page.getByRole('button', { name: 'Check payment with Paystack' }).click()
+    await page.locator('.form-error').waitFor()
+    await audit.page(page, `${label} admin unpaid order, Paystack payment does not match`)
+    api.paymentCheck = 'paid'
+    await page.getByRole('button', { name: 'Check payment with Paystack' }).click()
+    await page.getByLabel('Order status').waitFor()
+    await audit.page(page, `${label} admin order paid after asking Paystack`)
     await open(`#admin/orders/${TRANSFER_ORDER_REF}`, '.admin-transfer-actions')
     await audit.page(page, `${label} admin order awaiting bank transfer`)
     if (hovering) await audit.hover(page, `${label} admin order awaiting bank transfer`)

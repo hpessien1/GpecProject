@@ -162,19 +162,20 @@ type Session = mongoose.ClientSession
 
 // Marks an unpaid (or failed) order paid, at most once: the conditional update lets only one caller
 // win. The winner reduces counted stock (never below 0, each change recorded) and sends the paid
-// emails. record: an extra audit record written in the same transaction (staff confirming a transfer).
-// from: the statuses it may be paid from; a Paystack retry can succeed after a failed attempt, but a
-// transfer staff closed as not received stays closed.
-async function settleOrder(order: StoredOrder, notifier: Notifier, from: string[], record?: (session: Session, paidAt: Date) => Promise<unknown>) {
+// emails. record: an extra audit record written in the same transaction (staff confirming a transfer,
+// or asking Paystack), given the status the order was paid from. from: the statuses it may be paid
+// from; a Paystack retry can succeed after a failed attempt, but a transfer staff closed as not
+// received stays closed.
+async function settleOrder(order: StoredOrder, notifier: Notifier, from: string[], record?: (session: Session, paidFrom: string) => Promise<unknown>) {
   let won = false
   await mongoose.connection.transaction(async (session) => {
     won = false
-    const paidAt = new Date()
-    // Never from paid: status only moves forward.
-    const update = await Order.updateOne({ _id: order._id, paymentStatus: { $in: from } }, { $set: { paymentStatus: 'paid', paidAt } }, { session })
-    if (update.modifiedCount !== 1) return
+    // Never from paid: status only moves forward. Returns the order as it was, or null if it was not
+    // in one of those statuses.
+    const before = await Order.findOneAndUpdate({ _id: order._id, paymentStatus: { $in: from } }, { $set: { paymentStatus: 'paid', paidAt: new Date() } }, { session, projection: { paymentStatus: 1 } }).lean()
+    if (!before) return
     won = true
-    await record?.(session, paidAt)
+    await record?.(session, before.paymentStatus ?? 'pending_payment')
     for (const item of order.items) {
       const product = await Product.findOne({ _id: item.productId, stockQuantity: { $ne: null } }).session(session).lean()
       if (!product || product.stockQuantity == null) continue
@@ -198,9 +199,10 @@ async function settleOrder(order: StoredOrder, notifier: Notifier, from: string[
 
 type PaidOutcome = 'paid' | 'already_paid' | 'not_successful' | 'mismatch' | 'unknown_order'
 
-// The one function that marks a Paystack order paid, used by both the webhook and the return-page
-// check (CLAUDE.md 4.1). Paystack must report success with exactly the order's amount and currency.
-export async function markOrderPaid(result: TransactionResult, notifier: Notifier): Promise<PaidOutcome> {
+// The one function that marks a Paystack order paid, used by the webhook, the return-page check, and
+// staff asking Paystack (CLAUDE.md 4.1). Paystack must report success with exactly the order's amount
+// and currency. record: as in settleOrder (staff asked).
+export async function markOrderPaid(result: TransactionResult, notifier: Notifier, record?: (session: Session, paidFrom: string) => Promise<unknown>): Promise<PaidOutcome> {
   if (!mongoose.isObjectIdOrHexString(result.reference)) return 'unknown_order'
   const order = await findOrder(result.reference)
   // A bank-transfer order never had a Paystack transaction: a charge naming it is not its payment.
@@ -212,18 +214,64 @@ export async function markOrderPaid(result: TransactionResult, notifier: Notifie
     console.error(`Payment for ${order.reference} does not match the order (amount or currency differ); it was not marked paid.`)
     return 'mismatch'
   }
-  return await settleOrder(order, notifier, ['pending_payment', 'failed']) ? 'paid' : 'already_paid'
+  return await settleOrder(order, notifier, ['pending_payment', 'failed'], record) ? 'paid' : 'already_paid'
 }
 
 // Paystack reported a failed charge. Only an unpaid order changes: a late or repeated failure never
-// moves a paid order back (CLAUDE.md 4.1).
-export async function markOrderFailed(reference: string) {
-  if (!mongoose.isObjectIdOrHexString(reference)) return
-  await Order.updateOne({ _id: reference, paymentMethod: { $ne: 'bank_transfer' }, paymentStatus: 'pending_payment' }, { $set: { paymentStatus: 'failed' } })
+// moves a paid order back (CLAUDE.md 4.1). record: written in the same transaction, only if the order
+// changed (staff asked). True when it changed.
+export async function markOrderFailed(reference: string, record?: (session: Session) => Promise<unknown>) {
+  if (!mongoose.isObjectIdOrHexString(reference)) return false
+  let changed = false
+  await mongoose.connection.transaction(async (session) => {
+    const update = await Order.updateOne({ _id: reference, paymentMethod: { $ne: 'bank_transfer' }, paymentStatus: 'pending_payment' }, { $set: { paymentStatus: 'failed' } }, { session })
+    changed = update.matchedCount === 1
+    if (changed) await record?.(session)
+  })
+  return changed
 }
 
 function actorOf(admin: AdminIdentity) {
   return { adminId: admin.id, email: admin.email, name: admin.name }
+}
+
+function paymentRecord(admin: AdminIdentity, reference: string, from: string, to: string) {
+  return (session: Session) => AuditRecord.create([{ action: 'order.payment', targetType: 'order', targetId: reference, actor: actorOf(admin), changes: [{ field: 'paymentStatus', from, to }] }], { session })
+}
+
+// What staff asking Paystack found: paid (now), already_paid (before asking), failed (Paystack reports
+// a failed payment), not_paid (unfinished or abandoned), not_found (the customer never reached
+// Paystack's page), mismatch (a payment that does not match the order; not marked paid).
+export type PaymentCheckOutcome = 'paid' | 'already_paid' | 'failed' | 'not_paid' | 'not_found' | 'mismatch'
+
+// Audit M-07: a payment Paystack took that the site never heard about (the webhook's work was cut
+// off, and the customer closed the tab before the return-page check). Staff ask Paystack; the order
+// changes only on Paystack's word, through the same markOrderPaid, recorded with who asked.
+export async function checkPaymentForStaff(admin: AdminIdentity, reference: string, paystack: PaystackClient | null, notifier: Notifier): Promise<PaymentCheckOutcome> {
+  const order = await Order.findOne({ reference }).lean()
+  if (!order) throw new NotFoundError('Order not found.')
+  if (order.paymentMethod === 'bank_transfer') throw new ConflictError('This order is paid by bank transfer: check GPEC’s bank account instead.', 'NOT_A_PAYSTACK_ORDER')
+  if (order.paymentStatus === 'paid') return 'already_paid'
+  if (!paystack) throw new HttpError(503, 'Online payment is not set up, so Paystack cannot be asked.', 'PAYMENT_CONFIG_ERROR')
+  const paymentReference = String(order._id)
+  let result: TransactionResult | null
+  try {
+    result = await paystack.verify(paymentReference)
+  } catch (error) {
+    if (!(error instanceof PaystackError)) throw error
+    console.error(`Payment for ${order.reference} could not be checked. ${error.message}`)
+    throw new HttpError(502, 'Paystack could not be reached just now. Nothing changed; try again in a moment.', 'PAYMENT_CHECK_FAILED')
+  }
+  if (!result || result.reference !== paymentReference) return 'not_found'
+  if (result.status === 'success') {
+    const outcome = await markOrderPaid(result, notifier, (session, paidFrom) => paymentRecord(admin, reference, paidFrom, 'paid')(session))
+    return outcome === 'mismatch' ? 'mismatch' : outcome === 'paid' ? 'paid' : 'already_paid'
+  }
+  if (result.status === 'failed') {
+    await markOrderFailed(paymentReference, paymentRecord(admin, reference, 'pending_payment', 'failed'))
+    return 'failed'
+  }
+  return 'not_paid'
 }
 
 async function unpaidTransfer(reference: string) {

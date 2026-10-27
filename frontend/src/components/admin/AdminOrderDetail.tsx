@@ -6,7 +6,7 @@ import AdminOlderEntries from './AdminOlderEntries'
 import ConfirmPasswordField from './ConfirmPasswordField'
 import { fulfilmentMethodLabels, orderStageLabels, ordersContent, paymentMethodLabels, paymentStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
-import { addOrderNote, closeUnpaidTransfer, confirmTransferReceived, getOlderOrderHistory, getOlderOrderNotes, getOrder, setOrderStatus } from '../../services/adminApi'
+import { addOrderNote, checkOrderPayment, closeUnpaidTransfer, confirmTransferReceived, getOlderOrderHistory, getOlderOrderNotes, getOrder, setOrderStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import { formatPrice } from '../../utils/money'
 import type { AdminOrderResponse, FulfilmentMethod, FulfilmentStatus } from '../../types'
@@ -139,6 +139,23 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
     void settleTransfer(false)
   }
 
+  // A Paystack order not paid yet: ask Paystack, which alone decides whether it changes.
+  async function handlePaymentCheck(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setResult(null)
+    setIsSaving(true)
+    try {
+      const { paymentCheck, ...updated } = await checkOrderPayment(reference)
+      setData(updated)
+      setResult({ kind: paymentCheck === 'mismatch' ? 'error' : 'success', message: ordersContent.paystackCheck.outcomes[paymentCheck](updated.emailOn) })
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return onSessionEnded()
+      setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to check the payment with Paystack.' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const order = data?.order
   const money = (amount: number) => order ? formatPrice(amount, order.currency) : ''
   const selectedStatus = chosenStatus ?? order?.fulfilmentStatus ?? 'new'
@@ -239,6 +256,16 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
                   <button className="button button-outline" type="submit" disabled={isSaving}>{ordersContent.transferMissing.button}</button>
                 </form>
               </section>
+            : order.paymentMethod === 'paystack' && data.paystackOn
+              ? <section className="admin-transfer-actions" aria-labelledby="admin-payment-check-title">
+                <h2 id="admin-payment-check-title">{ordersContent.paystackCheck.question}</h2>
+                <p className="admin-notice">{ordersContent.notPaid}</p>
+                <form className="admin-form admin-transfer-choice" aria-labelledby="admin-payment-check-form-title" onSubmit={handlePaymentCheck}>
+                  <h3 id="admin-payment-check-form-title">{ordersContent.paystackCheck.title}</h3>
+                  <p>{ordersContent.paystackCheck.text}</p>
+                  <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? ordersContent.paystackCheck.checking : <>{ordersContent.paystackCheck.button} <Arrow /></>}</button>
+                </form>
+              </section>
             : <p className="admin-notice">{order.paymentMethod === 'bank_transfer' ? ordersContent.transferClosed : ordersContent.notPaid}</p>}
           <section className="admin-history" aria-labelledby="admin-order-history-title">
             <h2 id="admin-order-history-title">History</h2>
@@ -247,7 +274,8 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
                 : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
                   <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
                   <ul>{entry.action === 'order.payment'
-                    ? entry.changes.map((change) => <li key={change.field}>Payment: {paymentStatusLabels[change.from]} → {change.to === 'failed' ? 'Closed as not received' : paymentStatusLabels[change.to]}</li>)
+                    // On a Paystack order, staff asked Paystack; on a transfer, staff decided.
+                    ? entry.changes.map((change) => <li key={change.field}>Payment: {paymentStatusLabels[change.from]} → {order.paymentMethod === 'bank_transfer' && change.to === 'failed' ? 'Closed as not received' : paymentStatusLabels[change.to]}{order.paymentMethod === 'paystack' && ` (${ordersContent.paystackCheck.checkedNote})`}</li>)
                     : entry.changes.map((change) => <li key={change.field}>{orderStageLabels[change.from]} → {orderStageLabels[change.to]}</li>)}
                     {entry.customerEmailed && <li className="admin-history-emailed">{ordersContent.emailed}</li>}</ul>
                 </li>)}</ol>}

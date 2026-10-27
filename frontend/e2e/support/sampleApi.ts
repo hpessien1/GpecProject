@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
+import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentCheckOutcome, PaymentStatus, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -121,6 +121,9 @@ export interface ApiState {
   // What Paystack reports for the sample order once the customer is back, and making the start fail.
   paymentResult: PaymentStatus
   paymentStartFails: boolean
+  // What Paystack answers when staff ask about an unpaid order, and making Paystack unreachable.
+  paymentCheck: PaymentCheckOutcome
+  paymentCheckFails: boolean
   // GPEC's bank details (the admin screen), offered at checkout while enabled.
   bankTransfer: BankTransferSettings
   bankTransferHistory: BankTransferHistoryEntry[]
@@ -196,6 +199,8 @@ function initialState(): ApiState {
     contentFails: false,
     paymentResult: 'paid',
     paymentStartFails: false,
+    paymentCheck: 'paid',
+    paymentCheckFails: false,
     bankTransfer: { ...SAMPLE_BANK, enabled: true },
     bankTransferHistory: [],
     // What the real server starts with (backend services/customerEmail.ts, DEFAULT_REPLY_TO).
@@ -546,12 +551,27 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, { page: state.siteContent[key], ...historyReply(state.siteContentHistory[key]) }]
   }
   if (path === '/api/admin/orders') return listOrders(state.orders, url)
-  const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/history|\/transfer-received|\/transfer-not-received)?$/.exec(path)
+  const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/history|\/transfer-received|\/transfer-not-received|\/check-payment)?$/.exec(path)
   if (orderMatch) {
     const order = state.orders.find((candidate) => candidate.reference === orderMatch[1])
     if (!order) return [404, { message: 'Order not found.', code: 'NOT_FOUND' }]
     if (orderMatch[2] === '/history') return [200, historyReply(state.orderHistory[order.reference] ?? [], url)]
     if (orderMatch[2] === '/notes' && method === 'GET') return [200, notesReply(state.requestNotes[order.reference] ?? [], url)]
+    // Like the real API (backend services/checkout.ts, checkPaymentForStaff): only Paystack's answer
+    // changes the order, recorded with who asked.
+    if (orderMatch[2] === '/check-payment') {
+      if (order.paymentMethod === 'bank_transfer') return [409, { message: 'This order is paid by bank transfer: check GPEC’s bank account instead.', code: 'NOT_A_PAYSTACK_ORDER' }]
+      if (!state.paymentsOn) return [503, { message: 'Online payment is not set up, so Paystack cannot be asked.', code: 'PAYMENT_CONFIG_ERROR' }]
+      let paymentCheck: PaymentCheckOutcome = state.paymentCheck
+      if (order.paymentStatus === 'paid') paymentCheck = 'already_paid'
+      else if (state.paymentCheckFails) return [502, { message: 'Paystack could not be reached just now. Nothing changed; try again in a moment.', code: 'PAYMENT_CHECK_FAILED' }]
+      const to = paymentCheck === 'paid' ? 'paid' : paymentCheck === 'failed' && order.paymentStatus === 'pending_payment' ? 'failed' : null
+      if (to) {
+        state.orderHistory[order.reference] = [{ action: 'order.payment', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'paymentStatus', from: order.paymentStatus, to }], customerEmailed: false, createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
+        Object.assign(order, { paymentStatus: to, stage: to === 'paid' ? 'new' : 'payment_failed', paidAt: to === 'paid' ? new Date().toISOString() : null })
+      }
+      return [200, { order, emailOn: state.emailOn, paystackOn: state.paymentsOn, paymentCheck, ...historyReply(state.orderHistory[order.reference] ?? []), ...notesReply(state.requestNotes[order.reference] ?? []) }]
+    }
     if (orderMatch[2] === '/transfer-received' || orderMatch[2] === '/transfer-not-received') {
       const refused = orderMatch[2] === '/transfer-received' ? passwordRefusal() : null
       if (refused) return refused
@@ -561,7 +581,7 @@ function reply(state: ApiState, request: Request): Reply {
       // Like the real API: closing may email the customer, if asked and while email is on.
       const customerEmailed = to === 'failed' && body.notifyCustomer === true && state.emailOn
       state.orderHistory[order.reference] = [{ action: 'order.payment', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'paymentStatus', from: 'pending_payment', to }], customerEmailed, createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
-      return [200, { order, emailOn: state.emailOn, ...historyReply(state.orderHistory[order.reference]), ...notesReply(state.requestNotes[order.reference] ?? []) }]
+      return [200, { order, emailOn: state.emailOn, paystackOn: state.paymentsOn, ...historyReply(state.orderHistory[order.reference]), ...notesReply(state.requestNotes[order.reference] ?? []) }]
     }
     if (orderMatch[2]) {
       if (state.notesFail) return [500, { message: 'Something went wrong on our side. Please try again.' }]
@@ -575,7 +595,7 @@ function reply(state: ApiState, request: Request): Reply {
         Object.assign(order, { fulfilmentStatus: to, stage: to })
       }
     }
-    return [orderMatch[2] ? 201 : 200, { order, emailOn: state.emailOn, ...historyReply(state.orderHistory[order.reference] ?? []), ...notesReply(state.requestNotes[order.reference] ?? []) }]
+    return [orderMatch[2] ? 201 : 200, { order, emailOn: state.emailOn, paystackOn: state.paymentsOn, ...historyReply(state.orderHistory[order.reference] ?? []), ...notesReply(state.requestNotes[order.reference] ?? []) }]
   }
   const requestMatch = /^\/api\/admin\/(contact-requests)(?:\/([^/]+))?(\/notes|\/history)?$/.exec(path)
   if (requestMatch) {

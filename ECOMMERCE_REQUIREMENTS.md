@@ -142,6 +142,7 @@ The customer chooses how to pay when both are open: **Paystack** (Section 6 belo
 - The customer is redirected to Paystack's hosted payment page to pay.
 - After payment, Paystack returns the customer to the GPEC site.
 - The order is marked `paid` only after the server confirms the payment with Paystack (verified webhook or transaction verification) and the reference, amount, and currency match the order.
+- If Paystack took a payment but the website never heard about it (for example the server stopped while handling Paystack's message and the customer closed the page), the order stays "Awaiting payment". Paystack resends its message and the website finishes the work then. Staff can also press "Check payment with Paystack" on the order: the website asks Paystack, and the order becomes paid only if Paystack confirms the full amount in the right currency. The history records who asked.
 - The same payment must never be applied twice, even if Paystack sends a notification more than once.
 - While Paystack test keys are in use, the site must show a visible "Test mode" notice.
 

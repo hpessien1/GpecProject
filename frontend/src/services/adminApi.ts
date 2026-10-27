@@ -1,5 +1,5 @@
 import { apiBaseUrl, requestJson } from './apiClient'
-import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
+import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, PaymentCheckOutcome, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -222,6 +222,11 @@ export function confirmTransferReceived(reference: string, password: string) {
 
 export function closeUnpaidTransfer(reference: string, notifyCustomer: boolean) {
   return requestJson<AdminOrderResponse>(`/admin/orders/${encodeURIComponent(reference)}/transfer-not-received`, 'Unable to close the order.', { ...admin, method: 'POST', payload: { notifyCustomer } })
+}
+
+// Asks Paystack about an unpaid Paystack order; the server changes it only on Paystack's word.
+export function checkOrderPayment(reference: string) {
+  return requestJson<AdminOrderResponse & { paymentCheck: PaymentCheckOutcome }>(`/admin/orders/${encodeURIComponent(reference)}/check-payment`, 'Unable to check the payment with Paystack.', { ...admin, method: 'POST', payload: {} })
 }
 
 export function listSiteContent() {

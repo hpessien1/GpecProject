@@ -9,8 +9,9 @@ const webhookEventSchema = new mongoose.Schema({
   event: { type: String, required: true, maxlength: 60 },
   // The transaction reference (the order's _id), when the event has one.
   reference: { type: String, default: '', maxlength: 100 },
-  // What the site did with it: processed (it changed or confirmed an order) or ignored.
-  outcome: { type: String, enum: ['processed', 'ignored'], required: true },
+  // What the site did with it: received (an order payment whose work has not finished yet; a repeated
+  // delivery does it again), processed (it changed or confirmed an order), or ignored.
+  outcome: { type: String, enum: ['received', 'processed', 'ignored'], required: true },
 }, { timestamps: true, strict: 'throw' })
 
 export default mongoose.model('WebhookEvent', webhookEventSchema)

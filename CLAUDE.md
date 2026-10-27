@@ -130,8 +130,10 @@ Paystack flow; the *Why* notes record the failure each one prevents.
   transaction with Paystack and checks that status is `success` **and** amount (in minor units)
   **and** currency match the stored order. The customer landing on the callback URL proves
   nothing. *Why:* checking amount without currency let a charge in a cheaper currency pass.
-- **Two confirmation paths, one function.** Paystack's webhook and the callback-return verify
-  (`GET /transaction/verify/:reference`) both call the **same** `markOrderPaid` function, which
+- **Three confirmation paths, one function.** Paystack's webhook, the callback-return verify
+  (`GET /transaction/verify/:reference`), and staff's "Check payment with Paystack" on an unpaid
+  order (2026-10-27, audit finding M-07; `checkPaymentForStaff`, recorded as `order.payment` with who
+  asked) all call the **same** `markOrderPaid` function, which
   uses an atomic conditional update (`status: 'pending_payment' → 'paid'`). Only the caller that
   wins that update sends emails. The verify path is required because Paystack cannot reach
   `localhost`, and the webhook can arrive after the customer returns. *Why:* separate code paths
@@ -145,8 +147,12 @@ Paystack flow; the *Why* notes record the failure each one prevents.
 - **Webhook idempotency:** store each received event in a `WebhookEvent` collection with a unique
   index on its ID. A duplicate delivery (Paystack retries) is detected and skipped. Store only the
   fields the code reads, not the full payload. Paystack's events carry no event ID of their own, so
-  the ID is the event name plus the transaction's `id` (`charge.success:4099260516`). If processing
-  fails, the record is removed and the answer is `500`, so Paystack's retry is processed.
+  the ID is the event name plus the transaction's `id` (`charge.success:4099260516`). The record is
+  saved as `received` and becomes `processed` only after the order is settled (2026-10-27, audit
+  finding M-07): a duplicate of a `received` event is processed again, so a retry finishes work cut
+  off by a crash or an error (which answers `500`). Processing twice is safe because
+  `markOrderPaid` and `markOrderFailed` change an order at most once. If Paystack stops retrying,
+  staff's "Check payment with Paystack" is the fallback.
 - **Unguessable references.** The order's `_id` is made from 12 random bytes (`randomOrderId` in
   `services/checkout.ts`), not a default ObjectId, which counts up: the payment result page is
   opened by this reference alone. That page shows no personal details either way.
@@ -445,7 +451,7 @@ name), and logs which database it found. The guard only works if production sets
   Orders also have `paymentMethod` (`paystack` | `bank_transfer`, default `paystack`), `bankTransfer`
   (the details given, copied), and `transferReportedAt`.
 - **WebhookEvent** (`backend/src/models/WebhookEvent.ts`) — `eventId` (unique), `event`,
-  `reference`, `outcome` (`processed` | `ignored`), timestamps (Section 4.1).
+  `reference`, `outcome` (`received` | `processed` | `ignored`), timestamps (Section 4.1).
 
 - **Order** (`backend/src/models/Order.ts`; built 2026-10-22, before checkout, so staff screens and
   demo data exist) — `_id` (also the Paystack reference), `reference` (unique,
@@ -803,7 +809,8 @@ up so GPEC receives the full order value after Paystack's fee; the rule comes fr
    `#shop/payment/<reference>` → the page asks the server → server calls Verify Transaction and runs
    `markOrderPaid`.
 3. Webhook route (raw body, signature verified, event recorded in `WebhookEvent`) runs the same
-   `markOrderPaid`.
+   `markOrderPaid`. Staff can also ask Paystack from an unpaid Paystack order
+   (`POST /api/admin/orders/:reference/check-payment`), for a payment the site never heard about.
 4. Only the caller that wins `markOrderPaid`'s conditional update sends confirmation emails. Show
    the confirmation and clear the cart only after verified payment.
 5. Failed or abandoned payment: order stays unpaid (or `failed`); the cart is kept. The rule for

@@ -34,21 +34,26 @@ export default function paystackWebhookRouter(secretKey: string | null, notifier
     const eventId = `${event}:${transactionId}`
     const isOrderPayment = HANDLED_EVENTS.includes(event) && transaction !== null && PAYMENT_REFERENCE_PATTERN.test(transaction.reference)
 
+    let isRepeat = false
     try {
-      // Recorded first: a repeated delivery hits the unique index and is skipped.
-      await WebhookEvent.create({ eventId, event, reference: isOrderPayment ? transaction.reference : '', outcome: isOrderPayment ? 'processed' : 'ignored' })
+      // Recorded first, as received, and as processed only once the order is settled (audit M-07). A
+      // repeated delivery hits the unique index: skipped if the work was done, done again if it never
+      // finished (the server stopped in between, or it failed). Doing it twice is safe: markOrderPaid
+      // and markOrderFailed change an order at most once.
+      await WebhookEvent.create({ eventId, event, reference: isOrderPayment ? transaction.reference : '', outcome: isOrderPayment ? 'received' : 'ignored' })
     } catch (error) {
-      if (isDuplicateKeyError(error)) return res.status(200).json({ received: true })
-      return next(error)
+      if (!isDuplicateKeyError(error)) return next(error)
+      isRepeat = true
     }
     if (!isOrderPayment) return res.status(200).json({ received: true })
     try {
+      if (isRepeat && (await WebhookEvent.findOne({ eventId }).select('outcome').lean())?.outcome !== 'received') return res.status(200).json({ received: true })
       if (event === 'charge.success') await markOrderPaid(transaction, notifier)
       else await markOrderFailed(transaction.reference)
+      await WebhookEvent.updateOne({ eventId }, { $set: { outcome: 'processed' } })
       return res.status(200).json({ received: true })
     } catch (error) {
-      // Forget the event so Paystack's retry is processed rather than skipped.
-      await WebhookEvent.deleteOne({ eventId }).catch(() => undefined)
+      // Left as received, so Paystack's retry does the work again.
       return next(error)
     }
   })

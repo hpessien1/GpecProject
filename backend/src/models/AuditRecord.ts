@@ -16,7 +16,8 @@ const actorSchema = new mongoose.Schema({
 
 const auditRecordSchema = new mongoose.Schema({
   // product.sale: a paid order reduced a product's stock count (made by the website, not an admin).
-  // order.payment: staff confirmed a bank transfer arrived, or closed an unpaid one.
+  // order.payment: staff confirmed a bank transfer arrived, or closed an unpaid one; or staff asked
+  // Paystack about a payment and Paystack's answer changed the order.
   action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'contactRequest.status', 'order.status', 'order.payment', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
   targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer', 'siteContent', 'customerEmail'] },
   targetId: { type: String, required: true },

@@ -379,7 +379,8 @@ export interface AdminOrderDetail {
 }
 
 // order.status: staff moved fulfilment along. order.payment: staff confirmed a bank transfer
-// arrived, or closed it as not received.
+// arrived, or closed it as not received; or, on a Paystack order, staff asked Paystack and its answer
+// changed the order.
 export type OrderHistoryEntry = {
   action: 'order.status'
   actor: { name: string, email: string }
@@ -399,11 +400,17 @@ export interface AdminOrderResponse {
   order: AdminOrderDetail
   // Whether the website sends email (customers can be told about changes).
   emailOn: boolean
+  // Whether online payment is set up, so staff can ask Paystack about a payment.
+  paystackOn: boolean
   history: OrderHistoryEntry[]
   historyCursor: string | null
   notes: RequestNote[]
   notesCursor: string | null
 }
+
+// What asking Paystack about an unpaid order found (backend services/checkout.ts, checkPaymentForStaff):
+// paid now, already paid, failed, not finished, never started, or a payment that does not match.
+export type PaymentCheckOutcome = 'paid' | 'already_paid' | 'failed' | 'not_paid' | 'not_found' | 'mismatch'
 
 // Delivery areas and their fees, managed by staff (backend models/DeliveryArea.ts).
 export interface EditableDeliveryAreaFields {

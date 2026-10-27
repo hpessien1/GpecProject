@@ -1,4 +1,4 @@
-import type { AdminRequestKind, BankTransferSettings, EditableDeliveryAreaFields, EditableProductFields, PaymentMethod, FulfilmentMethod, OrderStage, PaymentStatus, RequestStatus, EditableSiteContentFields, SiteContentKey } from '../types'
+import type { AdminRequestKind, BankTransferSettings, EditableDeliveryAreaFields, EditableProductFields, PaymentMethod, FulfilmentMethod, OrderStage, PaymentCheckOutcome, PaymentStatus, RequestStatus, EditableSiteContentFields, SiteContentKey } from '../types'
 
 // Labels for product fields, shared by the edit form and the change history.
 export const productFieldLabels: Record<keyof EditableProductFields | 'id', string> = {
@@ -124,6 +124,24 @@ export const ordersContent = {
     title: 'No, it did not arrive',
     text: 'Close the order only when you are sure the money is not coming, for example once the customer’s time to pay has passed. This cannot be undone.',
     button: 'Close the order as not received',
+  },
+  // A Paystack order not paid yet: staff can ask Paystack, in case its confirmation never reached the
+  // website. Only Paystack's answer changes the order.
+  paystackCheck: {
+    question: 'Has the customer paid?',
+    title: 'Ask Paystack',
+    text: 'If the customer says they paid but the order is not marked paid, ask Paystack. The order becomes paid only if Paystack confirms the full amount.',
+    button: 'Check payment with Paystack',
+    checking: 'Asking Paystack…',
+    outcomes: {
+      paid: (emailOn: boolean) => `Paystack confirms the payment: the order is now paid and can be moved along.${emailOn ? ' The customer has been emailed their order confirmation.' : ''}`,
+      already_paid: () => 'The order is already paid.',
+      failed: () => 'Paystack reports that the payment failed, so the order is marked “Payment failed”. Nothing was charged; the customer can order again.',
+      not_paid: () => 'Paystack has no completed payment for this order: the customer did not finish paying, or gave up. Nothing changed.',
+      not_found: () => 'Paystack has no payment for this order: the customer did not get as far as paying. Nothing changed.',
+      mismatch: () => 'Paystack reports a payment that does not match this order’s amount or currency, so the order was not marked paid. Look up the Paystack reference in Paystack’s dashboard.',
+    } satisfies Record<PaymentCheckOutcome, (emailOn: boolean) => string>,
+    checkedNote: 'checked with Paystack',
   },
   transferClosed: 'Closed as not received: the transfer never arrived. If the customer did pay, they can contact GPEC; place a new order for them if needed.',
   // "Tell the customer by email": ticked by default where it is offered; untick it when you have
