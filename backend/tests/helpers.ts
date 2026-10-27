@@ -31,6 +31,8 @@ export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | nul
     orderRateLimit: { windowMs: 60_000, limit: 1000 },
     checkoutReadRateLimit: { windowMs: 60_000, limit: 1000 },
     webhookRateLimit: { windowMs: 60_000, limit: 1000 },
+    publicReadRateLimit: { windowMs: 60_000, limit: 10_000 },
+    imageReadRateLimit: { windowMs: 60_000, limit: 10_000 },
     currency: 'NGN',
     email: null,
     imageStorage: null,

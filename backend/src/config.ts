@@ -67,6 +67,11 @@ export interface Config {
   checkoutReadRateLimit: RateLimitSettings
   // Paystack webhook deliveries per IP: generous, because Paystack retries, but bounded.
   webhookRateLimit: RateLimitSettings
+  // Public reads per IP (audit M-08): the catalogue, the site's text, the contact form's options, and
+  // the health check together; product photos on their own. Far above what a visitor uses, as many
+  // mobile customers in Nigeria share one address; the short-lived copies are the main protection.
+  publicReadRateLimit: RateLimitSettings
+  imageReadRateLimit: RateLimitSettings
   // ISO 4217 code (e.g. NGN) for prices, or null until GPEC confirms it. Price editing and payments
   // stay off while it is null; there is deliberately no default.
   currency: string | null
@@ -203,6 +208,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     orderRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 10 : 100 },
     checkoutReadRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 120 : 1000 },
     webhookRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 300 : 1000 },
+    publicReadRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 1000 : 10_000 },
+    imageReadRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 3000 : 30_000 },
     currency: parsed.CURRENCY ?? null,
     email: parsed.SES_REGION && parsed.SES_ACCESS_KEY_ID && parsed.SES_SECRET_ACCESS_KEY && parsed.EMAIL_FROM && parsed.STAFF_NOTIFICATION_EMAILS && parsed.FRONTEND_URL
       ? {

@@ -27,7 +27,14 @@ root). Setup and deployment: [`docs/RUNBOOK.md`](../docs/RUNBOOK.md).
 ## Routes
 
 - `GET /api/health`: `200 {"status":"ok"}` when MongoDB answers a ping within 2 seconds, otherwise
-  `503 {"status":"unavailable"}` (also used by the Docker health check)
+  `503 {"status":"unavailable"}` (also used by the Docker health check); one ping's answer serves
+  every check for 5 seconds
+
+**Public reads** (audit M-08): `GET /api/health`, `/api/products`, `/api/content/:page`, and
+`/api/contact-requests/options` share one per-IP budget (1000 per 15 minutes in production,
+`429` past it); product photos have their own (3000). The catalogue and each page are read from the
+database at most once every 30 seconds and read again as soon as a product or page changes in this
+process (`utils/freshness.ts`). Product photos are kept in memory (`services/imageCache.ts`).
 - `GET /api/products`
 - `GET /api/content/:page` (`privacy`, `refunds`, `faq`)
 - `POST /api/contact-requests`, `GET /api/contact-requests/options`
@@ -157,7 +164,8 @@ with files at a time per sender, `429 UPLOAD_IN_PROGRESS`; at most 3 at once acr
 without files (JSON) are never held up. Photos are re-saved one at a time across the API. The text
 fields are checked first. The emails say how many
 files came, without attaching them. `GET /api/contact-requests/options` answers `{ fileUploads }`
-(whether the form offers attachments); it is outside the form's rate limit.
+(whether the form offers attachments); it is outside the form's rate limit, inside the public
+reads' budget.
 
 ### Admin routes
 

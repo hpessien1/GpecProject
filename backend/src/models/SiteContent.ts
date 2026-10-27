@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { ChangeCounter, countChanges } from '../utils/freshness.js'
 
 // Site text that GPEC's staff edit in the admin panel (#admin/content) instead of a developer: the
 // privacy notice, the refunds policy, and the FAQ. One record per page, keyed by the page, created on
@@ -25,5 +26,9 @@ const siteContentSchema = new mongoose.Schema({
   // policies, its legal adviser) has approved the wording.
   approved: { type: Boolean, default: false },
 }, { timestamps: true, strict: 'throw' })
+
+// Every change, so the public pages' short-lived copies are read again (utils/freshness.ts).
+export const siteContentChanges = new ChangeCounter()
+countChanges(siteContentSchema, siteContentChanges)
 
 export default mongoose.model('SiteContent', siteContentSchema)

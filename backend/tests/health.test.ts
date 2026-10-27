@@ -1,11 +1,13 @@
 import mongoose from 'mongoose'
 import request from 'supertest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { testApp, useTestDatabase } from './helpers.js'
 
 describe('GET /api/health', () => {
   useTestDatabase()
-  const app = testApp()
+  // A fresh app for each test: an app reuses its answer for 5 seconds (audit M-08).
+  let app: ReturnType<typeof testApp>
+  beforeEach(() => { app = testApp() })
   afterEach(() => { vi.restoreAllMocks() })
 
   it('is ok when the database answers', async () => {

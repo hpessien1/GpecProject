@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { ChangeCounter, countChanges } from '../utils/freshness.js'
 
 export const PRODUCT_STATUSES = ['active', 'archived'] as const
 // The shop's filters, the same four groups as the home page's Products section (frontend
@@ -45,5 +46,9 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true, strict: 'throw' })
 
 productSchema.index({ status: 1, sortOrder: 1 })
+
+// Every change, so the public catalogue's short-lived copy is read again (utils/freshness.ts).
+export const productChanges = new ChangeCounter()
+countChanges(productSchema, productChanges)
 
 export default mongoose.model('Product', productSchema)

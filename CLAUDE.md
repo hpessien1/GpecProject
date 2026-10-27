@@ -313,6 +313,20 @@ webhook its own (300). All visitors are anonymous, so key by IP. The in-memory s
 only works with one API instance (Section 6.3). `GET /api/contact-requests/options` (read on every
 home page visit) is outside the form's budget.
 
+**Public reads** (2026-10-27, audit finding M-08): the catalogue, the site's text, the form's
+options, and the health check share a per-IP budget of 1000 per 15 minutes in production
+(`publicReadRateLimit`), and product photos have 3000 (`imageReadRateLimit`); both are far above a
+visitor's use, because many mobile customers in Nigeria share one address. The main protection is
+short-lived copies: one database read of the catalogue, and of each FAQ or policy page, serves every
+request for 30 seconds, and the health check's ping for 5 (`utils/freshness.ts`). The copies are
+dropped the moment anything in this process writes to `products` or `sitecontents` (staff screens,
+a paid order's stock, a direct `updateOne`), and a write inside a transaction counts again when it
+commits, so staff never see an old price. Product photos are kept in memory (`services/imageCache.ts`:
+up to 50 MB, least recently used dropped first; names that do not exist remembered for 10 minutes,
+at most 1,000; at most 4 reads from the bucket at once); a photo's name is its content's hash, so a
+kept copy is never out of date. Customers' files are never kept. Any new public read gets the same
+treatment.
+
 **Spam trap.** Both public forms include a hidden `website` field (`components/SpamTrapField.tsx`):
 off-screen, skipped by Tab, hidden from screen readers. If it arrives with a value
 (`validation/fields.ts`, `isLikelySpam`), the route answers `201` with a normal-looking reference
@@ -548,8 +562,8 @@ name), and logs which database it found. The guard only works if production sets
 
 ### 6.3 Runtime topology
 
-Run **exactly one API instance**. The rate limiters, the per-recipient email confirmation cap, and
-the contact form's upload places keep their counts in memory. Before running two instances, move that state to a shared store. In Coolify, set the
+Run **exactly one API instance**. The rate limiters, the per-recipient email confirmation cap, the
+contact form's upload places, and the public reads' short-lived copies (Section 4.7) live in memory. Before running two instances, move that state to a shared store. In Coolify, set the
 API replica count to 1 and do not enable autoscaling; this is enforced only by that setting, not
 by code.
 

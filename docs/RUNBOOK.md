@@ -116,6 +116,18 @@ Coolify with the `gpec-prod` string and redeploy the API.
    server (4 GB, shared with the website, Coolify, and its proxy) running out of memory. Normal use
    stays well under it: a few hundred MB at most while photos are being re-saved. If the API keeps
    restarting, look at *Logs* for "out of memory" before raising the limit.
+8. **Check the API can only be reached through its address** (added 2026-10-27, security audit
+   M-08). The API's per-visitor limits trust the visitor's address that Coolify's proxy passes on;
+   anyone who could reach the API container directly could make up that address. From your own
+   computer, run (with the server's IP address from Section 1.0):
+
+   ```bash
+   curl -m 5 http://<server IP>:5001/api/health
+   ```
+
+   It must fail (a timeout or "connection refused"). If it answers `{"status":"ok"}`, port 5001 is
+   open to the internet: in Coolify, remove any *Ports Mappings* on `gpec-api` (the proxy reaches it
+   without them), redeploy, and run the check again.
 
 ### 1.3 Coolify: website
 

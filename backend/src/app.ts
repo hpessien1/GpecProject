@@ -7,9 +7,11 @@ import type { Config, RateLimitSettings } from './config.js'
 import { HttpError } from './errors.js'
 import { sesMailer } from './services/email.js'
 import { databaseIsReachable } from './services/health.js'
+import { shortLived } from './utils/freshness.js'
 import type { Mailer } from './services/email.js'
 import { pwnedPasswordsCheck } from './services/breachedPasswords.js'
 import type { BreachedPasswordCheck } from './services/breachedPasswords.js'
+import { cachingImageStore } from './services/imageCache.js'
 import { s3ImageStore } from './services/imageStore.js'
 import type { ImageStore } from './services/imageStore.js'
 import { createNotifier } from './services/notifications.js'
@@ -37,7 +39,7 @@ import siteContentRouter from './routes/siteContent.js'
 
 const SITE_CONTENT_ADMIN_PATH = '/api/admin/content'
 
-export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments' | 'twoFactorKey'> & {
+export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments' | 'twoFactorKey' | 'publicReadRateLimit' | 'imageReadRateLimit'> & {
   // Limits on contact forms with files (routes/contactRequests.ts); tests set shorter ones.
   uploadLimits?: UploadLimits
 }
@@ -72,6 +74,14 @@ export default function createApp(
   paystack: PaystackClient | null = config.payments ? paystackClient(config.payments.secretKey) : null,
 ) {
   const notifier = createNotifier(mailer, config.email)
+  // Product photos are kept in memory, so repeated requests do not reach the bucket (audit M-08).
+  const images = imageStore && cachingImageStore(imageStore)
+  // Public reads (audit M-08): generous per-IP budgets, one for the catalogue, the site's text, the
+  // contact form's options, and the health check, and a larger one for product photos.
+  const readLimiter = formLimiter(config.publicReadRateLimit)
+  const imageLimiter = formLimiter(config.imageReadRateLimit)
+  // One database ping shared by every health check for up to 5 seconds.
+  const databaseCheck = shortLived(() => databaseIsReachable(), 5_000)
   const app = express()
   app.disable('x-powered-by')
   // In production the API sits behind Coolify's proxy; trust one hop so req.ip (and so the rate
@@ -88,22 +98,24 @@ export default function createApp(
   app.use((req, res, next) => req.path.startsWith(SITE_CONTENT_ADMIN_PATH) ? next() : json(req, res, next))
 
   // 503 when MongoDB does not answer, so the health check reflects whether the API can do its job.
-  app.get('/api/health', async (_req, res) => {
-    if (await databaseIsReachable()) return res.json({ status: 'ok' })
+  app.get('/api/health', readLimiter, async (_req, res) => {
+    if (await databaseCheck()) return res.json({ status: 'ok' })
     return res.status(503).json({ status: 'unavailable', message: 'The database cannot be reached.' })
   })
-  app.use('/api/products', productsRouter(config.currency))
-  app.use('/api/product-images', productImagesRouter(imageStore))
-  app.use('/api/content', siteContentRouter())
-  app.use('/api/contact-requests', contactRequestsRouter(notifier, imageStore, formLimiter(config.formRateLimit), config.uploadLimits))
+  app.use('/api/products', readLimiter, productsRouter(config.currency))
+  app.use('/api/product-images', imageLimiter, productImagesRouter(images))
+  app.use('/api/content', readLimiter, siteContentRouter())
+  // The form's options are read on every home page visit: a public read, not a use of the form.
+  app.use('/api/contact-requests/options', readLimiter)
+  app.use('/api/contact-requests', contactRequestsRouter(notifier, images, formLimiter(config.formRateLimit), config.uploadLimits))
   app.use('/api/checkout', checkoutRouter(config, paystack, notifier, { read: formLimiter(config.checkoutReadRateLimit), order: formLimiter(config.orderRateLimit) }))
   // Admin responses hold staff-only data; browsers and proxies must not keep copies.
   app.use('/api/admin', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
-  app.use('/api/admin/session', adminSessionRouter(config, breachCheck, imageStore !== null, notifier))
+  app.use('/api/admin/session', adminSessionRouter(config, breachCheck, images !== null, notifier))
   app.use('/api/admin/account', requireAdmin(config.clientOrigins), adminAccountRouter(config, notifier))
   app.use('/api/admin/products', requireAdmin(config.clientOrigins), adminProductsRouter(config))
-  app.use('/api/admin/product-images', requireAdmin(config.clientOrigins), adminProductImagesRouter(imageStore))
-  app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest', imageStore))
+  app.use('/api/admin/product-images', requireAdmin(config.clientOrigins), adminProductImagesRouter(images))
+  app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest', images))
   // The password again, for changes that decide where money or customers' replies go (one shared limit).
   const confirmPassword = requirePassword(config.adminLoginRateLimit)
   app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier, confirmPassword, paystack))
