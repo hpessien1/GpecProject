@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { ADMIN, ADMIN_PAGE_SIZE, ORDER_REF, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, ADMIN_PAGE_SIZE, ORDER_REF, logInAsAdmin, mockApi, openAdminMenu } from './support/sampleApi'
 import type { ApiState } from './support/sampleApi'
 
 // Long lists in the admin, ten to a page: numbered pages (the shop's control) that remember where
@@ -99,6 +99,7 @@ test.describe('admin list pages', () => {
     await openOrders(page)
     await pages(page).getByRole('button', { name: 'Page 2' }).click()
     await expect(orderRows(page).first()).toContainText('Customer 11')
+    await openAdminMenu(page)
     await page.getByRole('button', { name: 'Log out' }).click()
     await page.getByLabel('Email address').fill(ADMIN.email)
     await page.getByLabel('Password', { exact: true }).fill(ADMIN.password)

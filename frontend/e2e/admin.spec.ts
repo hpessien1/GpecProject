@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_ATTACHMENTS, SAMPLE_BANK, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_ATTACHMENTS, SAMPLE_BANK, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi, openAdminMenu } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -57,12 +57,13 @@ test.describe('admin login', () => {
     await expect(page.getByText('Your session has ended. Please log in again.')).toBeVisible()
   })
 
-  test('the header says who is logged in, as a label rather than a link (hidden at 1100px and below)', async ({ page }, info) => {
+  test('the header says who is logged in, as a label at the end of the row rather than a link', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'At phone width the header is the Menu button (next test).')
     await mockApi(page)
     await logInAsAdmin(page)
     const navigation = page.getByRole('navigation', { name: 'Admin navigation' })
     const user = navigation.locator('.admin-user')
-    if (info.project.name === 'phone') return await expect(user).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Menu' })).toBeHidden()
     await expect(user).toHaveText('Logged in as Sample Admin')
     await expect(user.getByRole('link')).toHaveCount(0)
     // At the end of the row, after the links and "Log out".
@@ -71,9 +72,48 @@ test.describe('admin login', () => {
     expect(userBox.x).toBeGreaterThan(logOutBox.x + logOutBox.width)
   })
 
+  // Desktop runs it at 1100px, where the menu takes over; phone at its own width.
+  test('at 1100px and below the header links sit behind a Menu button, with who is logged in', async ({ page }, info) => {
+    if (info.project.name !== 'phone') await page.setViewportSize({ width: 1100, height: 800 })
+    await mockApi(page)
+    await logInAsAdmin(page)
+    const toggle = page.getByRole('button', { name: 'Menu' })
+    const navigation = page.getByRole('navigation', { name: 'Admin navigation' })
+    await expect(navigation).toBeHidden()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    await toggle.click()
+    await expect(page.getByRole('button', { name: 'Close' })).toHaveAttribute('aria-expanded', 'true')
+    await expect(navigation.getByRole('link')).toHaveText(['View shop', 'Change password', 'Two-step login'])
+    await expect(navigation.getByRole('button', { name: 'Log out' })).toBeVisible()
+    await expect(navigation.locator('.admin-user')).toHaveText('Logged in as Sample Admin')
+    // The menu covers the page below the header.
+    const box = await navigation.boundingBox()
+    if (!box) throw new Error('The open menu is not on the page.')
+    expect(box.y + box.height).toBeGreaterThanOrEqual((page.viewportSize()?.height ?? 0) - 1)
+
+    // Escape closes it, with focus back on the button.
+    await page.keyboard.press('Escape')
+    await expect(navigation).toBeHidden()
+    await expect(toggle).toBeFocused()
+
+    // Choosing an item goes there and closes it.
+    await toggle.click()
+    await navigation.getByRole('link', { name: 'Change password' }).click()
+    await expect(page).toHaveURL(/#admin\/password$/)
+    await expect(navigation).toBeHidden()
+
+    // Tabbing out past the last item closes it too.
+    await toggle.click()
+    await navigation.getByRole('button', { name: 'Log out' }).focus()
+    await page.keyboard.press('Tab')
+    await expect(navigation).toBeHidden()
+  })
+
   test('logs out', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
+    await openAdminMenu(page)
     await page.getByRole('button', { name: 'Log out' }).click()
     await expect(page.getByText('You have logged out.')).toBeVisible()
     expect(api.requests.some((r) => r.method === 'DELETE' && r.path === '/api/admin/session')).toBe(true)

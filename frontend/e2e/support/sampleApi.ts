@@ -714,3 +714,9 @@ export async function logInAsAdmin(page: Page) {
   await page.getByRole('button', { name: 'Log in' }).click()
   await page.getByRole('navigation', { name: 'Admin sections' }).waitFor()
 }
+
+// At 1100px and below the admin header's links sit behind its Menu button: open it first.
+export async function openAdminMenu(page: Page) {
+  const toggle = page.getByRole('button', { name: 'Menu' })
+  if (await toggle.isVisible()) await toggle.click()
+}

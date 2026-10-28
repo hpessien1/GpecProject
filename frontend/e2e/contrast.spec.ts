@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { ContrastAudit, EXEMPT } from './support/contrast'
-import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, SAMPLE_CODE, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, logInAsAdmin, mockApi, sampleProducts } from './support/sampleApi'
+import { ADMIN, AREA_ID, CONTACT_REF, PAYMENT_REF, SAMPLE_CODE, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, logInAsAdmin, mockApi, openAdminMenu, sampleProducts } from './support/sampleApi'
 import type { ApiState } from './support/sampleApi'
 
 // Every page and state of the site must meet WCAG AA text contrast at phone and desktop width,
@@ -102,6 +102,14 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await logInAsAdmin(page)
     await audit.page(page, `${label} admin with the two-step login banner`)
     if (hovering) await audit.hover(page, `${label} admin with the two-step login banner`)
+    // The header's open menu (phone width; on desktop the links are in the header itself).
+    if (await page.getByRole('button', { name: 'Menu' }).isVisible()) {
+      await openAdminMenu(page)
+      await page.locator('#admin-navigation.is-open').waitFor()
+      await audit.page(page, `${label} admin header menu open`)
+      if (hovering) await audit.hover(page, `${label} admin header menu open`)
+      await page.keyboard.press('Escape')
+    }
     api.twoFactorAvailable = { app: true, email: false }
     await open('#admin/security', '.admin-security-method')
     await audit.page(page, `${label} two-step login off, email unavailable`)
@@ -128,6 +136,7 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.locator('form').getByRole('button', { name: 'Turn off two-step login' }).click()
     await page.locator('#security-password-error').waitFor()
     await audit.page(page, `${label} turning off, wrong password`)
+    await openAdminMenu(page)
     await page.getByRole('button', { name: 'Log out' }).click()
     await open('#admin', '#login-password')
     await page.getByLabel('Email address').fill(ADMIN.email)

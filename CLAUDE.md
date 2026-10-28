@@ -1050,7 +1050,9 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
   1100px and below it collapses into the hamburger ("Menu") button, because the eight items no
   longer fit (Current Work was removed 2026-10-24; FAQ added 2026-10-25). The open menu fills the
   screen below the header and scrolls on its own, the page behind it stays still, and Escape or
-  tabbing out of the header closes it (2026-10-25). Adding an item means
+  tabbing out of the header closes it (2026-10-25). The admin header (`components/admin/AdminHeader.tsx`)
+  does the same at 1100px and below (2026-10-28, the user's request), with "Logged in as" at the top of
+  the open menu and at the end of the row above that. Adding an item means
   checking the 1101–1440px header still fits on one line. Each home page section the menu leads to
   has the menu's word as its small (eyebrow) label; the big heading stays a slogan. The footer
   repeats the menu (except Home), then Shop and the two policies.

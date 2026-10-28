@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { ADMIN, SAMPLE_APP_SECRET, SAMPLE_CODE, SAMPLE_RECOVERY_CODES, logInAsAdmin, mockApi } from './support/sampleApi'
+import { ADMIN, SAMPLE_APP_SECRET, SAMPLE_CODE, SAMPLE_RECOVERY_CODES, logInAsAdmin, mockApi, openAdminMenu } from './support/sampleApi'
 
 // Two-step login (backend services/twoFactor.ts): optional for each admin, with an authenticator app
 // or email codes, recovery codes, and a banner suggesting it until it is on.
@@ -28,6 +28,7 @@ test.describe('the banner suggesting two-step login', () => {
     await page.getByRole('navigation', { name: 'Admin sections' }).waitFor()
     await expect(banner(page)).toHaveCount(0)
     // Back at the next login.
+    await openAdminMenu(page)
     await page.getByRole('button', { name: 'Log out' }).click()
     await logInAsAdmin(page)
     await banner(page).getByRole('link', { name: 'Turn on two-step login' }).click()
@@ -40,6 +41,7 @@ test.describe('setting up two-step login', () => {
   test('with an authenticator app: QR code and key, a first code, then recovery codes', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
+    await openAdminMenu(page)
     await page.getByRole('navigation', { name: 'Admin navigation' }).getByRole('link', { name: 'Two-step login' }).click()
     await expect(page.getByRole('heading', { level: 2 })).toContainText('Logging in needs only your password')
     await expect(page.getByRole('radio', { name: /Authenticator app/ })).toBeChecked()
