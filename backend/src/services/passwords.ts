@@ -11,9 +11,16 @@ const PARALLELISM = 1
 const KEY_LENGTH = 64
 const MAX_MEMORY = 256 * 1024 * 1024
 
+// The one form a password is checked and stored in: Unicode NFKC, which makes look-alike characters
+// ordinary (the full-width "ｐａｓｓ" some keyboards type becomes "pass"), so a password logs in however
+// the keyboard typed it. Every rule on a new password (length, breach check, different from the
+// current one) looks at this form, the one actually stored (audit L-03). Passwords stored before
+// 2026-10-28 were hashed in this form already.
+export const tidyPassword = (password: string) => password.normalize('NFKC')
+
 function derive(password: string, salt: Buffer, options: ScryptOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    scrypt(password.normalize('NFKC'), salt, KEY_LENGTH, { ...options, maxmem: MAX_MEMORY }, (error, key) => error ? reject(error) : resolve(key))
+    scrypt(tidyPassword(password), salt, KEY_LENGTH, { ...options, maxmem: MAX_MEMORY }, (error, key) => error ? reject(error) : resolve(key))
   })
 }
 

@@ -2,6 +2,7 @@ import request from 'supertest'
 import { describe, expect, it, vi } from 'vitest'
 import AdminSession from '../src/models/AdminSession.js'
 import AdminUser from '../src/models/AdminUser.js'
+import { createPasswordReset } from '../src/services/adminAuth.js'
 import { TEST_ADMIN, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
 
 useTestDatabase()
@@ -230,6 +231,66 @@ describe('changing your own password', () => {
     expect(res.body).toMatchObject({ code: 'PASSWORD_BREACHED', errors: { newPassword: expect.stringContaining('appeared in a data breach') } })
     expect(checked).toEqual([NEW_PASSWORD])
     expect((await logIn(app, { email: TEST_ADMIN.email, password: TEST_ADMIN.password })).status).toBe(200)
+  })
+
+  // Audit L-03: passwords are stored "tidied" (Unicode NFKC: wide look-alike letters become ordinary
+  // ones), so every rule must look at the tidied password, the one that is actually stored.
+  describe('checks the password as it is stored, with look-alike letters made ordinary', () => {
+    // The same text in full-width letters, as some keyboards type it.
+    const wide = (plain: string) => [...plain].map((char) => char === ' ' ? '　' : String.fromCharCode(char.charCodeAt(0) + 0xfee0)).join('')
+    const BREACHED = 'passwordpassword'
+
+    it('refuses the look-alike version of a breached password', async () => {
+      await createTestAdmin()
+      const checked: string[] = []
+      const agent = await loggedInAgent(testApp({}, null, { isBreached: async (password) => { checked.push(password); return password === BREACHED } }))
+      const res = await changePassword(agent, { currentPassword: TEST_ADMIN.password, newPassword: wide(BREACHED) })
+      expect(res.status).toBe(400)
+      expect(res.body.code).toBe('PASSWORD_BREACHED')
+      expect(checked).toEqual([BREACHED])
+    })
+
+    it('refuses a password that reaches 15 characters only before it is tidied', async () => {
+      await createTestAdmin()
+      const agent = await loggedInAgent(app)
+      // "e" plus a combining accent, eight times: 16 characters typed, 8 once tidied ("é").
+      const res = await changePassword(agent, { currentPassword: TEST_ADMIN.password, newPassword: 'é'.repeat(8) })
+      expect(res.status).toBe(400)
+      expect(res.body.errors.newPassword).toContain('Use at least 15 characters')
+    })
+
+    it('refuses the look-alike version of the current password as the same password', async () => {
+      await createTestAdmin()
+      const agent = await loggedInAgent(app)
+      const res = await changePassword(agent, { currentPassword: TEST_ADMIN.password, newPassword: wide(TEST_ADMIN.password) })
+      expect(res.status).toBe(400)
+      expect(res.body.errors.newPassword).toContain('different from your current one')
+    })
+
+    it('refuses the current password again when the current one is typed in look-alike letters', async () => {
+      await createTestAdmin()
+      const agent = await loggedInAgent(app)
+      const res = await changePassword(agent, { currentPassword: wide(TEST_ADMIN.password), newPassword: TEST_ADMIN.password })
+      expect(res.status).toBe(400)
+      expect(res.body.errors.newPassword).toContain('different from your current one')
+    })
+
+    it('logs in with a look-alike password typed either way, as before', async () => {
+      await createTestAdmin()
+      const agent = await loggedInAgent(app)
+      expect((await changePassword(agent, { currentPassword: TEST_ADMIN.password, newPassword: wide(NEW_PASSWORD) })).status).toBe(204)
+      expect((await logIn(app, { email: TEST_ADMIN.email, password: NEW_PASSWORD })).status).toBe(200)
+      expect((await logIn(app, { email: TEST_ADMIN.email, password: wide(NEW_PASSWORD) })).status).toBe(200)
+    })
+
+    it('applies to a password set from a reset link too', async () => {
+      await createTestAdmin()
+      const reset = await createPasswordReset(TEST_ADMIN.email)
+      const breachedApp = testApp({}, null, { isBreached: async (password) => password === BREACHED })
+      const res = await request(breachedApp).post('/api/admin/session/password-reset/confirm').set('Origin', ORIGIN).send({ token: reset?.token, newPassword: wide(BREACHED) })
+      expect(res.status).toBe(400)
+      expect(res.body.code).toBe('PASSWORD_BREACHED')
+    })
   })
 
   it('goes ahead, and logs it, when the breach check cannot be made', async () => {

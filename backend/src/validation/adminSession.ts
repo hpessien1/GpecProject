@@ -1,3 +1,4 @@
+import { tidyPassword } from '../services/passwords.js'
 import { asFields, emailPattern, text } from './fields.js'
 import type { ValidationErrors } from './fields.js'
 
@@ -19,9 +20,10 @@ export function validateLogin(body: unknown) {
 export const MIN_PASSWORD_LENGTH = 15
 const MAX_PASSWORD_LENGTH = 200
 
-// The same rule for a changed password and a reset one.
+// The same rule for a changed password and a reset one, on the password as it will be stored
+// (tidyPassword), which is also what the breach check is given.
 function newPasswordField(source: Record<string, unknown>, errors: ValidationErrors) {
-  const newPassword = typeof source.newPassword === 'string' ? source.newPassword : ''
+  const newPassword = typeof source.newPassword === 'string' ? tidyPassword(source.newPassword) : ''
   if (newPassword.length < MIN_PASSWORD_LENGTH) errors.newPassword = `Use at least ${MIN_PASSWORD_LENGTH} characters. A few unrelated words make a strong, memorable password.`
   else if (newPassword.length > MAX_PASSWORD_LENGTH) errors.newPassword = `Use at most ${MAX_PASSWORD_LENGTH} characters.`
   return newPassword
@@ -34,7 +36,7 @@ export function validatePasswordChange(body: unknown) {
   if (!currentPassword) errors.currentPassword = 'Enter your current password.'
   if (currentPassword.length > MAX_PASSWORD_LENGTH) errors.currentPassword = `Passwords are at most ${MAX_PASSWORD_LENGTH} characters.`
   const newPassword = newPasswordField(source, errors)
-  if (!errors.newPassword && newPassword === currentPassword) errors.newPassword = 'Choose a password different from your current one.'
+  if (!errors.newPassword && newPassword === tidyPassword(currentPassword)) errors.newPassword = 'Choose a password different from your current one.'
   return { errors, value: { currentPassword, newPassword } }
 }
 
