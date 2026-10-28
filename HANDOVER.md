@@ -1,7 +1,8 @@
 # Next-session handover
 
-Last updated: 2026-10-27 (end of session: eight security-audit findings fixed, pushed, CI green, and
-**deployed**; the next finding not yet chosen).
+Last updated: 2026-10-28 (end of session: security log date filter and pages, final order statuses
+with stock returned on cancelling, and a confirmation dialog, committed as `5211d2c`; **not pushed,
+not deployed**; the next security-audit finding not yet chosen).
 Start a new session with:
 
 ```text
@@ -11,11 +12,12 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `ed9463e` is pushed, CI green (run 40508801771, 6 min 15 s), plus
-  this handover update (not pushed yet). Every CI step also passed locally on 2026-10-27: backend
-  624 tests, browser 348 (+4 skipped), contrast 20, lint, type-check, format, build. The user pushes;
-  check with `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this
-  repository's runs; it cannot push).
+- **Git and CI:** everything up to `ed9463e` is pushed, CI green (run 40508801771). **Not pushed
+  yet:** `897ce26` (the previous handover), `5211d2c` (this session's work), and this handover
+  update, so CI has not run on them. Every CI step passed locally on 2026-10-28: backend 630 tests,
+  browser 356 (+4 skipped), contrast 20, lint, type-check, format, build. The user pushes; check with
+  `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this repository's runs;
+  it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23). GPEC's team uses it to see how everything behaves. So: every feature comes with demo
   data there too (`seed:demo`), sample values are labelled rather than blocked, and "replace/remove
@@ -26,7 +28,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
 - **What is deployed:** everything up to `ed9463e` (both `gpec-api` and `gpec-web`, 2026-10-27,
-  the user). The security log started empty at that deploy and fills from then on.
+  the user). The security log started empty at that deploy and fills from then on. `5211d2c` changes
+  both the API and the site, so both need deploying (after CI is green). At that deploy the API
+  builds a new index on `auditrecords` (`orderReference`) by itself, and the demo orders already
+  completed or cancelled become read-only.
 - **Two owner steps from this session, not confirmed done** (ask the user): RUNBOOK 1.2 item 7 (a
   1 GB memory limit on `gpec-api` in Coolify, audit M-04) and item 8 (check that port 5001 on the
   server's IP cannot be reached directly, audit M-08: the per-visitor limits trust the proxy's
@@ -43,6 +48,31 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CI (7), email, order update emails, photos, and contact-form files (8), styling and contrast (9),
   product catalogue checklist (11), known gaps (14), lessons learned (15). Every command:
   [`docs/COMMANDS.md`](docs/COMMANDS.md).
+
+## This session (2026-10-28), all in `5211d2c`
+
+1. **Security log: date filter and pages** (user's request). "From" and "To" date boxes with "Show
+   these dates" on the same line (user's follow-up), alongside the account list; numbered pages
+   ("Showing 1–10 of N entries") instead of "Show older entries". The days are counted on the
+   admin's own calendar, because the log shows times in the admin's own time zone: the site sends
+   the start of the first day and the start of the day after the last (`?from=`/`?to=`, `to`
+   excluded); the server refuses malformed or reversed ranges. Trade-off of numbered pages: an entry
+   recorded while staff read can appear twice across pages (never skipped), as in the other lists.
+2. **Completed and Cancelled are final** (user's decision, option 1 of three offered: confirm, then
+   lock; no reopening). The server refuses any later change (`409 ORDER_CLOSED`); the order screen
+   shows a note instead of the status list. **Cancelling returns stock** (user's choice): exactly
+   what the order's `product.sale` records took, as `product.restock` under the admin who cancelled,
+   in the same transaction ("Returned to stock · order … cancelled by …" in the product's history).
+   Orders cancelled before this change got nothing back. Two staff cancelling at once return the
+   stock once (the transaction restarts the later one; tested).
+3. **Confirmation dialog** (user's request, replacing `window.confirm`):
+   `components/admin/ConfirmDialog.tsx`, a native `<dialog>` with `showModal()`, used for Completed,
+   Cancelled, and "Close as not received". It lists what follows (cannot be undone, stock put back,
+   the website does not refund, whether the customer is emailed); answers say what they do
+   ("Cancel order" / "Keep order"); focus starts on the safe answer; Tab wraps between the two
+   buttons (the native dialog alone let Tab reach the browser's toolbar); Escape and a click outside
+   keep the order; full width along the bottom on phones. CLAUDE.md Section 9 now says to use it,
+   never `window.confirm`.
 
 ## Security audit (2026-10-26 and 2026-10-27)
 
@@ -128,15 +158,16 @@ Still open (each explained to the user first, as above):
   (`#shop/payment/<reference>`; Paystack returns to `/shop/payment-complete`, which `main.tsx`
   turns into that route), policies (`#privacy`, `#refunds`, text from the API), admin (`#admin`,
   tabs Products, Orders, Delivery, Bank details, Contact requests, Site content, Emails, Security
-  log).
+  log; the last with a date filter and numbered pages). Steps that cannot be undone are confirmed
+  in `components/admin/ConfirmDialog.tsx`.
 - **Backend** (`backend/`): Express 5 + Mongoose 8. Routes in `backend/README.md`. Checkout in
   `services/checkout.ts`, Paystack only in `services/paystack.ts`, site content in
   `services/siteContent.ts`, two-step login in `services/twoFactor.ts`, contact-form files in
   `services/requestFiles.ts` (photo re-saving shared in `services/photos.ts`), reply-to in
   `services/customerEmail.ts`, all emails in `services/notifications.ts` and `emailTemplates.ts`,
   security log in `services/securityLog.ts`, short-lived public copies in `utils/freshness.ts`.
-- **Tests:** 624 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 348 behaviour tests at desktop and phone (plus 4 skipped: 2 from before, the
+- **Tests:** 630 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 356 behaviour tests at desktop and phone (plus 4 skipped: 2 from before, the
   attach button's keyboard check on desktop, and the phone-menu test on desktop) and 20 contrast
   tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
@@ -176,35 +207,40 @@ Still open (each explained to the user first, as above):
 
 ## Open items for the next session
 
-0. **Security audit, next finding** (see "Still open" above): suggest L-02 or L-03 (code fixes), or
+0. **Ship this session's work:** the user pushes `main`; check CI with `gh run list`; then the user
+   deploys `gpec-api` and `gpec-web` in Coolify. After deploying: open the security log (filter by
+   today, page 2); open a completed demo order (read only); and, since demo orders took no stock,
+   check the stock return with a small test-mode order (RUNBOOK 1.8) for a product with a stock
+   count, then cancel it in the dialog (on a phone too) and see the count go back.
+1. **Security audit, next finding** (see "Still open" above): suggest L-02 or L-03 (code fixes), or
    put M-05 to the user as a decision. Explain it plainly and **wait for the user's go-ahead** before
    changing anything. Also ask whether RUNBOOK 1.2 items 7 and 8 were done.
-1. **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD). The user
+2. **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD). The user
    is asking them with the explanation in `ECOMMERCE_REQUIREMENTS.md` Section 6. When they answer:
    GPEC switches methods in its Paystack dashboard; update that section, ROADMAP, and CLAUDE.md's
    open decisions. Also confirm that Verve cards are accepted (not checked in Paystack's docs).
-2. **Tidy-up on the live site:** delete the `[TEST]` contact request from the 2026-10-24 deploy check
+3. **Tidy-up on the live site:** delete the `[TEST]` contact request from the 2026-10-24 deploy check
    if it is still there (only a check; CLAUDE.md Section 10.3; needs the user, in the database), and
    drop the empty `enquiries` collection in `gpec` (CLAUDE.md Known Gaps).
-3. **SES production access** (requested 2026-10-23): if nothing by now (2026-10-27), check the AWS
+4. **SES production access** (requested 2026-10-23): if nothing by now (2026-10-27), check the AWS
    support case for questions. Alternatives only if refused (see item 7 above).
-4. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
+5. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and
    photos replace them.
-5. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (most important; needs the
+6. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (most important; needs the
    Atlas owner: `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for
    the privacy notice); an Atlas tier with backups; AWS paid plan before 2027-04-22; 2FA on the
    Paystack account (its dashboard shows a banner asking for it).
-6. **From GPEC** (ROADMAP "Needed from GPEC"): approval of the refunds policy, FAQ, and privacy
+7. **From GPEC** (ROADMAP "Needed from GPEC"): approval of the refunds policy, FAQ, and privacy
    notice (every [bracket] filled in, including how long attached files are kept); real bank
    details; delivery areas and fees; collection hours (the "ready for pickup" email could then state
    them); the Paystack rate on its plan, for every payment method kept; real products with prices
    and categories; business hours and social links; registration number; the first video's sound.
-7. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
+8. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
    data removed, samples archived, every admin using two-step login, live Paystack keys only with
    GPEC's approval.
-8. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
+9. Stylesheet follow-ups needing a decision (CLAUDE.md Known Gaps, Styling).
 
 ## History
 

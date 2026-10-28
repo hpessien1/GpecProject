@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-27 (security audit fixes: payment confirmations that survive a crash, upload limits, photo preview on the contact form, short-lived copies of public pages, a security log for staff; 2026-10-26: phone menu, tab icon, clearer bank-transfer actions for staff, Paystack payment methods explained for GPEC; 2026-10-25: FAQ in the menu, section labels match it; all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
+- **Last updated:** 2026-10-28 (security log date filter and pages; completed and cancelled orders final, cancelling returns stock; a confirmation dialog for steps that cannot be undone; 2026-10-27: security audit fixes: payment confirmations that survive a crash, upload limits, photo preview on the contact form, short-lived copies of public pages, a security log for staff; 2026-10-26: phone menu, tab icon, clearer bank-transfer actions for staff, Paystack payment methods explained for GPEC; 2026-10-25: FAQ in the menu, section labels match it; all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -257,3 +257,7 @@ These block launch, and several block steps 4 to 6. Ask early.
       login codes; payment confirmations finished after a crash, with a staff "Check payment with
       Paystack" button; limits on contact-form uploads; short-lived copies of public pages; a
       Security log tab for staff. Photo preview on the contact form (user's request).
+- [x] Staff screens (2026-10-28, user's requests): the Security log filters by date, with numbered
+      pages; completed and cancelled orders cannot be changed again, and cancelling puts back the
+      stock the order took; a confirmation dialog in the panel's own style for completing or
+      cancelling an order and closing a transfer as not received.
