@@ -3,6 +3,7 @@ import type { EmailMessage, Mailer } from './email.js'
 import { DEFAULT_REPLY_TO, getCustomerEmailSettings } from './customerEmail.js'
 import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
 import type { AdminEmailData, ContactEmailData, OrderEmailData, OrderUpdate } from './emailTemplates.js'
+import { EmailBudget } from '../utils/emailBudget.js'
 
 const HOUR = 60 * 60 * 1000
 // Confirmations per recipient address per hour. Stops the public forms being used to flood a stranger's
@@ -39,16 +40,8 @@ export interface Notifier {
 // customerReplyTo: where customers' replies go (staff choose it, services/customerEmail.ts); staff
 // emails reply to the customer instead.
 export function createNotifier(mailer: Mailer | null, settings: EmailSettings | null, customerReplyTo: () => Promise<string> = async () => (await getCustomerEmailSettings()).replyTo): Notifier {
-  // In memory: one API instance only (CLAUDE.md, Section 6.3).
-  const recentConfirmations = new Map<string, number[]>()
-
-  function mayConfirm(address: string) {
-    const now = Date.now()
-    const recent = (recentConfirmations.get(address) ?? []).filter((time) => now - time < HOUR)
-    if (recent.length >= CONFIRMATIONS_PER_HOUR) return false
-    recentConfirmations.set(address, [...recent, now])
-    return true
-  }
+  const confirmations = new EmailBudget(CONFIRMATIONS_PER_HOUR, HOUR)
+  const mayConfirm = (address: string) => confirmations.take(address)
 
   // If the saved address cannot be read (database trouble), GPEC's published one: the email still goes.
   async function replyTo(reference: string) {

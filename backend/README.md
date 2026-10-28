@@ -218,7 +218,8 @@ All admin responses are sent with `Cache-Control: no-store`.
   a warning.
 - `POST /api/admin/session/password-reset` with `{ email }` always answers `202` with the same
   message, then (after answering) emails an active admin a link `<FRONTEND_URL>/#admin/reset-password/<token>`
-  that works once for 30 minutes and cancels any earlier link. At most 3 emails per address per hour;
+  that works once for 30 minutes and cancels any earlier link. At most 3 emails per admin address per
+  hour (other addresses are not counted or kept; requests are handled in the order they arrive);
   every request counts toward a per-IP limit (5 per 15 minutes in production). `503
   PASSWORD_RESET_UNAVAILABLE` when email is not configured; `400` for a missing or invalid address.
 - `POST /api/admin/session/password-reset/confirm` with `{ token, newPassword }` sets the password

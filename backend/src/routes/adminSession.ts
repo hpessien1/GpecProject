@@ -8,11 +8,12 @@ import AdminUser from '../models/AdminUser.js'
 import { recordSecurityEvent } from '../services/securityLog.js'
 import { asFields } from '../validation/fields.js'
 import type { BreachedPasswordCheck } from '../services/breachedPasswords.js'
-import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, createPasswordReset, dismissTwoFactorPrompt, findSessionAdmin, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
+import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
 import type { AdminIdentity } from '../services/adminAuth.js'
 import { CHALLENGE_MINUTES, EMAIL_CODE_MINUTES, completeLoginChallenge, loginChallengeAdminId, maskEmail, resendLoginEmailCode } from '../services/twoFactor.js'
 import { currencyInfo } from '../services/currency.js'
 import type { Notifier } from '../services/notifications.js'
+import { EmailBudget } from '../utils/emailBudget.js'
 import { validateLogin, validatePasswordChange, validatePasswordReset, validatePasswordResetRequest } from '../validation/adminSession.js'
 import { validateLoginCode } from '../validation/twoFactor.js'
 import type { AppConfig } from '../app.js'
@@ -21,7 +22,7 @@ const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attack
 const RESET_REQUESTED_MESSAGE = `If this email address belongs to a GPEC admin account, a link to reset the password is on its way. It works for ${RESET_LINK_MINUTES} minutes. Check the spam folder if it does not arrive.`
 const RESET_LINK_INVALID_MESSAGE = 'This reset link has expired or has already been used. Ask for a new one.'
 const HOUR = 60 * 60 * 1000
-// Reset emails per address per hour, so the form cannot flood an admin's inbox.
+// Reset emails per admin address per hour, so the form cannot flood an admin's inbox.
 const RESETS_PER_ADDRESS_PER_HOUR = 3
 // A login waiting for its two-step code (services/twoFactor.ts).
 const CHALLENGE_COOKIE = 'gpec_admin_login'
@@ -72,15 +73,10 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
   })
   // Every request counts, as for reset requests: each one can send an email.
   const loginCodeLimiter = rateLimit({ ...limiterSettings, message: { message: 'Too many codes asked for. Please wait 15 minutes and try again.' } })
-  // In memory: one API instance only (CLAUDE.md, Section 6.3).
-  const recentResets = new Map<string, number[]>()
-  function mayEmailReset(address: string) {
-    const now = Date.now()
-    const recent = (recentResets.get(address) ?? []).filter((time) => now - time < HOUR)
-    if (recent.length >= RESETS_PER_ADDRESS_PER_HOUR) return false
-    recentResets.set(address, [...recent, now])
-    return true
-  }
+  const resetEmails = new EmailBudget(RESETS_PER_ADDRESS_PER_HOUR, HOUR)
+  // Reset requests are handled one after another, in the order they arrived, so the last email an
+  // admin gets always carries the link that still works (a new link cancels the one before it).
+  let resetQueue: Promise<unknown> = Promise.resolve()
 
   // What the admin screens need about the logged-in admin and the site's settings.
   async function sessionInfo(admin: AdminIdentity, token: string) {
@@ -229,14 +225,18 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
     const { errors, value: { email } } = validatePasswordResetRequest(req.body)
     if (Object.keys(errors).length > 0) return next(new ValidationError(errors))
     res.status(202).json({ message: RESET_REQUESTED_MESSAGE })
-    if (!mayEmailReset(email)) return void recordSecurityEvent(req, { action: 'password.resetRequest', outcome: 'failure', reason: 'EMAIL_LIMIT', email })
-    createPasswordReset(email)
-      .then(async (reset) => {
-        // In the security log (audit M-06); an address that is not an admin's is not kept.
-        await recordSecurityEvent(req, reset ? { action: 'password.resetRequest', outcome: 'success', email } : { action: 'password.resetRequest', outcome: 'failure', reason: 'UNKNOWN_ACCOUNT' })
-        if (reset) await notifier.passwordResetRequested(reset.admin, reset.token, RESET_LINK_MINUTES)
-      })
-      .catch((error: unknown) => console.error(`Password reset request could not be handled: ${error instanceof Error ? error.name : 'unknown error'}`))
+    // The account is looked up before anything is counted, so an address that is not an admin's is
+    // never kept, even in the hourly count (audit L-02); and in the security log (audit M-06) only as
+    // an unknown account.
+    resetQueue = resetQueue.then(async () => {
+      if (!await isActiveAdminEmail(email)) return recordSecurityEvent(req, { action: 'password.resetRequest', outcome: 'failure', reason: 'UNKNOWN_ACCOUNT' })
+      if (!resetEmails.take(email)) return recordSecurityEvent(req, { action: 'password.resetRequest', outcome: 'failure', reason: 'EMAIL_LIMIT', email })
+      const reset = await createPasswordReset(email)
+      // Deactivated between the two steps: as unknown.
+      if (!reset) return recordSecurityEvent(req, { action: 'password.resetRequest', outcome: 'failure', reason: 'UNKNOWN_ACCOUNT' })
+      await recordSecurityEvent(req, { action: 'password.resetRequest', outcome: 'success', email })
+      await notifier.passwordResetRequested(reset.admin, reset.token, RESET_LINK_MINUTES)
+    }).catch((error: unknown) => console.error(`Password reset request could not be handled: ${error instanceof Error ? error.name : 'unknown error'}`))
   })
 
   router.post('/password-reset/confirm', securityEvent('password.reset'), resetLimiter, async (req, res, next) => {

@@ -6,6 +6,7 @@ import AdminUser from '../src/models/AdminUser.js'
 import { createPasswordReset, replacePassword, startSession } from '../src/services/adminAuth.js'
 import type { BreachedPasswordCheck } from '../src/services/breachedPasswords.js'
 import { hashPassword } from '../src/services/passwords.js'
+import { EmailBudget } from '../src/utils/emailBudget.js'
 import { RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
 
 useTestDatabase()
@@ -87,6 +88,30 @@ describe('asking for a reset link', () => {
     expect(mailer.sent).toHaveLength(3)
     const lastToken = tokenFrom(mailer.sent[2].text)
     expect((await confirm(app, { token: lastToken, newPassword: NEW_PASSWORD })).status).toBe(204)
+  })
+
+  // Audit L-02: a made-up address is looked up and dropped, never kept in the hourly count.
+  it('does not count or keep an address that is not an active admin’s', async () => {
+    await createTestAdmin({ email: 'former@example.test', isActive: false })
+    await createTestAdmin()
+    const take = vi.spyOn(EmailBudget.prototype, 'take')
+    const { mailer, app } = emailApp()
+    for (const address of ['nobody@example.test', 'former@example.test', 'nobody2@example.test']) expect((await askForLink(app, address)).status).toBe(202)
+    await askForLink(app, TEST_ADMIN.email)
+    await vi.waitFor(() => expect(mailer.sent).toHaveLength(1))
+    expect(take.mock.calls).toEqual([[TEST_ADMIN.email]])
+    take.mockRestore()
+  })
+
+  it('handles requests arriving together in order, so the last email’s link is the one that works', async () => {
+    await createTestAdmin()
+    const { mailer, app } = emailApp()
+    await Promise.all([1, 2, 3].map(() => askForLink(app, TEST_ADMIN.email)))
+    await vi.waitFor(() => expect(mailer.sent).toHaveLength(3))
+    const tokens = mailer.sent.map((message) => tokenFrom(message.text))
+    expect((await confirm(app, { token: tokens[0], newPassword: NEW_PASSWORD })).body.code).toBe('RESET_LINK_INVALID')
+    expect((await confirm(app, { token: tokens[1], newPassword: NEW_PASSWORD })).body.code).toBe('RESET_LINK_INVALID')
+    expect((await confirm(app, { token: tokens[2], newPassword: NEW_PASSWORD })).status).toBe(204)
   })
 
   it('refuses a missing or invalid address, and an object instead of text', async () => {

@@ -242,8 +242,9 @@ add a frontend gate, confirm the backend enforces the same condition.
   page removes the token from the address bar and history at once. Setting the password uses the
   same length and breach rules (a refused password does not use up the link), ends **all** that
   admin's sessions, and emails them that it changed. Limits: requests per IP (every request counts)
-  and 3 emails per address per hour; refused links per IP (both reuse `adminLoginRateLimit`'s
-  numbers). With email off the request gets `503 PASSWORD_RESET_UNAVAILABLE`; `admin:create --reset`
+  and 3 emails per admin address per hour (an address that is not an active admin's is looked up
+  first and never counted or kept; requests are handled one after another, so the last email holds
+  the link that works); refused links per IP (both reuse `adminLoginRateLimit`'s numbers). With email off the request gets `503 PASSWORD_RESET_UNAVAILABLE`; `admin:create --reset`
   still works.
 - **A new password cancels everything issued under the old one** (2026-10-26, audit finding H-01).
   All three ways to set one (`#admin/password`, a reset link, `admin:create --reset`) go through
@@ -892,7 +893,10 @@ to it in the admin panel) and sends the customer a plain-text confirmation with 
   send them). Other order statuses and contact-request statuses email nobody. Templates promise
   nothing beyond the refunds policy (no refund times or amounts).
 - Customer confirmations are capped at 3 per address per hour (in memory; one API instance), so
-  the forms cannot be used to flood a stranger's inbox. Staff notifications are not capped.
+  the forms cannot be used to flood a stranger's inbox. Staff notifications are not capped. Both
+  per-address caps use `utils/emailBudget.ts` (2026-10-28, audit finding L-02): addresses are held only
+  as a keyed fingerprint (HMAC, key made at startup), swept within 15 minutes of their hour ending,
+  and at most 10,000 at a time, the one emailed longest ago dropped first.
 - **Off until configured.** All five `SES_*`/`EMAIL_*`/`STAFF_*` settings plus `FRONTEND_URL`, or
   none; a partial set stops the server at startup (`config.ts`). On in production since
   2026-10-23 (region eu-north-1); setup: `docs/RUNBOOK.md` Section 1.6. A sending-only IAM key, never the root account.

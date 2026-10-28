@@ -133,6 +133,12 @@ export async function changePassword(adminId: string, currentPassword: string, n
 // Starts a "forgot password" reset for an active admin: returns the token for the emailed link, or
 // null when no active account has this email (the caller answers the same either way). A new link
 // cancels any earlier one.
+// Whether an address belongs to an active admin, so a reset request for any other address is neither
+// counted nor kept (audit L-02).
+export async function isActiveAdminEmail(email: string) {
+  return (await AdminUser.exists({ email: email.toLowerCase(), isActive: true })) !== null
+}
+
 export async function createPasswordReset(email: string) {
   const admin = await AdminUser.findOne({ email: email.toLowerCase(), isActive: true })
   if (!admin) return null
