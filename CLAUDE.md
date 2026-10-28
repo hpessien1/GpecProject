@@ -370,6 +370,8 @@ Outside production it stays off, so a forged `X-Forwarded-For` header cannot dod
 - No secrets in source, logs, error messages, or the client bundle. `.env` files are gitignored by
   the root `.gitignore`. Never paste real secrets (Atlas connection string, Paystack keys) into a
   chat with an AI assistant.
+- A local `backend/.env` is readable by its owner only (`chmod 600 backend/.env`); a fresh copy
+  (new clone, restored backup) needs the command again.
 - Every variable has a dummy entry in `backend/.env.example` or `frontend/.env.example`.
 - Production secrets live in Coolify's environment-variable store, not in a `.env` file on the
   server. Test and live values differ.
@@ -786,6 +788,8 @@ database outage the proxy may then stop sending traffic to the API, so the site'
   limit.
 - **The refunds policy, the FAQ, and the privacy notice approved** by GPEC (Site content: every
   [bracket] filled in, "Approved" ticked), the policies checked by its legal adviser.
+- **How long customer data is kept** decided by GPEC, and the matching clean-up built (Known Gaps,
+  open business decisions).
 - Every GPEC admin has turned on two-step login (`TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify,
   confirmed by the user 2026-10-25).
 - **Real bank details entered** in the admin panel (*Bank details*): the sample ones ("Sample Bank
@@ -1344,6 +1348,11 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   that passing the fee to customers is allowed under GPEC's Paystack terms. (Decided 2026-10-23: the
   currency is NGN, and customers pay the Paystack fee.)
 - Atlas cluster tier (must include backups before launch).
+- How long customer data is kept (deferred 2026-10-28, the user's choice): contact requests, their
+  attached files, staff notes, orders, and backups. Nothing is deleted automatically today, and the
+  S3 key cannot delete files. Once GPEC sets the periods (keeping financial records as long as the
+  law requires, with its legal adviser), build the clean-up to match and fill the privacy notice's
+  retention placeholder.
 
 ---
 

@@ -1,8 +1,8 @@
 # Next-session handover
 
-Last updated: 2026-10-28 (end of session: security log date filter and pages, final order statuses
-with stock returned on cancelling, and a confirmation dialog, committed as `5211d2c`; **not pushed,
-not deployed**; the next security-audit finding not yet chosen).
+Last updated: 2026-10-28 (end of session: close an abandoned Paystack order as not paid, admin
+header Menu button, and the last security-audit code fixes; everything up to `0c9b03a` pushed, CI
+green, deployed by the user; **the security audit is closed**, its two non-code items deferred).
 Start a new session with:
 
 ```text
@@ -12,10 +12,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `ed9463e` is pushed, CI green (run 40508801771). **Not pushed
-  yet:** `897ce26` (the previous handover), `5211d2c` (this session's work), and this handover
-  update, so CI has not run on them. Every CI step passed locally on 2026-10-28: backend 630 tests,
-  browser 356 (+4 skipped), contrast 20, lint, type-check, format, build. The user pushes; check with
+- **Git and CI:** everything up to `0c9b03a` is pushed, CI green (run 40677641975). This handover
+  and the audit close-out docs come after it. Locally on 2026-10-28: backend 660 tests, browser 365
+  (+5 skipped), contrast 20, lint, type-check, format, build. The user pushes; check with
   `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this repository's runs;
   it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
@@ -27,11 +26,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `ed9463e` (both `gpec-api` and `gpec-web`, 2026-10-27,
-  the user). The security log started empty at that deploy and fills from then on. `5211d2c` changes
-  both the API and the site, so both need deploying (after CI is green). At that deploy the API
-  builds a new index on `auditrecords` (`orderReference`) by itself, and the demo orders already
-  completed or cancelled become read-only.
+- **What is deployed:** everything up to `0c9b03a` (both `gpec-api` and `gpec-web`, 2026-10-28,
+  the user).
 - **Two owner steps from this session, not confirmed done** (ask the user): RUNBOOK 1.2 item 7 (a
   1 GB memory limit on `gpec-api` in Coolify, audit M-04) and item 8 (check that port 5001 on the
   server's IP cannot be reached directly, audit M-08: the per-visitor limits trust the proxy's
@@ -49,7 +45,22 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   product catalogue checklist (11), known gaps (14), lessons learned (15). Every command:
   [`docs/COMMANDS.md`](docs/COMMANDS.md).
 
-## This session (2026-10-28), all in `5211d2c`
+## This session (2026-10-28, second half)
+
+1. **Close as not paid** (`1d680dd`, user's choice of three options): on an unpaid Paystack order,
+   "The customer did not pay" asks Paystack once more and, only if no payment is found, marks the
+   order "Payment failed" (confirmed in the dialog; AuditRecord `order.close`). A late payment still
+   counts: `markOrderPaid` accepts `failed` orders.
+2. **Admin header** (`db2159e`, `9a1be26`): the admin's name is a "Logged in as" label at the end of
+   the row, not a link; at 1100px and below the tabs go into a Menu button, as on the public site.
+3. **Security audit, last code fixes:** M-05 (`bcd6fad`, contact-form PDFs rebuilt from their pages
+   by `services/pdfs.ts`; password-protected ones refused; no virus scanner, see below), L-02
+   (`6dbbcb3`, `utils/emailBudget.ts`), L-03 (`0c9b03a`, `tidyPassword` in `services/passwords.ts`),
+   and L-01 (local file permissions, nothing committed; now in CLAUDE.md 4.8 and COMMANDS).
+4. **Audit closed** (the user, after CI and deploy): the Atlas lock-down and how long customer data
+   is kept are deferred, in CLAUDE.md Known Gaps and the Section 7 launch checklist.
+
+## Earlier this session (2026-10-28), in `5211d2c`
 
 1. **Security log: date filter and pages** (user's request). "From" and "To" date boxes with "Show
    these dates" on the same line (user's follow-up), alongside the account list; numbered pages
@@ -74,7 +85,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
    keep the order; full width along the bottom on phones. CLAUDE.md Section 9 now says to use it,
    never `window.confirm`.
 
-## Security audit (2026-10-26 and 2026-10-27)
+## Security audit (2026-10-26 to 2026-10-28, closed)
 
 The user had an outside assessment written to `SECURITY_AUDIT_FIRST.md` at the repository root. **It
 is git-ignored on purpose (`34b7eab`): it describes weaknesses still open and the repository is
@@ -88,7 +99,8 @@ time), look at screenshots of changed screens at desktop and 390px, update CLAUD
 `backend/README.md` / `ECOMMERCE_REQUIREMENTS.md` / RUNBOOK and the audit file's status, and commit
 only when asked.
 
-Fixed, committed, and deployed:
+**Closed 2026-10-28.** Every finding the code could fix is fixed, tested, and deployed. If someone
+raises a new finding, handle it the same way. Fixed, committed, and deployed:
 
 - 2026-10-26: H-01 (`b342b0f`), M-01 (`1481f43`), M-03 (`2027a69`), M-02 (`b2eae90`; the user chose
   to include "transfer received"). What each does for staff is in CLAUDE.md Section 4.5 (search for
@@ -108,17 +120,14 @@ Fixed, committed, and deployed:
     request, or file staff open), kept 12 months (user's choice). The privacy notice was left
     unchanged: the user decided it is for customers, not staff.
 
-Still open (each explained to the user first, as above):
+- 2026-10-28: **M-05** (`bcd6fad`), **L-02** (`6dbbcb3`), **L-03** (`0c9b03a`); **L-01** local only.
+  M-05 has no virus scanner: ClamAV needs more memory than the 4 GB server has, and GuardDuty is not
+  offered on the AWS account's plan. The user tells GPEC's staff to scan PDFs on their own computers
+  before opening them.
 
-- **L-02**: the in-memory email-cap maps (customer confirmations, reset emails) never shrink and
-  keep addresses. A code fix.
-- **L-03**: the breached-password check and the stored password may treat the same text differently
-  (Unicode normalisation), so a breached password can slip through in another form. A code fix.
-- **M-05**: PDFs on the contact form are not scanned. Needs a decision: a scanning service (a new
-  external service, needs the user's approval) or accepting the risk as it stands (PDFs are only ever
-  downloaded, never shown in the site).
-- **L-01**: file permissions on the developer's `backend/.env`; needs the user's go-ahead.
-- **H-02** (the Atlas owner) and data retention (GPEC) are not code changes.
+Deferred (not code; the user's decision at close-out): **H-02** (the Atlas owner, RUNBOOK 1.1) and
+**data retention** (GPEC sets the periods, then the clean-up is built). Owner steps from the fixes, not
+confirmed done: RUNBOOK 1.2 items 7 and 8.
 
 ## Previous session (2026-10-25/26), in order
 
@@ -163,12 +172,12 @@ Still open (each explained to the user first, as above):
 - **Backend** (`backend/`): Express 5 + Mongoose 8. Routes in `backend/README.md`. Checkout in
   `services/checkout.ts`, Paystack only in `services/paystack.ts`, site content in
   `services/siteContent.ts`, two-step login in `services/twoFactor.ts`, contact-form files in
-  `services/requestFiles.ts` (photo re-saving shared in `services/photos.ts`), reply-to in
+  `services/requestFiles.ts` (photo re-saving shared in `services/photos.ts`, PDFs rebuilt in `services/pdfs.ts`), reply-to in
   `services/customerEmail.ts`, all emails in `services/notifications.ts` and `emailTemplates.ts`,
   security log in `services/securityLog.ts`, short-lived public copies in `utils/freshness.ts`.
-- **Tests:** 630 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
-  with sample API data: 356 behaviour tests at desktop and phone (plus 4 skipped: 2 from before, the
-  attach button's keyboard check on desktop, and the phone-menu test on desktop) and 20 contrast
+- **Tests:** 660 backend tests (Vitest, in-memory MongoDB); Playwright against the production build
+  with sample API data: 365 behaviour tests at desktop and phone (plus 5 skipped: width-specific
+  checks that apply to only one of the two projects) and 20 contrast
   tests (10 parts at 2 widths) (`frontend/e2e/support/sampleApi.ts`; keep it in step with the API).
 - **CI** (`.github/workflows/ci.yml`): lint, type-check, build, tests, two browser jobs, Docker
   builds, `npm audit`, gitleaks. Never deploys. Upgrading `@playwright/test` means updating the
@@ -207,14 +216,11 @@ Still open (each explained to the user first, as above):
 
 ## Open items for the next session
 
-0. **Ship this session's work:** the user pushes `main`; check CI with `gh run list`; then the user
-   deploys `gpec-api` and `gpec-web` in Coolify. After deploying: open the security log (filter by
-   today, page 2); open a completed demo order (read only); and, since demo orders took no stock,
-   check the stock return with a small test-mode order (RUNBOOK 1.8) for a product with a stock
-   count, then cancel it in the dialog (on a phone too) and see the count go back.
-1. **Security audit, next finding** (see "Still open" above): suggest L-02 or L-03 (code fixes), or
-   put M-05 to the user as a decision. Explain it plainly and **wait for the user's go-ahead** before
-   changing anything. Also ask whether RUNBOOK 1.2 items 7 and 8 were done.
+0. **Push** this handover and the audit close-out docs (the user). No deploy needed: docs only.
+1. **Ask whether RUNBOOK 1.2 items 7 and 8 were done** (Coolify memory limit; API port not reachable
+   directly). **GPEC staff:** the live privacy notice's sentence about PDFs (Site content) should
+   now say that PDF documents are rebuilt from their pages, which removes anything that could run
+   when the file is opened, as well as hidden details such as its author.
 2. **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD). The user
    is asking them with the explanation in `ECOMMERCE_REQUIREMENTS.md` Section 6. When they answer:
    GPEC switches methods in its Paystack dashboard; update that section, ROADMAP, and CLAUDE.md's
@@ -233,7 +239,8 @@ Still open (each explained to the user first, as above):
    the privacy notice); an Atlas tier with backups; AWS paid plan before 2027-04-22; 2FA on the
    Paystack account (its dashboard shows a banner asking for it).
 7. **From GPEC** (ROADMAP "Needed from GPEC"): approval of the refunds policy, FAQ, and privacy
-   notice (every [bracket] filled in, including how long attached files are kept); real bank
+   notice (every [bracket] filled in, including how long customer data and attached files are
+   kept, which the deferred clean-up then follows); real bank
    details; delivery areas and fees; collection hours (the "ready for pickup" email could then state
    them); the Paystack rate on its plan, for every payment method kept; real products with prices
    and categories; business hours and social links; registration number; the first video's sound.

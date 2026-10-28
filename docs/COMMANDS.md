@@ -19,6 +19,7 @@ cd frontend && npm install && cd ..
 
 cp -n backend/.env.example backend/.env     # -n: never overwrites an existing .env; then edit it (below)
 cp -n frontend/.env.example frontend/.env   # the default API address works locally
+chmod 600 backend/.env                      # only you can read it (it holds the database password)
 ```
 
 In `backend/.env`, set `MONGODB_URI` to the `gpec_dev` database (the part before `?` must end in
