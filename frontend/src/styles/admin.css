@@ -9,8 +9,25 @@
 .admin-main h1:focus {
   outline: none;
 }
+/* Who is logged in: a two-line label set apart from the links by a rule, in plain white rather than
+   the links' colour and weight, so it does not look clickable. */
 .admin-user {
-  color: rgba(255, 255, 255, 0.82);
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+  padding-left: 1.25rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.admin-user small {
+  color: rgba(255, 255, 255, 0.75);
+  font: 600 0.8rem var(--label);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
 }
 .admin-login {
   max-width: 460px;
@@ -76,12 +93,15 @@
   max-width: 640px;
   margin: 0 0 1.5rem;
 }
+/* At 1100px and below the header has room for the links only (with the label they wrap onto two lines). */
+@media (max-width: 1100px) {
+  .admin-user {
+    display: none;
+  }
+}
 @media (max-width: 650px) {
   .admin-main {
     padding: 3rem 1.1rem;
-  }
-  .admin-user {
-    display: none;
   }
   .shop-navigation > a.admin-account-link {
     display: inline;

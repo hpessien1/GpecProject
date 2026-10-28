@@ -57,6 +57,20 @@ test.describe('admin login', () => {
     await expect(page.getByText('Your session has ended. Please log in again.')).toBeVisible()
   })
 
+  test('the header says who is logged in, as a label rather than a link (hidden at 1100px and below)', async ({ page }, info) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    const navigation = page.getByRole('navigation', { name: 'Admin navigation' })
+    const user = navigation.locator('.admin-user')
+    if (info.project.name === 'phone') return await expect(user).toBeHidden()
+    await expect(user).toHaveText('Logged in as Sample Admin')
+    await expect(user.getByRole('link')).toHaveCount(0)
+    // At the end of the row, after the links and "Log out".
+    const [userBox, logOutBox] = await Promise.all([user.boundingBox(), navigation.getByRole('button', { name: 'Log out' }).boundingBox()])
+    if (!userBox || !logOutBox) throw new Error('The header label or "Log out" is not on the page.')
+    expect(userBox.x).toBeGreaterThan(logOutBox.x + logOutBox.width)
+  })
+
   test('logs out', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
