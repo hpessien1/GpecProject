@@ -394,6 +394,10 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-transfer-actions')
     await audit.page(page, `${label} admin unpaid order`)
     if (hovering) await audit.hover(page, `${label} admin unpaid order`)
+    await page.getByRole('button', { name: 'Close as not paid' }).click()
+    await page.getByRole('dialog').waitFor()
+    await audit.page(page, `${label} admin unpaid order, confirm closing as not paid`)
+    await page.keyboard.press('Escape')
     api.paymentCheck = 'mismatch'
     await page.getByRole('button', { name: 'Check payment with Paystack' }).click()
     await page.locator('.form-error').waitFor()

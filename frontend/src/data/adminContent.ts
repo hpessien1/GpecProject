@@ -140,8 +140,19 @@ export const ordersContent = {
       not_paid: () => 'Paystack has no completed payment for this order: the customer did not finish paying, or gave up. Nothing changed.',
       not_found: () => 'Paystack has no payment for this order: the customer did not get as far as paying. Nothing changed.',
       mismatch: () => 'Paystack reports a payment that does not match this order’s amount or currency, so the order was not marked paid. Look up the Paystack reference in Paystack’s dashboard.',
+      closed: () => 'Paystack has no completed payment, so the order is closed as not paid. The customer was not emailed.',
+      already_closed: () => 'The order was already closed while Paystack was being asked.',
     } satisfies Record<PaymentCheckOutcome, (emailOn: boolean) => string>,
     checkedNote: 'checked with Paystack',
+  },
+  // A Paystack order the customer left without paying: staff close it so it stops waiting. The server
+  // asks Paystack first; a payment it finds wins.
+  abandoned: {
+    title: 'The customer did not pay',
+    text: 'Close the order when the customer left Paystack’s page without paying. Paystack is asked first: if it has the payment, the order becomes paid instead. The customer is not emailed.',
+    button: 'Close as not paid',
+    closing: 'Asking Paystack…',
+    historyNote: 'Closed as not paid: Paystack had no completed payment',
   },
   transferClosed: 'Closed as not received: the transfer never arrived. If the customer did pay, they can contact GPEC; place a new order for them if needed.',
   // "Tell the customer by email": ticked by default where it is offered; untick it when you have
@@ -179,6 +190,14 @@ export const ordersContent = {
       title: (reference: string) => `Close order ${reference} as not received?`,
       effects: ['Do this only when you are sure the money is not coming.'],
       confirm: 'Close as not received',
+      cancel: 'Keep waiting',
+    },
+    // Not final in the same way: a payment the customer still finishes later marks the order paid.
+    abandoned: {
+      title: (reference: string) => `Close order ${reference} as not paid?`,
+      noUndo: 'Staff cannot reopen it.',
+      effects: ['Paystack is asked first: if it has the payment, the order becomes paid instead.', 'If the customer still finishes paying later, the order becomes paid all the same.', 'The customer is not emailed.'],
+      confirm: 'Close as not paid',
       cancel: 'Keep waiting',
     },
   },

@@ -60,7 +60,7 @@ process (`utils/freshness.ts`). Product photos are kept in memory (`services/ima
   `GET /api/admin/customer-email/history`; `GET /api/admin/security-log`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
   `GET /api/admin/content/:page/history`;
   `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`,
-  `POST /api/admin/orders/:reference/check-payment`;
+  `POST /api/admin/orders/:reference/check-payment`, `POST /api/admin/orders/:reference/close-payment`;
   `POST /api/admin/product-images`
 - Public product photos: `GET /api/product-images/:hash.webp`
 
@@ -290,7 +290,12 @@ All admin responses are sent with `Cache-Control: no-store`.
   `not_paid` (unfinished or abandoned), `not_found` (no such transaction), or `mismatch` (amount or
   currency differ; not paid). Bank-transfer orders get `409 NOT_A_PAYSTACK_ORDER`; with payments off
   `503 PAYMENT_CONFIG_ERROR`; Paystack unreachable `502 PAYMENT_CHECK_FAILED`. No password: Paystack
-  decides, not the admin. `POST /:reference/notes` as for
+  decides, not the admin. `POST /:reference/close-payment` (no body) closes a Paystack order the
+  customer left without paying: it asks Paystack the same way and answers the same outcomes, except
+  that where the check would say `not_paid` or `not_found` the order becomes `failed`, recorded as
+  `order.close` with who closed it (`closed`; `already_closed` if it was settled meanwhile). No email
+  to anyone. Only an order still `pending_payment` (otherwise `409 PAYMENT_ALREADY_CLOSED`, Paystack
+  not asked). A payment the customer still completes later marks it paid as usual. `POST /:reference/notes` as for
   contact requests. Orders are created by checkout; demo orders by `npm run seed:demo` (on the live
   database only with `--production`, removed before launch). Delivery orders include
   `deliveryAreaName`; every order has `customerNotes`.

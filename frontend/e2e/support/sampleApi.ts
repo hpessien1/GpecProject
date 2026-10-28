@@ -600,23 +600,30 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, { page: state.siteContent[key], ...historyReply(state.siteContentHistory[key]) }]
   }
   if (path === '/api/admin/orders') return listOrders(state.orders, url)
-  const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/history|\/transfer-received|\/transfer-not-received|\/check-payment)?$/.exec(path)
+  const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/history|\/transfer-received|\/transfer-not-received|\/check-payment|\/close-payment)?$/.exec(path)
   if (orderMatch) {
     const order = state.orders.find((candidate) => candidate.reference === orderMatch[1])
     if (!order) return [404, { message: 'Order not found.', code: 'NOT_FOUND' }]
     if (orderMatch[2] === '/history') return [200, historyReply(state.orderHistory[order.reference] ?? [], url)]
     if (orderMatch[2] === '/notes' && method === 'GET') return [200, notesReply(state.requestNotes[order.reference] ?? [], url)]
     // Like the real API (backend services/checkout.ts, checkPaymentForStaff): only Paystack's answer
-    // changes the order, recorded with who asked.
-    if (orderMatch[2] === '/check-payment') {
+    // changes the order, recorded with who asked. close-payment (closeAbandonedPayment): the same
+    // question, and the order closes as failed when Paystack has no completed payment.
+    if (orderMatch[2] === '/check-payment' || orderMatch[2] === '/close-payment') {
+      const closing = orderMatch[2] === '/close-payment'
       if (order.paymentMethod === 'bank_transfer') return [409, { message: 'This order is paid by bank transfer: check GPEC’s bank account instead.', code: 'NOT_A_PAYSTACK_ORDER' }]
-      if (!state.paymentsOn) return [503, { message: 'Online payment is not set up, so Paystack cannot be asked.', code: 'PAYMENT_CONFIG_ERROR' }]
       let paymentCheck: PaymentCheckOutcome = state.paymentCheck
       if (order.paymentStatus === 'paid') paymentCheck = 'already_paid'
+      else if (closing && order.paymentStatus !== 'pending_payment') return [409, { message: 'This order is no longer awaiting payment.', code: 'PAYMENT_ALREADY_CLOSED' }]
+      else if (!state.paymentsOn) return [503, { message: 'Online payment is not set up, so Paystack cannot be asked.', code: 'PAYMENT_CONFIG_ERROR' }]
       else if (state.paymentCheckFails) return [502, { message: 'Paystack could not be reached just now. Nothing changed; try again in a moment.', code: 'PAYMENT_CHECK_FAILED' }]
-      const to = paymentCheck === 'paid' ? 'paid' : paymentCheck === 'failed' && order.paymentStatus === 'pending_payment' ? 'failed' : null
+      else if (closing && (paymentCheck === 'not_paid' || paymentCheck === 'not_found')) paymentCheck = 'closed'
+      const to = paymentCheck === 'paid' ? 'paid' : (paymentCheck === 'failed' || paymentCheck === 'closed') && order.paymentStatus === 'pending_payment' ? 'failed' : null
       if (to) {
-        state.orderHistory[order.reference] = [{ action: 'order.payment', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'paymentStatus', from: order.paymentStatus, to }], customerEmailed: false, createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
+        const entry: OrderHistoryEntry = paymentCheck === 'closed'
+          ? { action: 'order.close', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'paymentStatus', from: 'pending_payment', to: 'failed' }], customerEmailed: false, createdAt: new Date().toISOString() }
+          : { action: 'order.payment', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'paymentStatus', from: order.paymentStatus, to }], customerEmailed: false, createdAt: new Date().toISOString() }
+        state.orderHistory[order.reference] = [entry, ...(state.orderHistory[order.reference] ?? [])]
         Object.assign(order, { paymentStatus: to, stage: to === 'paid' ? 'new' : 'payment_failed', paidAt: to === 'paid' ? new Date().toISOString() : null })
       }
       return [200, { order, emailOn: state.emailOn, paystackOn: state.paymentsOn, paymentCheck, ...historyReply(state.orderHistory[order.reference] ?? []), ...notesReply(state.requestNotes[order.reference] ?? []) }]

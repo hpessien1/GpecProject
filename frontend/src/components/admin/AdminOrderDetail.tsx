@@ -7,7 +7,7 @@ import ConfirmDialog from './ConfirmDialog'
 import ConfirmPasswordField from './ConfirmPasswordField'
 import { fulfilmentMethodLabels, orderStageLabels, ordersContent, paymentMethodLabels, paymentStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
-import { addOrderNote, checkOrderPayment, closeUnpaidTransfer, confirmTransferReceived, getOlderOrderHistory, getOlderOrderNotes, getOrder, setOrderStatus } from '../../services/adminApi'
+import { addOrderNote, checkOrderPayment, closeOrderPayment, closeUnpaidTransfer, confirmTransferReceived, getOlderOrderHistory, getOlderOrderNotes, getOrder, setOrderStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import { formatPrice } from '../../utils/money'
 import type { AdminOrderResponse, FulfilmentMethod, FulfilmentStatus } from '../../types'
@@ -51,8 +51,9 @@ interface NotifyCustomerFieldProps {
 
 // "Tell the customer by email", ticked by default; or, while email is not set up, a note saying so.
 // A step waiting for staff to confirm it in the dialog: an order completed or cancelled (with whether to
-// email the customer, as the box was when they pressed the button), or a transfer closed as not received.
-type Confirming = { kind: 'completed' | 'cancelled', notify: boolean | undefined } | { kind: 'transferMissing' }
+// email the customer, as the box was when they pressed the button), a transfer closed as not received,
+// or a Paystack order closed as not paid.
+type Confirming = { kind: 'completed' | 'cancelled', notify: boolean | undefined } | { kind: 'transferMissing' } | { kind: 'abandoned' }
 
 function NotifyCustomerField({ id, emailOn, hint, checked, onChange }: NotifyCustomerFieldProps) {
   if (!emailOn) return <p className="admin-notice">{ordersContent.emailOff}</p>
@@ -160,24 +161,35 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
     if (!confirming) return
     setConfirming(null)
     if (confirming.kind === 'transferMissing') void settleTransfer(false)
+    else if (confirming.kind === 'abandoned') void askPaystack(true)
     else void saveStatus(confirming.kind, confirming.notify)
   }
 
-  // A Paystack order not paid yet: ask Paystack, which alone decides whether it changes.
-  async function handlePaymentCheck(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
+  // A Paystack order not paid yet: ask Paystack, which alone decides whether it changes; or close it as
+  // not paid, which the server does only if Paystack has no completed payment.
+  async function askPaystack(close: boolean) {
     setResult(null)
     setIsSaving(true)
     try {
-      const { paymentCheck, ...updated } = await checkOrderPayment(reference)
+      const { paymentCheck, ...updated } = await (close ? closeOrderPayment(reference) : checkOrderPayment(reference))
       setData(updated)
       setResult({ kind: paymentCheck === 'mismatch' ? 'error' : 'success', message: ordersContent.paystackCheck.outcomes[paymentCheck](updated.emailOn) })
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return onSessionEnded()
-      setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to check the payment with Paystack.' })
+      setResult({ kind: 'error', message: error instanceof Error ? error.message : close ? 'Unable to close the order.' : 'Unable to check the payment with Paystack.' })
     } finally {
       setIsSaving(false)
     }
+  }
+
+  function handlePaymentCheck(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void askPaystack(false)
+  }
+
+  function handleAbandoned(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setConfirming({ kind: 'abandoned' })
   }
 
   const order = data?.order
@@ -297,6 +309,11 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
                   <p>{ordersContent.paystackCheck.text}</p>
                   <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? ordersContent.paystackCheck.checking : <>{ordersContent.paystackCheck.button} <Arrow /></>}</button>
                 </form>
+                {order.paymentStatus === 'pending_payment' && <form className="admin-form admin-transfer-choice" aria-labelledby="admin-abandoned-title" onSubmit={handleAbandoned}>
+                  <h3 id="admin-abandoned-title">{ordersContent.abandoned.title}</h3>
+                  <p>{ordersContent.abandoned.text}</p>
+                  <button className="button button-outline" type="submit" disabled={isSaving}>{isSaving ? ordersContent.abandoned.closing : ordersContent.abandoned.button}</button>
+                </form>}
               </section>
             : <p className="admin-notice">{order.paymentMethod === 'bank_transfer' ? ordersContent.transferClosed : ordersContent.notPaid}</p>}
           <section className="admin-history" aria-labelledby="admin-order-history-title">
@@ -305,7 +322,9 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
               {(history) => history.length === 0 ? <p>No changes yet. Paid orders start as “New”.</p>
                 : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
                   <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
-                  <ul>{entry.action === 'order.payment'
+                  <ul>{entry.action === 'order.close'
+                    ? <li>{ordersContent.abandoned.historyNote}</li>
+                    : entry.action === 'order.payment'
                     // On a Paystack order, staff asked Paystack; on a transfer, staff decided.
                     ? entry.changes.map((change) => <li key={change.field}>Payment: {paymentStatusLabels[change.from]} → {order.paymentMethod === 'bank_transfer' && change.to === 'failed' ? 'Closed as not received' : paymentStatusLabels[change.to]}{order.paymentMethod === 'paystack' && ` (${ordersContent.paystackCheck.checkedNote})`}</li>)
                     : entry.changes.map((change) => <li key={change.field}>{orderStageLabels[change.from]} → {orderStageLabels[change.to]}</li>)}
@@ -317,7 +336,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
       </div>}
     <ConfirmDialog open={confirmContent !== null} title={confirmContent?.title(reference) ?? ''} confirmLabel={confirmContent?.confirm ?? ''} cancelLabel={confirmContent?.cancel ?? ''} onConfirm={handleConfirm} onCancel={() => setConfirming(null)}>
       <ul>
-        <li><strong>{ordersContent.confirm.noUndo}</strong></li>
+        <li><strong>{confirming?.kind === 'abandoned' ? ordersContent.confirm.abandoned.noUndo : ordersContent.confirm.noUndo}</strong></li>
         {confirmContent?.effects.map((effect) => <li key={effect}>{effect}</li>)}
         {emailing !== null && <li>{emailing ? ordersContent.confirm.emailYes : ordersContent.confirm.emailNo}</li>}
       </ul>

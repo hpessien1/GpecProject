@@ -304,3 +304,104 @@ describe('staff checking a payment with Paystack', () => {
     expect(await paymentStatus()).toBe('pending_payment')
   })
 })
+
+// The customer left Paystack's page without paying: staff close the order, but only once Paystack
+// confirms it has no completed payment.
+describe('staff closing an order the customer did not pay', () => {
+  const ORIGIN = 'http://localhost:5173'
+  let agent: Awaited<ReturnType<typeof loggedInAgent>>
+
+  beforeEach(async () => {
+    await createTestAdmin()
+    agent = await loggedInAgent(app)
+    await settle()
+    mailer.sent.length = 0
+  })
+
+  function close(path = orderReference, origin = ORIGIN) {
+    return agent.post(`/api/admin/orders/${path}/close-payment`).set('Origin', origin).send()
+  }
+
+  function reports(status: string, override: object = {}) {
+    paystack.results.set(reference, { reference, status, amount: total, currency: 'NGN', ...override })
+  }
+
+  it.each([
+    ['the payment was abandoned', 'abandoned'],
+    ['Paystack has no such payment', null],
+  ])('closes the order as failed when %s, recorded with who closed it, emailing nobody', async (_name, status) => {
+    if (status) reports(status)
+    const res = await close()
+    expect(res.status).toBe(200)
+    expect(res.body.paymentCheck).toBe('closed')
+    expect(res.body.order).toMatchObject({ paymentStatus: 'failed', stage: 'payment_failed' })
+    expect(res.body.history[0]).toMatchObject({ action: 'order.close', actor: { name: TEST_ADMIN.name }, changes: [{ field: 'paymentStatus', from: 'pending_payment', to: 'failed' }] })
+    expect(paystack.verified).toEqual([reference])
+    await settle()
+    expect(mailer.sent).toEqual([])
+  })
+
+  it('marks the order paid instead when Paystack has the payment', async () => {
+    reports('success')
+    const res = await close()
+    expect(res.body.paymentCheck).toBe('paid')
+    expect(res.body.order.paymentStatus).toBe('paid')
+    expect(await AuditRecord.countDocuments({ action: 'order.close' })).toBe(0)
+  })
+
+  it('leaves a payment that does not match the order unpaid and open, for staff to look into', async () => {
+    reports('success', { amount: 100 })
+    expect((await close()).body.paymentCheck).toBe('mismatch')
+    expect(await paymentStatus()).toBe('pending_payment')
+    expect(await AuditRecord.countDocuments({ action: 'order.close' })).toBe(0)
+  })
+
+  it('still marks a closed order paid if the customer finishes paying later', async () => {
+    await close()
+    expect(await paymentStatus()).toBe('failed')
+    expect((await deliver(charge('charge.success'))).status).toBe(200)
+    expect(await paymentStatus()).toBe('paid')
+  })
+
+  it('refuses an order that is no longer awaiting payment, without asking Paystack', async () => {
+    await close()
+    paystack.verified.length = 0
+    const res = await close()
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('PAYMENT_ALREADY_CLOSED')
+    expect(paystack.verified).toEqual([])
+    expect(await AuditRecord.countDocuments({ action: 'order.close' })).toBe(1)
+  })
+
+  it('says an order the webhook already paid is paid, changing nothing', async () => {
+    await deliver(charge('charge.success'))
+    expect((await close()).body.paymentCheck).toBe('already_paid')
+    expect(await paymentStatus()).toBe('paid')
+    expect(await AuditRecord.countDocuments({ action: 'order.close' })).toBe(0)
+  })
+
+  it('answers 502 when Paystack cannot be reached, leaving the order open', async () => {
+    paystack.failVerify = true
+    const res = await close()
+    expect(res.status).toBe(502)
+    expect(res.body.code).toBe('PAYMENT_CHECK_FAILED')
+    expect(await paymentStatus()).toBe('pending_payment')
+  })
+
+  it('refuses a bank-transfer order: staff close those as not received', async () => {
+    await BankTransferSettings.create({ enabled: true, bankName: 'Sample Bank', accountName: 'GPEC', accountNumber: '0123456789', instructions: '', payWithinDays: 3 })
+    const placed = await request(app).post('/api/checkout/orders').send({ fullName: 'Ngozi Test', email: 'ngozi@example.com', phone: '+234 803 000 0000', items: [{ productId: 'panel-001', quantity: 1 }], fulfilmentMethod: 'pickup', paymentMethod: 'bank_transfer' })
+    const res = await close(placed.body.reference)
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('NOT_A_PAYSTACK_ORDER')
+    expect((await Order.findOne({ reference: placed.body.reference }).lean())?.paymentStatus).toBe('pending_payment')
+  })
+
+  it('is for admins only, from GPEC’s own site, with no body', async () => {
+    expect((await request(app).post(`/api/admin/orders/${orderReference}/close-payment`).send()).status).toBe(401)
+    expect((await close(orderReference, 'https://evil.example')).status).toBe(403)
+    expect((await agent.post(`/api/admin/orders/${orderReference}/close-payment`).set('Origin', ORIGIN).send({ paymentStatus: 'failed' })).status).toBe(400)
+    expect((await close('GPEC-O-2026-ZZZZZZZZ')).status).toBe(404)
+    expect(await paymentStatus()).toBe('pending_payment')
+  })
+})

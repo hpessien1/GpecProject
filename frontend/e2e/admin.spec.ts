@@ -479,6 +479,40 @@ test.describe('orders', () => {
     await expect(page.locator('.admin-status')).toHaveText('Awaiting payment')
   })
 
+  test('staff can close an order the customer did not pay, after confirming, once Paystack has no payment', async ({ page }) => {
+    const api = await mockApi(page, { paymentCheck: 'not_paid' })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000D')
+    const closeForm = page.getByRole('region', { name: 'Has the customer paid?' }).getByRole('form', { name: 'The customer did not pay' })
+    await closeForm.getByRole('button', { name: 'Close as not paid' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Close order GPEC-O-2026-0000000D as not paid?' })
+    await expect(dialog).toContainText('Staff cannot reopen it.')
+    await expect(dialog).toContainText('If the customer still finishes paying later, the order becomes paid all the same.')
+    await dialog.getByRole('button', { name: 'Keep waiting' }).click()
+    await expect(dialog).toHaveCount(0)
+    expect(api.requests.some((r) => r.path.endsWith('/close-payment'))).toBe(false)
+
+    await closeForm.getByRole('button', { name: 'Close as not paid' }).click()
+    await dialog.getByRole('button', { name: 'Close as not paid' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Paystack has no completed payment, so the order is closed as not paid. The customer was not emailed.')
+    expect(api.requests.find((r) => r.path.endsWith('/close-payment'))?.body).toEqual({})
+    await expect(page.locator('.admin-status')).toHaveText('Payment failed')
+    await expect(page.locator('.admin-history li').first()).toContainText('Closed as not paid: Paystack had no completed payment')
+    // Closed: no second close, but staff can still ask Paystack in case the customer pays later.
+    await expect(page.getByRole('button', { name: 'Close as not paid' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Check payment with Paystack' })).toBeEnabled()
+  })
+
+  test('closing an order Paystack has the payment for marks it paid instead', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000D')
+    await page.getByRole('button', { name: 'Close as not paid' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Close as not paid' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Paystack confirms the payment: the order is now paid and can be moved along. The customer has been emailed their order confirmation.')
+    await expect(page.getByLabel('Order status')).toBeVisible()
+  })
+
   test('without online payment set up, an unpaid order only says why it cannot move', async ({ page }) => {
     await mockApi(page, { paymentsOn: false })
     await logInAsAdmin(page)

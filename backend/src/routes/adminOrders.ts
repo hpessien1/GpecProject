@@ -4,7 +4,7 @@ import { NotFoundError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { securityEvent } from '../middleware/securityEvent.js'
 import { addOrderNote, getOrder, listOrders, orderHistory, orderNotes, setFulfilmentStatus } from '../services/adminOrders.js'
-import { checkPaymentForStaff, closeUnpaidTransfer, confirmTransferReceived } from '../services/checkout.js'
+import { checkPaymentForStaff, closeAbandonedPayment, closeUnpaidTransfer, confirmTransferReceived } from '../services/checkout.js'
 import type { Notifier } from '../services/notifications.js'
 import type { PaystackClient } from '../services/paystack.js'
 import { ORDER_REFERENCE_PATTERN, validateFulfilmentChange, validateOrderListQuery, validateTransferClose } from '../validation/adminOrder.js'
@@ -15,8 +15,9 @@ import { validateOlderPageQuery } from '../validation/olderPage.js'
 // details never reach an anonymous visitor. Admins can read and search orders, move a paid order's
 // fulfilment along, and add internal notes. They cannot change items, amounts, or customer details.
 // Payment status is set by the server: after Paystack confirms a payment (staff can ask Paystack
-// themselves), or, for a bank transfer, through the two recorded actions below (the money arrived, or
-// it never did).
+// themselves, and close an order the customer left without paying once Paystack confirms there is no
+// payment), or, for a bank transfer, through the two recorded actions below (the money arrived, or it
+// never did).
 // confirmPassword (middleware/requirePassword.ts): marking a transfer received releases goods, so it
 // needs the admin's password as well as the session. paystack: null while payments are not set up.
 export default function adminOrdersRouter(notifier: Notifier, confirmPassword: RequestHandler, paystack: PaystackClient | null) {
@@ -93,16 +94,20 @@ export default function adminOrdersRouter(notifier: Notifier, confirmPassword: R
 
   // Ask Paystack about an unpaid Paystack order (audit M-07). No password: Paystack decides, not the
   // admin, and the answer is checked against the order's amount and currency as for the webhook.
-  router.post('/:reference/check-payment', async (req, res, next) => {
-    try {
-      const reference = referenceParam(req.params.reference)
-      if (Object.keys(req.body ?? {}).length > 0) throw new ValidationError({ body: 'Send no details.' })
-      const paymentCheck = await checkPaymentForStaff(currentAdmin(res), reference, paystack, notifier)
-      return res.json({ ...await detail(getOrder(reference)), paymentCheck })
-    } catch (error) {
-      return next(error)
-    }
-  })
+  // close-payment: the customer left without paying, so staff close the order. Paystack is asked first:
+  // the order closes only if it has no completed payment (otherwise it changes as with the check).
+  for (const [path, ask] of [['check-payment', checkPaymentForStaff], ['close-payment', closeAbandonedPayment]] as const) {
+    router.post(`/:reference/${path}`, async (req, res, next) => {
+      try {
+        const reference = referenceParam(req.params.reference)
+        if (Object.keys(req.body ?? {}).length > 0) throw new ValidationError({ body: 'Send no details.' })
+        const paymentCheck = await ask(currentAdmin(res), reference, paystack, notifier)
+        return res.json({ ...await detail(getOrder(reference)), paymentCheck })
+      } catch (error) {
+        return next(error)
+      }
+    })
+  }
 
   // Only { notifyCustomer? }: whether to tell the customer the order was closed.
   router.post('/:reference/transfer-not-received', async (req, res, next) => {

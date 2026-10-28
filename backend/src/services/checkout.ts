@@ -241,17 +241,32 @@ function paymentRecord(admin: AdminIdentity, reference: string, from: string, to
 
 // What staff asking Paystack found: paid (now), already_paid (before asking), failed (Paystack reports
 // a failed payment), not_paid (unfinished or abandoned), not_found (the customer never reached
-// Paystack's page), mismatch (a payment that does not match the order; not marked paid).
-export type PaymentCheckOutcome = 'paid' | 'already_paid' | 'failed' | 'not_paid' | 'not_found' | 'mismatch'
+// Paystack's page), mismatch (a payment that does not match the order; not marked paid). Closing an
+// abandoned order adds closed (Paystack had no completed payment, so staff closed it) and
+// already_closed (Paystack marked it failed while being asked).
+export type PaymentCheckOutcome = 'paid' | 'already_paid' | 'failed' | 'not_paid' | 'not_found' | 'mismatch' | 'closed' | 'already_closed'
 
 // Audit M-07: a payment Paystack took that the site never heard about (the webhook's work was cut
 // off, and the customer closed the tab before the return-page check). Staff ask Paystack; the order
 // changes only on Paystack's word, through the same markOrderPaid, recorded with who asked.
-export async function checkPaymentForStaff(admin: AdminIdentity, reference: string, paystack: PaystackClient | null, notifier: Notifier): Promise<PaymentCheckOutcome> {
+export function checkPaymentForStaff(admin: AdminIdentity, reference: string, paystack: PaystackClient | null, notifier: Notifier) {
+  return askPaystackForStaff(admin, reference, paystack, notifier, false)
+}
+
+// The customer left Paystack's page without paying: staff close the order so it no longer waits for
+// payment. Paystack is asked first, so an order it has a payment for becomes paid (or failed) instead,
+// as with the check. The order becomes failed, recorded as order.close; the customer is not emailed. A
+// payment the customer still finishes later marks it paid all the same (markOrderPaid pays failed orders).
+export function closeAbandonedPayment(admin: AdminIdentity, reference: string, paystack: PaystackClient | null, notifier: Notifier) {
+  return askPaystackForStaff(admin, reference, paystack, notifier, true)
+}
+
+async function askPaystackForStaff(admin: AdminIdentity, reference: string, paystack: PaystackClient | null, notifier: Notifier, closeIfUnpaid: boolean): Promise<PaymentCheckOutcome> {
   const order = await Order.findOne({ reference }).lean()
   if (!order) throw new NotFoundError('Order not found.')
   if (order.paymentMethod === 'bank_transfer') throw new ConflictError('This order is paid by bank transfer: check GPEC’s bank account instead.', 'NOT_A_PAYSTACK_ORDER')
   if (order.paymentStatus === 'paid') return 'already_paid'
+  if (closeIfUnpaid && order.paymentStatus !== 'pending_payment') throw new ConflictError('This order is no longer awaiting payment.', 'PAYMENT_ALREADY_CLOSED')
   if (!paystack) throw new HttpError(503, 'Online payment is not set up, so Paystack cannot be asked.', 'PAYMENT_CONFIG_ERROR')
   const paymentReference = String(order._id)
   let result: TransactionResult | null
@@ -262,7 +277,7 @@ export async function checkPaymentForStaff(admin: AdminIdentity, reference: stri
     console.error(`Payment for ${order.reference} could not be checked. ${error.message}`)
     throw new HttpError(502, 'Paystack could not be reached just now. Nothing changed; try again in a moment.', 'PAYMENT_CHECK_FAILED')
   }
-  if (!result || result.reference !== paymentReference) return 'not_found'
+  if (!result || result.reference !== paymentReference) return closeIfUnpaid ? await closeUnpaid(admin, reference, paymentReference) : 'not_found'
   if (result.status === 'success') {
     const outcome = await markOrderPaid(result, notifier, (session, paidFrom) => paymentRecord(admin, reference, paidFrom, 'paid')(session))
     return outcome === 'mismatch' ? 'mismatch' : outcome === 'paid' ? 'paid' : 'already_paid'
@@ -271,7 +286,15 @@ export async function checkPaymentForStaff(admin: AdminIdentity, reference: stri
     await markOrderFailed(paymentReference, paymentRecord(admin, reference, 'pending_payment', 'failed'))
     return 'failed'
   }
-  return 'not_paid'
+  return closeIfUnpaid ? await closeUnpaid(admin, reference, paymentReference) : 'not_paid'
+}
+
+async function closeUnpaid(admin: AdminIdentity, reference: string, paymentReference: string): Promise<PaymentCheckOutcome> {
+  const closed = await markOrderFailed(paymentReference, (session) => AuditRecord.create([{ action: 'order.close', targetType: 'order', targetId: reference, actor: actorOf(admin), changes: [{ field: 'paymentStatus', from: 'pending_payment', to: 'failed' }] }], { session }))
+  if (closed) return 'closed'
+  // Settled while Paystack was being asked: its webhook, or another admin.
+  const now = await Order.findOne({ reference }).select('paymentStatus').lean()
+  return now?.paymentStatus === 'paid' ? 'already_paid' : 'already_closed'
 }
 
 async function unpaidTransfer(reference: string) {

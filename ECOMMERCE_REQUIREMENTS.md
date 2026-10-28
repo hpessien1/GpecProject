@@ -137,7 +137,7 @@ The customer chooses how to pay when both are open: **Paystack** (Section 6 belo
 
 - Submitting the checkout form creates an order on the server with status `pending_payment`.
 - The server calculates the subtotal, delivery fee, payment processing fee, and total from its own price data and fee rules. Prices, fees, totals, currency, and return addresses sent by the browser are ignored.
-- The server refuses to start a payment for an order that is already paid. Each press of "Pay" creates a new order with its own payment reference; an order the customer abandons on Paystack's page stays "Awaiting payment" in the admin panel, and nothing was charged.
+- The server refuses to start a payment for an order that is already paid. Each press of "Pay" creates a new order with its own payment reference; an order the customer abandons on Paystack's page stays "Awaiting payment" in the admin panel, and nothing was charged. Staff can close such an order with "Close as not paid" (after confirming): the website asks Paystack first, and the order closes (shown as "Payment failed", with who closed it in the history) only if Paystack has no completed payment; if Paystack has the payment, the order becomes paid instead. The customer is not emailed. If the customer still finishes paying later, the order becomes paid as usual.
 - The server creates a Paystack transaction with a unique order reference and returns Paystack's payment page URL.
 - The customer is redirected to Paystack's hosted payment page to pay.
 - After payment, Paystack returns the customer to the GPEC site.

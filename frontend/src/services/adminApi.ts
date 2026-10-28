@@ -229,6 +229,12 @@ export function checkOrderPayment(reference: string) {
   return requestJson<AdminOrderResponse & { paymentCheck: PaymentCheckOutcome }>(`/admin/orders/${encodeURIComponent(reference)}/check-payment`, 'Unable to check the payment with Paystack.', { ...admin, method: 'POST', payload: {} })
 }
 
+// Closes an unpaid Paystack order the customer left; the server asks Paystack first and closes it only
+// if there is no completed payment.
+export function closeOrderPayment(reference: string) {
+  return requestJson<AdminOrderResponse & { paymentCheck: PaymentCheckOutcome }>(`/admin/orders/${encodeURIComponent(reference)}/close-payment`, 'Unable to close the order.', { ...admin, method: 'POST', payload: {} })
+}
+
 export function listSiteContent() {
   return requestJson<{ pages: SiteContentSummary[] }>('/admin/content', 'Unable to load the site content.', admin)
 }

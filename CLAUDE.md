@@ -133,7 +133,9 @@ Paystack flow; the *Why* notes record the failure each one prevents.
 - **Three confirmation paths, one function.** Paystack's webhook, the callback-return verify
   (`GET /transaction/verify/:reference`), and staff's "Check payment with Paystack" on an unpaid
   order (2026-10-27, audit finding M-07; `checkPaymentForStaff`, recorded as `order.payment` with who
-  asked) all call the **same** `markOrderPaid` function, which
+  asked; its "Close as not paid" twin, `closeAbandonedPayment`, asks Paystack the same way and
+  closes the order as `failed`, recorded as `order.close`, only if there is no completed payment,
+  2026-10-28, the user's choice) all call the **same** `markOrderPaid` function, which
   uses an atomic conditional update (`status: 'pending_payment' → 'paid'`). Only the caller that
   wins that update sends emails. The verify path is required because Paystack cannot reach
   `localhost`, and the webhook can arrive after the customer returns. *Why:* separate code paths
@@ -859,7 +861,9 @@ up so GPEC receives the full order value after Paystack's fee; the rule comes fr
 4. Only the caller that wins `markOrderPaid`'s conditional update sends confirmation emails. Show
    the confirmation and clear the cart only after verified payment.
 5. Failed or abandoned payment: order stays unpaid (or `failed`); the cart is kept. The rule for
-   retrying: each "Pay" creates a new order; abandoned ones stay "Awaiting payment" for staff.
+   retrying: each "Pay" creates a new order; abandoned ones stay "Awaiting payment" until staff
+   close them (`POST /api/admin/orders/:reference/close-payment`, which asks Paystack first; no
+   email). A closed (`failed`) order still becomes paid if the payment completes later.
 6. A declined card happens on Paystack's page, not in this API. Paystack refusing to start or check
    a payment answers `502` (`PAYMENT_START_FAILED`, `PAYMENT_CHECK_FAILED`) and is logged with the
    order reference only.

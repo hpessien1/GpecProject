@@ -20,7 +20,9 @@ const auditRecordSchema = new mongoose.Schema({
   // reference and the admin who cancelled it).
   // order.payment: staff confirmed a bank transfer arrived, or closed an unpaid one; or staff asked
   // Paystack about a payment and Paystack's answer changed the order.
-  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'product.restock', 'contactRequest.status', 'order.status', 'order.payment', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
+  // order.close: staff closed a Paystack order the customer left without paying (Paystack had no
+  // completed payment for it).
+  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'product.restock', 'contactRequest.status', 'order.status', 'order.payment', 'order.close', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
   targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer', 'siteContent', 'customerEmail'] },
   targetId: { type: String, required: true },
   // The admin who made the change, copied at the time, so the record still names the person if the

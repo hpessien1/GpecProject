@@ -381,7 +381,7 @@ export interface AdminOrderDetail {
 
 // order.status: staff moved fulfilment along. order.payment: staff confirmed a bank transfer
 // arrived, or closed it as not received; or, on a Paystack order, staff asked Paystack and its answer
-// changed the order.
+// changed the order. order.close: staff closed a Paystack order the customer left without paying.
 export type OrderHistoryEntry = {
   action: 'order.status'
   actor: { name: string, email: string }
@@ -393,6 +393,12 @@ export type OrderHistoryEntry = {
   action: 'order.payment'
   actor: { name: string, email: string }
   changes: { field: 'paymentStatus', from: PaymentStatus, to: PaymentStatus }[]
+  customerEmailed: boolean
+  createdAt: string
+} | {
+  action: 'order.close'
+  actor: { name: string, email: string }
+  changes: { field: 'paymentStatus', from: 'pending_payment', to: 'failed' }[]
   customerEmailed: boolean
   createdAt: string
 }
@@ -411,7 +417,7 @@ export interface AdminOrderResponse {
 
 // What asking Paystack about an unpaid order found (backend services/checkout.ts, checkPaymentForStaff):
 // paid now, already paid, failed, not finished, never started, or a payment that does not match.
-export type PaymentCheckOutcome = 'paid' | 'already_paid' | 'failed' | 'not_paid' | 'not_found' | 'mismatch'
+export type PaymentCheckOutcome = 'paid' | 'already_paid' | 'failed' | 'not_paid' | 'not_found' | 'mismatch' | 'closed' | 'already_closed'
 
 // Delivery areas and their fees, managed by staff (backend models/DeliveryArea.ts).
 export interface EditableDeliveryAreaFields {
