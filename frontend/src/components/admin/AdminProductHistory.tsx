@@ -48,7 +48,9 @@ export default function AdminProductHistory({ productId, currency, onSessionEnde
       : <AdminOlderEntries kind="history" newest={history.entries} cursor={history.cursor} loadOlder={(before) => getProductHistory(productId, before)} onSessionEnded={onSessionEnded}>
         {(entries) => entries.length === 0 ? <p>No changes recorded yet. Sample products added by the seed script have no history until someone edits them.</p>
           : <ol>{entries.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
-            <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.action === 'product.sale' ? <>Sold online · order {entry.orderReference}</> : <>{entry.actor.name} ({entry.actor.email}) · {entry.action === 'product.create' ? 'Created' : 'Changed'}</>}</p>
+            <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.action === 'product.sale' ? <>Sold online · order {entry.orderReference}</>
+              : entry.action === 'product.restock' ? <>Returned to stock · order {entry.orderReference} cancelled by {entry.actor.name} ({entry.actor.email})</>
+              : <>{entry.actor.name} ({entry.actor.email}) · {entry.action === 'product.create' ? 'Created' : 'Changed'}</>}</p>
             <ul>{entry.changes.filter((change) => entry.action !== 'product.create' || change.to !== null).map((change) => <li key={change.field}>
               <strong>{productFieldLabels[change.field]}</strong>{entry.action !== 'product.create' && <>: {describeValue(change.field, change.from, currency)} →</>} {describeValue(change.field, change.to, currency)}
             </li>)}</ul>

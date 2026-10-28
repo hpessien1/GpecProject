@@ -324,13 +324,24 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.locator('.admin-field-error').waitFor()
     await audit.page(page, `${label} admin customer emails refused, email off`)
     api.emailOn = true
-    // The security log: entries, failed ones marked, and every older one shown.
+    // The security log: entries, failed ones marked, the second page, days in the wrong order, and dates
+    // that match nothing.
     await open('#admin/security-log', '.admin-security-failed')
     await audit.page(page, `${label} admin security log`)
     if (hovering) await audit.hover(page, `${label} admin security log`)
-    await page.getByRole('button', { name: 'Show older entries' }).click()
-    await page.locator('.admin-older-end').waitFor()
-    await audit.page(page, `${label} admin security log, every entry`)
+    await page.getByRole('navigation', { name: 'Security log pages' }).getByRole('button', { name: 'Page 2' }).click()
+    await page.getByText('Showing 11–12').waitFor()
+    await audit.page(page, `${label} admin security log, page 2`)
+    await page.getByLabel('From').fill('2026-10-21')
+    await page.getByLabel('To').fill('2026-10-01')
+    await page.getByRole('button', { name: 'Show these dates' }).click()
+    await page.locator('.admin-security-filter .form-error').waitFor()
+    await audit.page(page, `${label} admin security log, dates out of order`)
+    await page.getByLabel('To').fill('2026-10-02')
+    await page.getByLabel('From').fill('2026-10-01')
+    await page.getByRole('button', { name: 'Show these dates' }).click()
+    await page.getByText('No entries match these dates and account.').waitFor()
+    await audit.page(page, `${label} admin security log, no matches`)
     await open('#admin/delivery', '.admin-area-list')
     await audit.page(page, `${label} admin delivery areas`)
     if (hovering) await audit.hover(page, `${label} admin delivery areas`)
@@ -370,6 +381,16 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.getByText('Email is not set up').waitFor()
     await audit.page(page, `${label} admin order, email off`)
     api.emailOn = true
+    // The confirmation dialog before cancelling, then a completed order: read only, with the note
+    // saying so.
+    await open('#admin/orders/GPEC-O-2026-0000000A', '.admin-order-items')
+    await page.getByLabel('Order status').selectOption('cancelled')
+    await page.getByRole('button', { name: 'Update status' }).click()
+    await page.getByRole('dialog').waitFor()
+    await audit.page(page, `${label} admin order, confirm cancelling`)
+    await page.keyboard.press('Escape')
+    await open('#admin/orders/GPEC-O-2026-0000000C', '.admin-request-side .admin-notice')
+    await audit.page(page, `${label} admin completed order`)
     await open('#admin/orders/GPEC-O-2026-0000000D', '.admin-transfer-actions')
     await audit.page(page, `${label} admin unpaid order`)
     if (hovering) await audit.hover(page, `${label} admin unpaid order`)

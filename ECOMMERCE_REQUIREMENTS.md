@@ -62,7 +62,7 @@ The shop is for buying: there are no "order enquiries" about price or availabili
 - Availability is managed by GPEC staff in the admin panel, not asked about by customers.
 - A product GPEC no longer sells is archived: it leaves the shop.
 - A product GPEC cannot supply for now is marked out of stock: it stays in the shop, labelled "Out of stock", and cannot be added to the cart or bought. The server refuses it at checkout too.
-- Staff may also keep a stock count for a product (optional). When counted, the product is out of stock at 0. Paid orders reduce the count (never below 0). Customers see only in stock or out of stock, never the count.
+- Staff may also keep a stock count for a product (optional). When counted, the product is out of stock at 0. Paid orders reduce the count (never below 0), and cancelling a paid order puts back what it took (2026-10-28). Customers see only in stock or out of stock, never the count.
 - Each product page offers a way to ask GPEC a question before buying, through the contact form.
 - Product cards must remain usable on desktop and mobile screens.
 
@@ -207,6 +207,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 - A price change does not alter the price of orders already placed.
 - Every price, product, and order status change records who made it and when.
 - Admins can view orders and their fulfilment details, and manage delivery areas and fees.
+- **Completed** and **Cancelled** are final (2026-10-28, the user's decision): staff confirm before choosing either, and the order's status cannot be changed afterwards (the server refuses it too). Staff can still add notes. Cancelling puts back into the stock count whatever the order took from it, shown in each product's history as "Returned to stock".
 - When staff move an order to **Ready for pickup**, **Out for delivery**, or **Cancelled**, the customer is emailed about it (2026-10-24, the user's choice), unless staff untick "Tell the customer by email" (ticked by default: untick it when the customer already knows, or when correcting a mistake). A cancellation email points to the refunds policy and promises nothing more. The order's history shows "Customer emailed". Other status changes, and contact-request status changes, send nothing.
 
 ## Suggested User Flow

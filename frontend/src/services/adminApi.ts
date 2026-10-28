@@ -246,9 +246,14 @@ export function updateSiteContent(key: SiteContentKey, changes: Partial<Editable
   return requestJson<SiteContentResponse>(`/admin/content/${key}`, 'Unable to save this page.', { ...admin, method: 'PATCH', payload: changes })
 }
 
-// The security log, newest first: one account's entries when accountId is given. before: the cursor
-// of the page already shown, for the next, older page.
-export function getSecurityLog(accountId: string | null, before?: string) {
-  const query = new URLSearchParams({ ...(accountId ? { account: accountId } : {}), ...(before ? { before } : {}) }).toString()
+// One page of the security log, newest first: one account's entries when accountId is given, and those
+// from `from` (included) up to `to` (not included) when either is given.
+export function getSecurityLog(page: number, accountId: string | null, from: Date | null, to: Date | null) {
+  const query = new URLSearchParams({
+    ...(page > 1 ? { page: String(page) } : {}),
+    ...(accountId ? { account: accountId } : {}),
+    ...(from ? { from: from.toISOString() } : {}),
+    ...(to ? { to: to.toISOString() } : {}),
+  }).toString()
   return requestJson<SecurityLogResponse>(`/admin/security-log${query ? `?${query}` : ''}`, 'Unable to load the security log.', admin)
 }

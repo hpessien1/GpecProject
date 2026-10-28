@@ -3,6 +3,7 @@ import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import AdminNotes from './AdminNotes'
 import AdminOlderEntries from './AdminOlderEntries'
+import ConfirmDialog from './ConfirmDialog'
 import ConfirmPasswordField from './ConfirmPasswordField'
 import { fulfilmentMethodLabels, orderStageLabels, ordersContent, paymentMethodLabels, paymentStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
@@ -28,6 +29,12 @@ function isFulfilmentStatus(value: string): value is FulfilmentStatus {
   return FULFILMENT_STATUSES.some((status) => status === value)
 }
 
+// Final: once an order is completed or cancelled, its status never changes again (backend
+// services/adminOrders.ts, FINAL_STATUSES).
+function isFinal(status: FulfilmentStatus): status is 'completed' | 'cancelled' {
+  return status === 'completed' || status === 'cancelled'
+}
+
 // The statuses the customer can be emailed about (backend services/adminOrders.ts, CUSTOMER_UPDATE_STATUSES).
 type CustomerUpdateStatus = 'ready_for_pickup' | 'out_for_delivery' | 'cancelled'
 function isCustomerUpdate(status: FulfilmentStatus): status is CustomerUpdateStatus {
@@ -43,6 +50,10 @@ interface NotifyCustomerFieldProps {
 }
 
 // "Tell the customer by email", ticked by default; or, while email is not set up, a note saying so.
+// A step waiting for staff to confirm it in the dialog: an order completed or cancelled (with whether to
+// email the customer, as the box was when they pressed the button), or a transfer closed as not received.
+type Confirming = { kind: 'completed' | 'cancelled', notify: boolean | undefined } | { kind: 'transferMissing' }
+
 function NotifyCustomerField({ id, emailOn, hint, checked, onChange }: NotifyCustomerFieldProps) {
   if (!emailOn) return <p className="admin-notice">{ordersContent.emailOff}</p>
   return <div className="admin-field admin-checkbox">
@@ -65,6 +76,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
   const [notifyOnClose, setNotifyOnClose] = useState(true)
   // The password "transfer received" needs, refused by the server.
   const [passwordError, setPasswordError] = useState('')
+  const [confirming, setConfirming] = useState<Confirming | null>(null)
   const resultRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
@@ -82,7 +94,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
   // The button is disabled while saving, which drops keyboard focus; move it to the result instead.
   useEffect(() => { resultRef.current?.focus() }, [result])
 
-  async function handleStatusSubmit(event: SubmitEvent<HTMLFormElement>) {
+  function handleStatusSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!data) return
     const status = String(new FormData(event.currentTarget).get('fulfilmentStatus') ?? '')
@@ -93,13 +105,19 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
     }
     // Sent only where the box was offered; the server emails only about these statuses anyway.
     const notify = data.emailOn && isCustomerUpdate(status) ? notifyOnStatus : undefined
+    // Final: asked first, in the dialog, which saves it.
+    if (isFinal(status)) setConfirming({ kind: status, notify })
+    else void saveStatus(status, notify)
+  }
+
+  async function saveStatus(status: FulfilmentStatus, notify: boolean | undefined) {
     setResult(null)
     setIsSaving(true)
     try {
       setData(await setOrderStatus(reference, status, notify))
       setChosenStatus(null)
       setNotifyOnStatus(true)
-      setResult({ kind: 'success', message: `Order moved to ${orderStageLabels[status]}.${notify ? ' The customer has been emailed.' : ''}` })
+      setResult({ kind: 'success', message: `Order moved to ${orderStageLabels[status]}.${status === 'cancelled' ? ` ${ordersContent.stockReturned}` : ''}${notify ? ' The customer has been emailed.' : ''}` })
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return onSessionEnded()
       setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to update the order.' })
@@ -110,9 +128,8 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
 
   // A bank transfer staff have checked for in GPEC's account: it arrived, or it never did. The confirm
   // checkbox and the password make "received" a deliberate statement by the admin themselves; "not
-  // received" asks once more. password: only for "received".
+  // received" asks once more, in the dialog. password: only for "received".
   async function settleTransfer(received: boolean, password = '') {
-    if (!received && !window.confirm('Close this order as not received? Do this only if the transfer has not arrived. It cannot be undone.')) return
     setResult(null)
     setPasswordError('')
     setIsSaving(true)
@@ -136,7 +153,14 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
 
   function handleTransferMissing(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    void settleTransfer(false)
+    setConfirming({ kind: 'transferMissing' })
+  }
+
+  function handleConfirm() {
+    if (!confirming) return
+    setConfirming(null)
+    if (confirming.kind === 'transferMissing') void settleTransfer(false)
+    else void saveStatus(confirming.kind, confirming.notify)
   }
 
   // A Paystack order not paid yet: ask Paystack, which alone decides whether it changes.
@@ -161,6 +185,11 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
   const selectedStatus = chosenStatus ?? order?.fulfilmentStatus ?? 'new'
   // The status the customer would be emailed about, if the one chosen is a change worth telling them.
   const statusUpdate = order && selectedStatus !== order.fulfilmentStatus && isCustomerUpdate(selectedStatus) ? selectedStatus : null
+  // What the dialog says about the step it asks about, and whether the customer will be emailed (not
+  // asked for completed orders, which email nobody).
+  const confirmContent = confirming ? ordersContent.confirm[confirming.kind] : null
+  const emailing = confirming?.kind === 'transferMissing' ? data?.emailOn === true && notifyOnClose
+    : confirming?.kind === 'cancelled' ? confirming.notify === true : null
   return <section aria-labelledby="admin-order-title">
     <div className="admin-heading">
       <div><p className="eyebrow"><span /> {ordersContent.title}</p><h1 id="admin-order-title" tabIndex={-1}>{reference}</h1></div>
@@ -223,13 +252,16 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
           <AdminNotes notes={data.notes} cursor={data.notesCursor} loadOlder={(before) => getOlderOrderNotes(reference, before)} onAdd={async (text) => setData(await addOrderNote(reference, text))} onSessionEnded={onSessionEnded} />
         </div>
         <aside className="admin-request-side">
-          {order.paymentStatus === 'paid'
+          {order.paymentStatus === 'paid' && isFinal(order.fulfilmentStatus)
+            ? <p className="admin-notice">{ordersContent.closed(orderStageLabels[order.fulfilmentStatus].toLowerCase())}</p>
+            : order.paymentStatus === 'paid'
             ? <form className="admin-form admin-status-form" onSubmit={handleStatusSubmit}>
               <div className="admin-field">
                 <label htmlFor="order-status">Order status</label>
-                <select id="order-status" name="fulfilmentStatus" value={selectedStatus} onChange={(event) => { if (isFulfilmentStatus(event.target.value)) setChosenStatus(event.target.value) }}>
+                <select id="order-status" name="fulfilmentStatus" value={selectedStatus} onChange={(event) => { if (isFulfilmentStatus(event.target.value)) setChosenStatus(event.target.value) }} aria-describedby="order-status-hint">
                   {statusesFor(order.fulfilmentMethod).map((status) => <option key={status} value={status}>{orderStageLabels[status]}</option>)}
                 </select>
+                <small id="order-status-hint">{ordersContent.finalHint}</small>
               </div>
               {statusUpdate && <NotifyCustomerField id="order-status-notify" emailOn={data.emailOn} hint={ordersContent.notifyHints[statusUpdate]} checked={notifyOnStatus} onChange={setNotifyOnStatus} />}
               <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Update status <Arrow /></>}</button>
@@ -283,5 +315,12 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
           </section>
         </aside>
       </div>}
+    <ConfirmDialog open={confirmContent !== null} title={confirmContent?.title(reference) ?? ''} confirmLabel={confirmContent?.confirm ?? ''} cancelLabel={confirmContent?.cancel ?? ''} onConfirm={handleConfirm} onCancel={() => setConfirming(null)}>
+      <ul>
+        <li><strong>{ordersContent.confirm.noUndo}</strong></li>
+        {confirmContent?.effects.map((effect) => <li key={effect}>{effect}</li>)}
+        {emailing !== null && <li>{emailing ? ordersContent.confirm.emailYes : ordersContent.confirm.emailNo}</li>}
+      </ul>
+    </ConfirmDialog>
   </section>
 }

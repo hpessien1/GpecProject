@@ -127,8 +127,10 @@ it on needs the bank, name, and number; every change emails all active admins. T
 adds the stages `awaiting_transfer` and `transfer_reported`.
 
 **Security log** (audit M-06): `GET /api/admin/security-log` (admin only, read only; `?account=<admin
-ID>` for one account, `?before=<cursor>` for older entries, ten per page) answers `{ entries, cursor,
-accounts }`. Each entry: `action`, `outcome`, `reason` (the API error code when it failed),
+ID>` for one account, `?from=` and `?to=` (date-times such as `2026-10-25T23:00:00.000Z`; `from`
+included, `to` not; the site sends the start of the first day and of the day after the last, on the
+admin's own calendar), `?page=` for a numbered page, ten per page) answers `{ entries, page, pageSize,
+totalPages, total, accounts }`. Each entry: `action`, `outcome`, `reason` (the API error code when it failed),
 `detail`, `account { name, email, role }` or `null`, `target { type, id }` or `null`, `via`, `ip`,
 `userAgent`, `createdAt`. Written by the server for logins, account changes, refused origins, the
 admin command, and opening an order, contact request, or attached file; kept 12 months.
@@ -272,7 +274,10 @@ All admin responses are sent with `Cache-Control: no-store`.
   history, and staff `notes` (newest pages), plus `emailOn` and `paystackOn` (online payment is set up). `PATCH /:reference` with
   `{ fulfilmentStatus, notifyCustomer? }` (and nothing else)
   moves a **paid** order along and records it: unpaid orders get `409 ORDER_NOT_PAID`, a pickup
-  order cannot be `out_for_delivery` nor a delivery order `ready_for_pickup` (`400`). Payment status,
+  order cannot be `out_for_delivery` nor a delivery order `ready_for_pickup` (`400`), and a
+  `completed` or `cancelled` order is final (`409 ORDER_CLOSED`; sending the status it has is a
+  harmless `200`). Cancelling puts back what the order's sale took from each counted product (its
+  `product.sale` records), recorded as `product.restock` under the admin who cancelled. Payment status,
   items, amounts, and customer details cannot be changed here. `notifyCustomer: true` (the screen's
   "Tell the customer by email", ticked by default) emails the customer after the change is saved,
   only for `ready_for_pickup`, `out_for_delivery`, and `cancelled`, only when the status really

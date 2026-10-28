@@ -71,7 +71,8 @@ describe('telling the customer about an order status change', () => {
   })
 
   it('emails only about ready, out for delivery, and cancelled', async () => {
-    for (const fulfilmentStatus of ['processing', 'completed', 'new']) {
+    // Completed last: it is final.
+    for (const fulfilmentStatus of ['processing', 'new', 'completed']) {
       const res = await setStatus(NEW_DELIVERY, { fulfilmentStatus, notifyCustomer: true })
       expect(res.body.history[0].customerEmailed).toBe(false)
     }
@@ -84,6 +85,10 @@ describe('telling the customer about an order status change', () => {
     // Saving "ready for pickup" again (a second click) does not email the customer a second time.
     await setStatus(PICKUP_PROCESSING, { fulfilmentStatus: 'ready_for_pickup', notifyCustomer: true })
     await setStatus(PICKUP_PROCESSING, { fulfilmentStatus: 'ready_for_pickup', notifyCustomer: true })
+    expect(await sent()).toHaveLength(1)
+    // A completed order cannot be cancelled, so the customer is not told it was.
+    await setStatus(PICKUP_PROCESSING, { fulfilmentStatus: 'completed' })
+    expect((await setStatus(PICKUP_PROCESSING, { fulfilmentStatus: 'cancelled', notifyCustomer: true })).status).toBe(409)
     expect(await sent()).toHaveLength(1)
   })
 

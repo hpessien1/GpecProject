@@ -173,6 +173,7 @@ function initialState(): ApiState {
     products,
     adminProducts: products.map(({ inStock: _inStock, ...p }, index) => ({ ...p, price: index === 0 ? 150050 : null, outOfStock: index === 2, stockQuantity: index === 3 ? 0 : null, status: index === 1 ? 'archived' : 'active', sortOrder: (index + 1) * 10, updatedAt: now })),
     productHistory: { 'panel-001': [
+      { action: 'product.restock', actor: { name: ADMIN.name, email: ADMIN.email }, orderReference: ORDER_REF, changes: [{ field: 'stockQuantity', from: 4, to: 5 }], createdAt: now },
       { action: 'product.sale', actor: { name: '', email: '' }, orderReference: ORDER_REF, changes: [{ field: 'stockQuantity', from: 5, to: 4 }], createdAt: now },
       { action: 'product.update', actor: { name: ADMIN.name, email: ADMIN.email }, orderReference: null, changes: [{ field: 'price', from: 100000, to: 150050 }], createdAt: now },
     ] },
@@ -248,7 +249,8 @@ function listPage<Item>(items: Item[], url: URL) {
 export const SECOND_ADMIN = { id: '0123456789abcdef01234599', name: 'Second Admin', email: 'second@example.com' }
 const SAMPLE_BROWSER = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36'
 
-// Twelve entries, newest first: more than a page, of each kind the screen words differently.
+// Twelve entries, newest first: more than a page, of each kind the screen words differently. The last is
+// three days older than the rest, for the date filter.
 function sampleSecurityLog(): SecurityLogEntry[] {
   const admin = { name: ADMIN.name, email: ADMIN.email, role: 'admin' }
   const second = { name: SECOND_ADMIN.name, email: SECOND_ADMIN.email, role: 'admin' }
@@ -266,7 +268,7 @@ function sampleSecurityLog(): SecurityLogEntry[] {
     entry(40, { action: 'password.change', account: second, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36' }),
     entry(41, { action: 'login.password', account: second, userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36' }),
     entry(60, { action: 'twoFactor.enable', detail: 'app' }),
-    entry(600, { action: 'command.create', account: second, via: 'command line', ip: '', userAgent: '' }),
+    entry(3 * 24 * 60, { action: 'command.create', account: second, via: 'command line', ip: '', userAgent: '' }),
   ]
 }
 
@@ -560,9 +562,12 @@ function reply(state: ApiState, request: Request): Reply {
     if (state.securityLogFails) return [500, { message: 'Something went wrong on our side. Please try again.' }]
     const account = url.searchParams.get('account')
     const chosen = account === SECOND_ADMIN.id ? SECOND_ADMIN.email : account ? ADMIN.email : null
-    const entries = chosen ? state.securityLog.filter((entry) => entry.account?.email === chosen) : state.securityLog
-    const { entries: shown, cursor } = olderPage(entries, url)
-    return [200, { entries: shown, cursor, accounts: [{ id: '0123456789abcdef01234598', name: ADMIN.name, email: ADMIN.email }, SECOND_ADMIN] }]
+    const from = url.searchParams.get('from')
+    const to = url.searchParams.get('to')
+    const entries = state.securityLog.filter((entry) => (!chosen || entry.account?.email === chosen)
+      && (!from || Date.parse(entry.createdAt) >= Date.parse(from)) && (!to || Date.parse(entry.createdAt) < Date.parse(to)))
+    const { items, ...paging } = listPage(entries, url)
+    return [200, { entries: items, ...paging, accounts: [{ id: '0123456789abcdef01234598', name: ADMIN.name, email: ADMIN.email }, SECOND_ADMIN] }]
   }
   if (path === '/api/admin/customer-email') {
     if (method === 'PATCH') {
@@ -633,6 +638,7 @@ function reply(state: ApiState, request: Request): Reply {
     } else if (method === 'PATCH') {
       if (order.paymentStatus !== 'paid') return [409, { message: 'Only paid orders can be moved along.', code: 'ORDER_NOT_PAID' }]
       const to = body.fulfilmentStatus as FulfilmentStatus
+      if (to !== order.fulfilmentStatus && ['completed', 'cancelled'].includes(order.fulfilmentStatus)) return [409, { message: `This order is ${order.fulfilmentStatus} and can no longer be changed.`, code: 'ORDER_CLOSED' }]
       if (to !== order.fulfilmentStatus) {
         const customerEmailed = body.notifyCustomer === true && state.emailOn && ['ready_for_pickup', 'out_for_delivery', 'cancelled'].includes(to)
         state.orderHistory[order.reference] = [{ action: 'order.status', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'fulfilmentStatus', from: order.fulfilmentStatus, to }], customerEmailed, createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]

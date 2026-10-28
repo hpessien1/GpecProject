@@ -3,8 +3,7 @@ import mongoose from 'mongoose'
 import AdminUser from '../models/AdminUser.js'
 import SecurityEvent from '../models/SecurityEvent.js'
 import type { SecurityAction, TARGET_TYPES } from '../models/SecurityEvent.js'
-import { ADMIN_PAGE_SIZE, NEWEST_FIRST, olderThan, toPage } from '../utils/paging.js'
-import type { Cursor } from '../utils/paging.js'
+import { ADMIN_PAGE_SIZE, NEWEST_FIRST, pageInfo, skipTo } from '../utils/paging.js'
 
 // Writes and reads the security log (models/SecurityEvent.ts, audit M-06).
 
@@ -48,15 +47,30 @@ export async function recordSecurityEvent(request: Request | null, input: Securi
   }
 }
 
-// One page of the log, newest first, optionally one account's entries only, with every account (active
-// or not) to filter by.
-export async function securityLogPage(adminId: string | null, before: Cursor | null) {
-  const filter = { ...(adminId ? { 'account.adminId': new mongoose.Types.ObjectId(adminId) } : {}), ...olderThan(before) }
-  const [records, admins] = await Promise.all([
-    SecurityEvent.find(filter).sort(NEWEST_FIRST).limit(ADMIN_PAGE_SIZE + 1).lean(),
+export interface SecurityLogQuery {
+  page: number
+  adminId: string | null
+  // Entries from `from` (included) up to `to` (not included); either may be left open.
+  from: Date | null
+  to: Date | null
+}
+
+// One numbered page of the log, newest first, optionally one account's entries and a range of dates
+// only, with every account (active or not) to filter by. Entries are only ever added, at the newest end,
+// so one arriving while staff read can push an entry onto the next page and show it twice; it never
+// hides one.
+export async function securityLogPage({ page, adminId, from, to }: SecurityLogQuery) {
+  const createdAt = { ...(from ? { $gte: from } : {}), ...(to ? { $lt: to } : {}) }
+  const filter = {
+    ...(adminId ? { 'account.adminId': new mongoose.Types.ObjectId(adminId) } : {}),
+    ...(from || to ? { createdAt } : {}),
+  }
+  const [records, total, admins] = await Promise.all([
+    SecurityEvent.find(filter).sort(NEWEST_FIRST).skip(skipTo(page)).limit(ADMIN_PAGE_SIZE).lean(),
+    SecurityEvent.countDocuments(filter),
     AdminUser.find().select('email name').sort({ name: 1 }).lean(),
   ])
-  const { entries, cursor } = toPage(records, ADMIN_PAGE_SIZE, (record) => ({
+  const entries = records.map((record) => ({
     action: record.action,
     outcome: record.outcome,
     reason: record.reason ?? null,
@@ -68,5 +82,5 @@ export async function securityLogPage(adminId: string | null, before: Cursor | n
     userAgent: record.userAgent ?? '',
     createdAt: record.createdAt,
   }))
-  return { entries, cursor, accounts: admins.map((admin) => ({ id: String(admin._id), name: admin.name, email: admin.email })) }
+  return { entries, ...pageInfo(page, total), accounts: admins.map((admin) => ({ id: String(admin._id), name: admin.name, email: admin.email })) }
 }

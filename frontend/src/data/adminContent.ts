@@ -155,6 +155,35 @@ export const ordersContent = {
   },
   emailOff: 'Email is not set up, so the customer is not told by email. Contact them yourself.',
   emailed: 'Customer emailed',
+  // Completed and cancelled are final (backend services/adminOrders.ts, FINAL_STATUSES).
+  finalHint: '“Completed” and “Cancelled” are final: the order cannot be changed afterwards.',
+  // The confirmation before a step that cannot be undone (components/admin/ConfirmDialog.tsx): what
+  // follows from it, and two answers that say what they do. email: whether the customer will be told.
+  confirm: {
+    noUndo: 'This cannot be changed afterwards.',
+    emailYes: 'The customer is emailed about it.',
+    emailNo: 'The customer is not emailed: tell them yourself if they need to know.',
+    completed: {
+      title: (reference: string) => `Mark order ${reference} as completed?`,
+      effects: ['Use this once the customer has the order.'],
+      confirm: 'Mark as completed',
+      cancel: 'Not yet',
+    },
+    cancelled: {
+      title: (reference: string) => `Cancel order ${reference}?`,
+      effects: ['Anything it took from stock is put back.', 'The website does not refund the payment: GPEC arranges any refund as the refunds policy says.'],
+      confirm: 'Cancel order',
+      cancel: 'Keep order',
+    },
+    transferMissing: {
+      title: (reference: string) => `Close order ${reference} as not received?`,
+      effects: ['Do this only when you are sure the money is not coming.'],
+      confirm: 'Close as not received',
+      cancel: 'Keep waiting',
+    },
+  },
+  stockReturned: 'Anything it took from stock has been put back.',
+  closed: (status: string) => `This order is ${status}. Completed and cancelled orders cannot be changed; add a note if something needs recording.`,
 }
 
 // In the order a typical order moves through them.
@@ -199,7 +228,6 @@ export const requestNotesContent = {
 export const olderEntriesContent = {
   history: { button: 'Show older changes', end: 'That is every change, back to the first.', error: 'Unable to load older changes.' },
   notes: { button: 'Show older notes', end: 'That is every note, back to the first.', error: 'Unable to load older notes.' },
-  securityLog: { button: 'Show older entries', end: 'That is every entry kept (entries are kept for 12 months).', error: 'Unable to load older entries.' },
 }
 
 // Site content (#admin/content): the FAQ, the refunds policy, and the privacy notice, edited by staff.
@@ -281,7 +309,14 @@ export const securityLogContent = {
   intro: 'Every login and failed attempt, every change to an admin’s own password or two-step login, and every order, contact request, and attached file opened, with when, from which internet address, and in which browser. Look here if something seems wrong: logins you do not recognise, many failed attempts, or records opened at odd times. Entries cannot be changed or deleted, and are removed after 12 months.',
   filterLabel: 'Show entries for',
   allAccounts: 'All accounts',
+  fromLabel: 'From',
+  toLabel: 'To',
+  datesHelp: 'Both days are included. Leave one empty to show everything after or up to the other.',
+  showDates: 'Show these dates',
+  clearDates: 'Clear dates',
+  datesOutOfOrder: 'The “From” date must be on or before the “To” date.',
   empty: 'Nothing recorded yet.',
+  emptyFiltered: 'No entries match these dates and account.',
   unknownAccount: 'No admin account (the address typed was not an admin’s, or the link was not valid)',
   commandLine: 'On the server (the admin command)',
   failed: 'Failed',

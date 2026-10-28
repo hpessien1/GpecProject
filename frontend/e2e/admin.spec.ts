@@ -220,12 +220,15 @@ test.describe('products and prices', () => {
     expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ stockQuantity: null })
   })
 
-  test('marks a product pickup only, and shows online sales in its history', async ({ page }) => {
+  test('marks a product pickup only, and shows online sales and returned stock in its history', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
     await page.getByRole('link', { name: 'Edit Custom control panel' }).click()
-    await expect(page.locator('.admin-history li').first()).toContainText(`Sold online · order ${ORDER_REF}`)
-    await expect(page.locator('.admin-history li').first()).toContainText('Stock count: 5 → 4')
+    const history = page.locator('.admin-history > ol > li')
+    await expect(history.nth(0)).toContainText(`Returned to stock · order ${ORDER_REF} cancelled by ${ADMIN.name} (${ADMIN.email})`)
+    await expect(history.nth(0)).toContainText('Stock count: 4 → 5')
+    await expect(history.nth(1)).toContainText(`Sold online · order ${ORDER_REF}`)
+    await expect(history.nth(1)).toContainText('Stock count: 5 → 4')
     const delivery = page.getByRole('checkbox', { name: /Delivery available/ })
     await expect(delivery).toBeChecked()
     await delivery.uncheck()
@@ -321,7 +324,9 @@ test.describe('orders', () => {
     await expect(page.getByText('if they paid, GPEC will contact them about a refund')).toBeVisible()
     await page.getByRole('checkbox', { name: 'Tell the customer by email' }).uncheck()
     await page.getByRole('button', { name: 'Update status' }).click()
-    await expect(page.locator('.success-message')).toHaveText('Order moved to Cancelled.')
+    await expect(page.getByRole('dialog')).toContainText('The customer is not emailed: tell them yourself if they need to know.')
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel order' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Order moved to Cancelled. Anything it took from stock has been put back.')
     expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ fulfilmentStatus: 'cancelled', notifyCustomer: false })
     await expect(page.locator('.admin-history li').first()).not.toContainText('Customer emailed')
   })
@@ -335,8 +340,89 @@ test.describe('orders', () => {
     await expect(page.getByText('Email is not set up, so the customer is not told by email.')).toBeVisible()
     await expect(page.getByRole('checkbox', { name: 'Tell the customer by email' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Update status' }).click()
-    await expect(page.locator('.success-message')).toHaveText('Order moved to Cancelled.')
+    await expect(page.getByRole('dialog')).toContainText('The customer is not emailed: tell them yourself if they need to know.')
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel order' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Order moved to Cancelled. Anything it took from stock has been put back.')
     expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ fulfilmentStatus: 'cancelled' })
+  })
+
+  test('asks in a dialog before making an order completed or cancelled, which cannot be changed afterwards', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto(`/#admin/orders/${ORDER_REF}`)
+    await expect(page.getByLabel('Order status')).toHaveAccessibleDescription('“Completed” and “Cancelled” are final: the order cannot be changed afterwards.')
+    await page.getByLabel('Order status').selectOption('cancelled')
+    const update = page.getByRole('button', { name: 'Update status' })
+    await update.click()
+    const dialog = page.getByRole('dialog', { name: `Cancel order ${ORDER_REF}?` })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.locator('li')).toHaveText([
+      'This cannot be changed afterwards.',
+      'Anything it took from stock is put back.',
+      'The website does not refund the payment: GPEC arranges any refund as the refunds policy says.',
+      'The customer is emailed about it.',
+    ])
+    // Focus starts on the safe answer, and the page behind cannot be used while it is open.
+    await expect(dialog.getByRole('button', { name: 'Keep order' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(dialog.getByRole('button', { name: 'Cancel order' })).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(dialog.getByRole('button', { name: 'Keep order' })).toBeFocused()
+    expect(await page.locator('dialog').evaluate((element) => element.matches(':modal'))).toBe(true)
+    // "Keep order" sends nothing, leaves the choice as it was, and returns focus to the button.
+    await dialog.getByRole('button', { name: 'Keep order' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(update).toBeFocused()
+    expect(api.requests.some((r) => r.method === 'PATCH')).toBe(false)
+    await expect(page.getByLabel('Order status')).toHaveValue('cancelled')
+    // Escape is "keep" too.
+    await update.click()
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(update).toBeFocused()
+    expect(api.requests.some((r) => r.method === 'PATCH')).toBe(false)
+    // Completing asks too, without the stock, refund, or email lines.
+    await page.getByLabel('Order status').selectOption('completed')
+    await update.click()
+    const completing = page.getByRole('dialog', { name: `Mark order ${ORDER_REF} as completed?` })
+    await expect(completing.locator('li')).toHaveText(['This cannot be changed afterwards.', 'Use this once the customer has the order.'])
+    await completing.getByRole('button', { name: 'Mark as completed' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Order moved to Completed.')
+    await expect(page.locator('.success-message')).toBeFocused()
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ fulfilmentStatus: 'completed' })
+    // From then on the order is read only.
+    await expect(page.getByLabel('Order status')).toHaveCount(0)
+    await expect(update).toHaveCount(0)
+    await expect(page.getByText('This order is completed. Completed and cancelled orders cannot be changed; add a note if something needs recording.')).toBeVisible()
+    await expect(page.locator('.admin-history li').first()).toContainText('New → Completed')
+  })
+
+  test('a click on the dimmed page around the dialog is "keep", and other statuses are not asked about', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto(`/#admin/orders/${ORDER_REF}`)
+    await page.getByLabel('Order status').selectOption('cancelled')
+    await page.getByRole('button', { name: 'Update status' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.mouse.click(5, 5)
+    await expect(page.getByRole('dialog')).toBeHidden()
+    expect(api.requests.some((r) => r.method === 'PATCH')).toBe(false)
+    await page.getByLabel('Order status').selectOption('processing')
+    await page.getByRole('button', { name: 'Update status' }).click()
+    await expect(page.locator('.success-message')).toHaveText('Order moved to Processing.')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ fulfilmentStatus: 'processing' })
+  })
+
+  test('shows a completed order without a way to change its status', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders/GPEC-O-2026-0000000C')
+    await expect(page.getByText('This order is completed. Completed and cancelled orders cannot be changed; add a note if something needs recording.')).toBeVisible()
+    await expect(page.getByLabel('Order status')).toHaveCount(0)
+    // Notes can still be added.
+    await expect(page.getByRole('button', { name: /Add note/ })).toBeVisible()
   })
 
   test('a pickup order never offers "out for delivery", and has no address', async ({ page }) => {
@@ -565,12 +651,15 @@ test.describe('bank transfer', () => {
     const api = await mockApi(page)
     await logInAsAdmin(page)
     await page.goto(`/#admin/orders/${TRANSFER_ORDER_REF}`)
-    page.once('dialog', (dialog) => void dialog.dismiss())
     await page.getByRole('button', { name: 'Close the order as not received' }).click()
+    const dialog = page.getByRole('dialog', { name: `Close order ${TRANSFER_ORDER_REF} as not received?` })
+    await expect(dialog.locator('li')).toHaveText(['This cannot be changed afterwards.', 'Do this only when you are sure the money is not coming.', 'The customer is emailed about it.'])
+    await dialog.getByRole('button', { name: 'Keep waiting' }).click()
+    await expect(dialog).toBeHidden()
     expect(api.requests.some((r) => r.path.endsWith('/transfer-not-received'))).toBe(false)
     await expect(page.getByRole('checkbox', { name: 'Tell the customer by email' })).toBeChecked()
-    page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('button', { name: 'Close the order as not received' }).click()
+    await dialog.getByRole('button', { name: 'Close as not received' }).click()
     await expect(page.locator('.success-message')).toHaveText('Order closed as not received. The customer has been emailed.')
     expect(api.requests.find((r) => r.path.endsWith('/transfer-not-received'))?.body).toEqual({ notifyCustomer: true })
     await expect(page.getByText('Closed as not received', { exact: true }).first()).toBeVisible()
@@ -582,8 +671,9 @@ test.describe('bank transfer', () => {
     await logInAsAdmin(page)
     await page.goto(`/#admin/orders/${TRANSFER_ORDER_REF}`)
     await page.getByRole('checkbox', { name: 'Tell the customer by email' }).uncheck()
-    page.once('dialog', (dialog) => void dialog.accept())
     await page.getByRole('button', { name: 'Close the order as not received' }).click()
+    await expect(page.getByRole('dialog')).toContainText('The customer is not emailed: tell them yourself if they need to know.')
+    await page.getByRole('dialog').getByRole('button', { name: 'Close as not received' }).click()
     await expect(page.locator('.success-message')).toHaveText('Order closed as not received.')
     expect(api.requests.find((r) => r.path.endsWith('/transfer-not-received'))?.body).toEqual({ notifyCustomer: false })
   })
@@ -905,12 +995,18 @@ test.describe('security log', () => {
     await expect(entries.nth(5)).toContainText('From 45.155.205.3 · a script, not a browser')
     await expect(entries.nth(6)).toContainText('No admin account (the address typed was not an admin’s, or the link was not valid)')
     await expect(entries.nth(0)).not.toHaveClass(/admin-security-failed/)
-    // The two older entries, the last one done on the server.
-    await page.getByRole('button', { name: 'Show older entries' }).click()
-    await expect(entries).toHaveCount(12)
-    await expect(entries.nth(11)).toContainText('Account created on the server')
-    await expect(entries.nth(11)).toContainText('On the server (the admin command)')
-    await expect(page.getByText('That is every entry kept (entries are kept for 12 months).')).toBeFocused()
+    // The second page holds the two older entries, the last one done on the server.
+    await expect(page.getByText('Showing 1–10 of 12 entries')).toBeVisible()
+    await page.getByRole('navigation', { name: 'Security log pages' }).getByRole('button', { name: 'Page 2' }).click()
+    await expect(entries).toHaveCount(2)
+    await expect(page.getByText('Showing 11–12 of 12 entries')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Security log', level: 1 })).toBeFocused()
+    await expect(entries.nth(1)).toContainText('Account created on the server')
+    await expect(entries.nth(1)).toContainText('On the server (the admin command)')
+    // Opening an order from an entry and coming back returns to the same page.
+    await page.goto(`/#admin/orders/${ORDER_REF}`)
+    await page.goto('/#admin/security-log')
+    await expect(page.getByText('Showing 11–12 of 12 entries')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0)
     // The account filter names each admin with their email: it must not widen the smallest phones.
     await page.setViewportSize({ width: 320, height: 800 })
@@ -928,6 +1024,53 @@ test.describe('security log', () => {
     expect(api.requests.some((r) => r.path === '/api/admin/security-log' && r.method === 'GET')).toBe(true)
     await page.getByLabel('Show entries for').selectOption({ label: 'All accounts' })
     await expect(entries).toHaveCount(10)
+  })
+
+  test.describe('on Nigeria’s calendar', () => {
+    test.use({ timezoneId: 'Africa/Lagos' })
+
+    test('shows the entries between two days, both included, counted on the admin’s own calendar', async ({ page }) => {
+      await mockApi(page)
+      await logInAsAdmin(page)
+      await page.goto('/#admin/security-log')
+      const entries = page.locator('.admin-security-log ol > li')
+      await expect(entries).toHaveCount(10)
+      // Every sample entry but one is on 21 October; the account was created on the 18th.
+      await page.getByLabel('From').fill('2026-10-18')
+      await page.getByLabel('To').fill('2026-10-20')
+      const sent = page.waitForRequest((request) => request.url().includes('/api/admin/security-log?'))
+      await page.getByRole('button', { name: 'Show these dates' }).click()
+      // From the start of the 18th up to the start of the 21st, in Lagos (UTC+1).
+      const query = new URL((await sent).url()).searchParams
+      expect(query.get('from')).toBe('2026-10-17T23:00:00.000Z')
+      expect(query.get('to')).toBe('2026-10-20T23:00:00.000Z')
+      await expect(entries).toHaveCount(1)
+      await expect(entries.nth(0)).toContainText('Account created on the server')
+      await expect(page.getByText('Showing 1–1 of 1 entry')).toBeVisible()
+      await expect(page.getByRole('navigation', { name: 'Security log pages' })).toHaveCount(0)
+      // The days are kept with the account filter.
+      await page.getByLabel('Show entries for').selectOption({ label: `${ADMIN.name} (${ADMIN.email})` })
+      await expect(page.getByText('No entries match these dates and account.')).toBeVisible()
+      await page.getByLabel('Show entries for').selectOption({ label: 'All accounts' })
+      await expect(entries).toHaveCount(1)
+      // Only "To": everything up to the end of that day.
+      await page.getByLabel('From').fill('')
+      await page.getByLabel('To').fill('2026-10-21')
+      await page.getByRole('button', { name: 'Show these dates' }).click()
+      await expect(page.getByText('Showing 1–10 of 12 entries')).toBeVisible()
+      // Days the wrong way round are refused before anything is sent.
+      await page.getByLabel('From').fill('2026-10-21')
+      await page.getByLabel('To').fill('2026-10-18')
+      await page.getByRole('button', { name: 'Show these dates' }).click()
+      await expect(page.getByRole('alert')).toHaveText('The “From” date must be on or before the “To” date.')
+      await expect(page.getByText('Showing 1–10 of 12 entries')).toBeVisible()
+      await page.getByRole('button', { name: 'Clear dates' }).click()
+      await expect(page.getByLabel('From')).toHaveValue('')
+      await expect(page.getByLabel('To')).toHaveValue('')
+      await expect(page.getByRole('alert')).toHaveCount(0)
+      await expect(page.getByText('Showing 1–10 of 12 entries')).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0)
+    })
   })
 
   test('says so when the log cannot be loaded', async ({ page }) => {

@@ -438,7 +438,9 @@ name), and logs which database it found. The guard only works if production sets
   `utils/stock.ts`). Out-of-stock products stay in the shop, labelled, and cannot be added to the
   cart; archiving removes a product from the shop. Customers see only `inStock`, never the count.
   `deliveryAvailable` (default true; off means pickup only). The count goes down when an order is
-  paid (never below 0, recorded as AuditRecord `product.sale`, with `orderReference` and no actor);
+  paid (never below 0, recorded as AuditRecord `product.sale`, with `orderReference` and no actor),
+  and cancelling the order puts back exactly what that sale took (`product.restock`, with
+  `orderReference` and the admin who cancelled; 2026-10-28, the user's choice);
   checkout refuses a quantity above the count. `GET /api/products` returns
   active products with `price` (or `null` if unpriced) and `currency` once `CURRENCY` is set; while it
   is unset, no prices and `currency: null` (2026-10-23, owner's request). The shop shows each price,
@@ -460,7 +462,8 @@ name), and logs which database it found. The guard only works if production sets
   `expiresAt` (TTL). **AdminPasswordReset** — the same shape for "forgot password"
   links: `tokenHash` (unique), `admin`, `expiresAt` (TTL); deleted when used or replaced.
   **AuditRecord** — `action`, `targetType`, `targetId`, `actor { adminId, email, name }`
-  (copied at the time; `null` only for `product.sale`, which has `orderReference` instead),
+  (copied at the time; `null` only for `product.sale`, which has `orderReference` instead;
+  `product.restock` has both),
   `changes [{ field, from, to }]`, `createdAt`; never edited or deleted.
 
 - **DeliveryArea** (`backend/src/models/DeliveryArea.ts`, 2026-10-23) — `name` (unique),
@@ -502,7 +505,9 @@ name), and logs which database it found. The guard only works if production sets
   `currency` (the order's own), `subtotal`, `deliveryFee`, `paystackFee`, `total` (smallest unit),
   `paymentStatus` (`pending_payment` | `paid` | `failed`; **set only by the server**, after
   Paystack confirms), `paidAt`, `fulfilmentStatus` (`new` → `processing` → `ready_for_pickup` or
-  `out_for_delivery` → `completed`, or `cancelled`; staff move paid orders only; pickup orders are
+  `out_for_delivery` → `completed`, or `cancelled`; staff move paid orders only; **`completed` and
+  `cancelled` are final** (2026-10-28, the user's choice: the screen asks staff to confirm, and the
+  server refuses any later change with `409 ORDER_CLOSED`); pickup orders are
   never "out for delivery" and delivery orders never "ready for pickup"; every change is an
   AuditRecord `order.status`, with `customerEmailed` when the customer was told, Section 8), timestamps. The admin list shows one **stage** per order: unpaid
   orders as "Awaiting payment" or "Payment failed", paid ones by fulfilment status (the user chose
@@ -1060,6 +1065,8 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
 - Text contrast meets WCAG AA (4.5:1 normal, 3:1 large).
 - Visible focus styles on links, buttons, and inputs.
 - Dialogs trap focus while open, close on Escape, and return focus to the trigger.
+- Admin steps that cannot be undone are confirmed with `components/admin/ConfirmDialog.tsx` (answers
+  that say what they do, focus on the safe one), never `window.confirm` (2026-10-28, the user's choice).
 - Meaningful images have descriptive `alt`; decorative ones use `alt=""`.
 
 ---

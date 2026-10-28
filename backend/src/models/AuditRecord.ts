@@ -16,9 +16,11 @@ const actorSchema = new mongoose.Schema({
 
 const auditRecordSchema = new mongoose.Schema({
   // product.sale: a paid order reduced a product's stock count (made by the website, not an admin).
+  // product.restock: staff cancelled a paid order, which gave back what its sale took (with the order's
+  // reference and the admin who cancelled it).
   // order.payment: staff confirmed a bank transfer arrived, or closed an unpaid one; or staff asked
   // Paystack about a payment and Paystack's answer changed the order.
-  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'contactRequest.status', 'order.status', 'order.payment', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
+  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'product.restock', 'contactRequest.status', 'order.status', 'order.payment', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
   targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer', 'siteContent', 'customerEmail'] },
   targetId: { type: String, required: true },
   // The admin who made the change, copied at the time, so the record still names the person if the
@@ -32,5 +34,7 @@ const auditRecordSchema = new mongoose.Schema({
 }, { timestamps: { createdAt: true, updatedAt: false }, strict: 'throw' })
 
 auditRecordSchema.index({ targetType: 1, targetId: 1, createdAt: -1 })
+// A cancelled order's sales, to return its stock (services/adminOrders.ts). Only records that name an order.
+auditRecordSchema.index({ orderReference: 1 }, { partialFilterExpression: { orderReference: { $type: 'string' } } })
 
 export default mongoose.model('AuditRecord', auditRecordSchema)

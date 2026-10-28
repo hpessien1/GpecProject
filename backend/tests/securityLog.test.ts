@@ -222,9 +222,15 @@ describe('the security log screen', () => {
     expect(first.body.entries).toHaveLength(10)
     expect(first.body.entries[0]).toMatchObject({ action: 'login.password', outcome: 'failure', account, via: 'website', userAgent: BROWSER })
     expect(first.body.entries[0].id).toBeUndefined()
-    const second = await agent.get(`${LOG}?before=${first.body.cursor}`).expect(200)
-    expect(second.body.entries).toHaveLength(2)
-    expect(second.body.cursor).toBeNull()
+    expect(first.body).toMatchObject({ page: 1, pageSize: 10, totalPages: 2 })
+    const total = first.body.total
+    expect(total).toBeGreaterThanOrEqual(12)
+    const second = await agent.get(`${LOG}?page=2`).expect(200)
+    expect(second.body.entries).toHaveLength(total - 10)
+    expect(second.body).toMatchObject({ page: 2, totalPages: 2, total })
+    // The oldest entry is on the last page, not repeated from the first.
+    expect(second.body.entries.at(-1)).toMatchObject({ action: 'login.password', outcome: 'success' })
+    expect((await agent.get(`${LOG}?page=0`)).status).toBe(400)
     // Nothing can change or remove an entry.
     expect((await agent.delete(LOG).set('Origin', ORIGIN)).status).toBe(404)
     expect((await agent.patch(LOG).set('Origin', ORIGIN).send({})).status).toBe(404)
@@ -241,6 +247,35 @@ describe('the security log screen', () => {
     expect(one.body.entries.length).toBeGreaterThan(0)
     expect(one.body.entries.every((entry: { account: { email: string } }) => entry.account.email === 'second@example.test')).toBe(true)
     expect((await agent.get(`${LOG}?account=not-an-id`)).status).toBe(400)
+  })
+
+  it('shows the entries between two dates, the first included and the last not, with or without one account', async () => {
+    const agent = await loggedInAgent(app)
+    await events(1)
+    await SecurityEvent.deleteMany({})
+    const admin = await AdminUser.findOne({ email: TEST_ADMIN.email }).lean()
+    const at = (iso: string, fields: object = {}) => ({ action: 'logout', outcome: 'success', via: 'website', account: { adminId: admin?._id, email: TEST_ADMIN.email, name: TEST_ADMIN.name, role: 'admin' }, createdAt: new Date(iso), ...fields })
+    await SecurityEvent.collection.insertMany([
+      at('2026-10-25T22:59:59.999Z'),
+      at('2026-10-25T23:00:00.000Z'),
+      at('2026-10-26T12:00:00.000Z', { account: null }),
+      at('2026-10-26T22:59:59.999Z'),
+      at('2026-10-26T23:00:00.000Z'),
+    ])
+    const between = (query: string) => agent.get(`${LOG}?${query}`).expect(200).then((reply) => reply.body)
+    // 26 October on Nigeria's calendar (UTC+1), as a browser there sends it.
+    const day = 'from=2026-10-25T23:00:00.000Z&to=2026-10-26T23:00:00.000Z'
+    const oneDay = await between(day)
+    expect(oneDay.total).toBe(3)
+    expect(oneDay.entries.map((entry: { createdAt: string }) => entry.createdAt)).toEqual(['2026-10-26T22:59:59.999Z', '2026-10-26T12:00:00.000Z', '2026-10-25T23:00:00.000Z'])
+    expect((await between(`${day}&account=${admin?._id}`)).total).toBe(2)
+    // Either end may be left open, and an offset is read as such.
+    expect((await between('from=2026-10-26T23:00:00.000Z')).total).toBe(1)
+    expect((await between('to=2026-10-26T00:00:00%2B01:00')).total).toBe(1)
+    for (const query of ['from=yesterday', 'from=2026-10-26', 'to=2026-13-45T00:00:00Z', 'from=2026-10-26T23:00:00Z&from=2026-10-27T23:00:00Z', `from=2026-10-26T23:00:00Z&to=2026-10-25T23:00:00Z`, 'from=2026-10-26T23:00:00Z&to=2026-10-26T23:00:00Z']) {
+      const refused = await agent.get(`${LOG}?${query}`)
+      expect({ query, status: refused.status }).toEqual({ query, status: 400 })
+    }
   })
 })
 

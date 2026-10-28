@@ -157,6 +157,85 @@ describe('moving an order along', () => {
     expect((await Order.findOne({ reference: NEW_DELIVERY }).lean())?.fulfilmentStatus).toBe('new')
   })
 
+  it('never changes a completed or cancelled order again', async () => {
+    for (const final of ['completed', 'cancelled']) {
+      await Order.updateOne({ reference: NEW_DELIVERY }, { $set: { fulfilmentStatus: 'new' } })
+      expect((await setStatus(NEW_DELIVERY, { fulfilmentStatus: final })).status).toBe(200)
+      for (const next of ['new', 'processing', 'out_for_delivery', final === 'completed' ? 'cancelled' : 'completed']) {
+        const res = await setStatus(NEW_DELIVERY, { fulfilmentStatus: next })
+        expect(res.status).toBe(409)
+        expect(res.body).toMatchObject({ code: 'ORDER_CLOSED', message: `This order is ${final} and can no longer be changed.` })
+      }
+      // Choosing the status it has changes nothing and is not an error.
+      expect((await setStatus(NEW_DELIVERY, { fulfilmentStatus: final })).status).toBe(200)
+      expect((await Order.findOne({ reference: NEW_DELIVERY }).lean())?.fulfilmentStatus).toBe(final)
+    }
+  })
+
+  describe('cancelling returns the stock its sale took', () => {
+    // Three products with a stock count and one without, each with a sale recorded for the order:
+    // an ordinary sale (5 → 3), one stopped at 0 (1 → 0 for 2 ordered), and one whose count was
+    // switched off since.
+    async function soldOrder() {
+      await seedSampleProducts()
+      const [first, second, third] = await Product.find().sort({ _id: 1 }).limit(3).lean()
+      await Product.updateOne({ _id: first._id }, { $set: { stockQuantity: 3 } })
+      await Product.updateOne({ _id: second._id }, { $set: { stockQuantity: 0 } })
+      await Product.updateOne({ _id: third._id }, { $set: { stockQuantity: null } })
+      const sale = (productId: string, from: number, to: number) => ({ action: 'product.sale', targetType: 'product', targetId: productId, orderReference: NEW_DELIVERY, changes: [{ field: 'stockQuantity', from, to }] })
+      await AuditRecord.create([sale(first._id, 5, 3), sale(second._id, 1, 0), sale(third._id, 4, 2)])
+      // Another order's sale is not this one's to return.
+      await AuditRecord.create({ ...sale(first._id, 9, 5), orderReference: PICKUP_PROCESSING })
+      return { first: first._id, second: second._id, third: third._id }
+    }
+    const stock = async (id: string) => (await Product.findById(id).lean())?.stockQuantity
+
+    it('gives back exactly what was taken, recorded under the admin who cancelled', async () => {
+      const { first, second, third } = await soldOrder()
+      expect((await setStatus(NEW_DELIVERY, { fulfilmentStatus: 'cancelled' })).status).toBe(200)
+      expect([await stock(first), await stock(second), await stock(third)]).toEqual([5, 1, null])
+      const restocks = await AuditRecord.find({ action: 'product.restock' }).sort({ targetId: 1 }).lean()
+      expect(restocks).toHaveLength(2)
+      expect(restocks[0]).toMatchObject({ targetType: 'product', targetId: first, orderReference: NEW_DELIVERY, actor: { name: TEST_ADMIN.name, email: TEST_ADMIN.email }, changes: [{ field: 'stockQuantity', from: 3, to: 5 }] })
+      expect(restocks[1]).toMatchObject({ targetId: second, changes: [{ field: 'stockQuantity', from: 0, to: 1 }] })
+      // Shown in the product's own history.
+      const history = await agent.get(`/api/admin/products/${first}/history`).expect(200)
+      expect(history.body.history[0]).toMatchObject({ action: 'product.restock', orderReference: NEW_DELIVERY, actor: { name: TEST_ADMIN.name } })
+    })
+
+    it('returns nothing for completing an order, or for an order whose sale took nothing', async () => {
+      const { first } = await soldOrder()
+      expect((await setStatus(NEW_DELIVERY, { fulfilmentStatus: 'completed' })).status).toBe(200)
+      expect(await stock(first)).toBe(3)
+      expect((await setStatus(PICKUP_PROCESSING, { fulfilmentStatus: 'cancelled' })).status).toBe(200)
+      // PICKUP_PROCESSING's one sale (9 → 5) is returned; demo orders without sales return nothing.
+      expect(await stock(first)).toBe(7)
+      expect((await setStatus('GPEC-O-2026-DE000003', { fulfilmentStatus: 'cancelled' })).status).toBe(200)
+      expect(await AuditRecord.countDocuments({ action: 'product.restock' })).toBe(1)
+    })
+
+    it('returns the stock once when two staff cancel at the same moment', async () => {
+      const { first } = await soldOrder()
+      const replies = await Promise.all([setStatus(NEW_DELIVERY, { fulfilmentStatus: 'cancelled' }), setStatus(NEW_DELIVERY, { fulfilmentStatus: 'cancelled' })])
+      expect(replies.map((reply) => reply.status).every((status) => status === 200 || status === 409)).toBe(true)
+      expect(await stock(first)).toBe(5)
+      expect(await AuditRecord.countDocuments({ action: 'product.restock', targetId: first })).toBe(1)
+      expect(await AuditRecord.countDocuments({ action: 'order.status', targetId: NEW_DELIVERY, 'changes.to': 'cancelled', 'actor.email': TEST_ADMIN.email })).toBe(1)
+    })
+
+    it('changes neither the order nor the stock if a record cannot be saved', async () => {
+      const { first } = await soldOrder()
+      const spy = vi.spyOn(AuditRecord, 'create').mockRejectedValueOnce(new Error('audit write failed'))
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const res = await setStatus(NEW_DELIVERY, { fulfilmentStatus: 'cancelled' })
+      spy.mockRestore()
+      log.mockRestore()
+      expect(res.status).toBe(500)
+      expect((await Order.findOne({ reference: NEW_DELIVERY }).lean())?.fulfilmentStatus).toBe('new')
+      expect(await stock(first)).toBe(3)
+    })
+  })
+
   it('does not change the status if its history record cannot be saved', async () => {
     const spy = vi.spyOn(AuditRecord, 'create').mockRejectedValueOnce(new Error('audit write failed'))
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})

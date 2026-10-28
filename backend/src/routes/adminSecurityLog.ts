@@ -13,7 +13,7 @@ export default function adminSecurityLogRouter() {
     try {
       const { errors, value } = validateSecurityLogQuery(req.query)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
-      return res.json(await securityLogPage(value.adminId, value.before))
+      return res.json(await securityLogPage(value))
     } catch (error) {
       return next(error)
     }

@@ -247,7 +247,8 @@ export interface OlderPage<Entry> {
 
 export interface ProductHistoryEntry {
   // product.sale: a paid order reduced the stock count (the website did it, not an admin).
-  action: 'product.create' | 'product.update' | 'product.sale'
+  // product.restock: the admin named cancelled that order, which put back what it took.
+  action: 'product.create' | 'product.update' | 'product.sale' | 'product.restock'
   actor: { name: string, email: string }
   orderReference: string | null
   changes: { field: keyof EditableProductFields, from: unknown, to: unknown }[]
@@ -550,7 +551,10 @@ export interface SecurityLogEntry {
 
 export interface SecurityLogResponse {
   entries: SecurityLogEntry[]
-  cursor: string | null
+  page: number
+  pageSize: number
+  totalPages: number
+  total: number
   // Every admin account, to show one account's entries.
   accounts: { id: string, name: string, email: string }[]
 }

@@ -3,6 +3,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors.js'
 import AuditRecord from '../models/AuditRecord.js'
 import Order, { FULFILMENT_STATUSES } from '../models/Order.js'
 import type { FulfilmentStatus } from '../models/Order.js'
+import Product from '../models/Product.js'
 import { ADMIN_PAGE_SIZE, pageInfo, skipTo } from '../utils/paging.js'
 import type { Cursor } from '../utils/paging.js'
 import { searchFilter } from '../utils/search.js'
@@ -144,8 +145,39 @@ export const CUSTOMER_UPDATE_STATUSES = ['ready_for_pickup', 'out_for_delivery',
 type CustomerUpdateStatus = typeof CUSTOMER_UPDATE_STATUSES[number]
 const isCustomerUpdate = (status: FulfilmentStatus): status is CustomerUpdateStatus => (CUSTOMER_UPDATE_STATUSES as readonly string[]).includes(status)
 
+// Completed and cancelled are final: once an order reaches one, its status never changes again (the
+// user's decision, 2026-10-28). The order screen asks staff to confirm before choosing one.
+export const FINAL_STATUSES = ['completed', 'cancelled'] as const
+const isFinal = (status: string | null | undefined) => (FINAL_STATUSES as readonly (string | null | undefined)[]).includes(status)
+
+// A cancelled order gives back what its sale took from each product's stock count: exactly the
+// amounts its product.sale records show (a sale never takes the count below 0, and products whose
+// count is off, or demo orders, took nothing), recorded as product.restock under the admin who
+// cancelled. A product whose count has been switched off since has nothing to add to.
+async function returnStock(admin: AdminIdentity, reference: string, session: mongoose.ClientSession) {
+  const sales = await AuditRecord.find({ action: 'product.sale', orderReference: reference }).session(session).lean()
+  for (const sale of sales) {
+    const change = sale.changes.find((entry) => entry.field === 'stockQuantity')
+    const taken = Number(change?.from) - Number(change?.to)
+    if (!Number.isInteger(taken) || taken <= 0) continue
+    const product = await Product.findOne({ _id: sale.targetId, stockQuantity: { $ne: null } }).session(session).lean()
+    if (!product || product.stockQuantity == null) continue
+    const restored = product.stockQuantity + taken
+    await Product.updateOne({ _id: product._id }, { $set: { stockQuantity: restored } }, { session })
+    await AuditRecord.create([{
+      action: 'product.restock',
+      targetType: 'product',
+      targetId: product._id,
+      orderReference: reference,
+      actor: { adminId: admin.id, email: admin.email, name: admin.name },
+      changes: [{ field: 'stockQuantity', from: product.stockQuantity, to: restored }],
+    }], { session })
+  }
+}
+
 // Staff move a paid order along; payment status is never theirs to change. The change and its
-// audit record are saved together. Setting the status it already has changes nothing.
+// audit record are saved together. Setting the status it already has changes nothing; a completed or
+// cancelled order cannot be changed (409 ORDER_CLOSED), and cancelling returns its stock.
 // notifyCustomer: email the customer about it (only for CUSTOMER_UPDATE_STATUSES, and only while email
 // is on). Sent after the change is saved, and recorded on the change so staff can see it was.
 export async function setFulfilmentStatus(admin: AdminIdentity, reference: string, status: FulfilmentStatus, notifyCustomer: boolean, notifier: Notifier) {
@@ -161,7 +193,13 @@ export async function setFulfilmentStatus(admin: AdminIdentity, reference: strin
     }
     const from = before.fulfilmentStatus
     if (from === status) return
-    await Order.updateOne({ reference }, { $set: { fulfilmentStatus: status } }, { session, runValidators: true })
+    if (isFinal(from)) throw new ConflictError(`This order is ${from} and can no longer be changed.`, 'ORDER_CLOSED')
+    // Two staff changing it at once: the transaction makes the later one start again and read the new
+    // status, so a cancellation returns the stock once (tested). The condition guards the same thing
+    // should this ever run outside a transaction.
+    const updated = await Order.updateOne({ reference, fulfilmentStatus: from }, { $set: { fulfilmentStatus: status } }, { session, runValidators: true })
+    if (updated.matchedCount === 0) throw new ConflictError('The order was changed by someone else just now. Reload it and try again.', 'ORDER_CHANGED')
+    if (status === 'cancelled') await returnStock(admin, reference, session)
     await AuditRecord.create([{
       action: 'order.status',
       targetType: 'order',
