@@ -2,11 +2,14 @@ import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import request from 'supertest'
 import sharp from 'sharp'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PDFDocument } from '@cantoo/pdf-lib'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import ContactRequest from '../src/models/ContactRequest.js'
+import SecurityEvent from '../src/models/SecurityEvent.js'
 import { UPLOAD_LIMITS } from '../src/routes/contactRequests.js'
 import { seedDemoData } from '../src/services/demoData.js'
 import { MemoryImageStore, RecordingMailer, TEST_EMAIL_SETTINGS, createTestAdmin, loggedInAgent, noBreaches, testApp, useTestDatabase } from './helpers.js'
+import { HOSTILE_MARKERS, hostilePdf, lockedPdf, pdfOfSize, samplePdf } from './pdfFixtures.js'
 
 useTestDatabase()
 const LIST = '/api/admin/contact-requests'
@@ -16,7 +19,8 @@ const FIELDS = { fullName: 'Ada Buyer', email: 'ada@example.com', subject: 'Elec
 function photo(width = 400, height = 300, format: 'jpeg' | 'png' | 'webp' | 'gif' = 'jpeg') {
   return sharp({ create: { width, height, channels: 3, background: { r: 30, g: 90, b: 200 } } }).toFormat(format).toBuffer()
 }
-const PDF = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n')
+let PDF: Buffer
+beforeAll(async () => { PDF = await samplePdf() })
 
 let store: MemoryImageStore
 let mailer: RecordingMailer
@@ -59,21 +63,26 @@ describe('attaching files to a contact request (optional)', () => {
     expect(requestFileKeys()).toEqual([])
   })
 
-  it('re-saves photos as WebP under a random name and keeps PDFs as sent', async () => {
+  it('re-saves photos as WebP and rebuilds PDFs, each under a random name', async () => {
     const res = await send([[await photo(3200, 2400), 'nameplate.JPG'], [PDF, 'drawing.pdf']])
     expect(res.status).toBe(201)
     expect(Object.keys(res.body).sort()).toEqual(['createdAt', 'reference'])
     const saved = await ContactRequest.findOne({ reference: res.body.reference }).lean()
     expect(saved?.attachments).toEqual([
       { id: expect.stringMatching(/^[0-9a-f]{32}$/), name: 'nameplate.webp', contentType: 'image/webp', size: expect.any(Number) },
-      { id: expect.stringMatching(/^[0-9a-f]{32}$/), name: 'drawing.pdf', contentType: 'application/pdf', size: PDF.length },
+      { id: expect.stringMatching(/^[0-9a-f]{32}$/), name: 'drawing.pdf', contentType: 'application/pdf', size: expect.any(Number) },
     ])
     const [photoFile, pdfFile] = saved?.attachments ?? []
     const storedPhoto = store.objects.get(`request-files/${photoFile.id}`)
     expect(storedPhoto?.contentType).toBe('image/webp')
     expect(await sharp(storedPhoto?.body).metadata()).toMatchObject({ format: 'webp', width: 2400, height: 1800 })
     expect(photoFile.size).toBe(storedPhoto?.body.length)
-    expect(Buffer.from(store.objects.get(`request-files/${pdfFile.id}`)?.body ?? []).equals(PDF)).toBe(true)
+    // A new file with the same page, never the customer's own bytes (services/pdfs.ts).
+    const storedPdf = Buffer.from(store.objects.get(`request-files/${pdfFile.id}`)?.body ?? [])
+    expect(storedPdf.equals(PDF)).toBe(false)
+    expect(pdfFile.size).toBe(storedPdf.length)
+    const rebuilt = await PDFDocument.load(storedPdf)
+    expect(rebuilt.getPages().map((page) => [page.getWidth(), page.getHeight()])).toEqual([[400, 300]])
   })
 
   it('drops camera details such as location from photos', async () => {
@@ -95,7 +104,6 @@ describe('attaching files to a contact request (optional)', () => {
   it.each([
     ['a text file renamed as a photo', Buffer.from('not a photo at all'), 'nameplate.jpg'],
     ['a GIF', null, 'animation.gif'],
-    ['a file that only starts like a PDF', Buffer.from('%PDF-1.4 and then nothing else'), 'drawing.pdf'],
     ['a Word document', Buffer.from('PK\u0003\u0004word/document.xml'), 'spec.docx'],
   ])('refuses %s, naming it, and saves nothing', async (_label, body, filename) => {
     const res = await send([[await photo(), 'fine.jpg'], [body ?? await photo(100, 100, 'gif'), filename]])
@@ -123,7 +131,7 @@ describe('attaching files to a contact request (optional)', () => {
   })
 
   it('accepts a file of exactly 10 MB', async () => {
-    const exact = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(10 * 1024 * 1024 - 15), Buffer.from('\n%%EOF')])
+    const exact = await pdfOfSize(10 * 1024 * 1024)
     expect(exact.length).toBe(10 * 1024 * 1024)
     expect((await send([[exact, 'big.pdf']])).status).toBe(201)
   })
@@ -186,6 +194,89 @@ describe('attaching files to a contact request (optional)', () => {
   })
 })
 
+// Audit M-05: a PDF can carry scripts, actions, attached files, forms, and media that run when it is
+// opened. GPEC has no virus scanner, so every PDF is rebuilt from its pages without them.
+describe('PDFs are rebuilt without the parts that can run something', () => {
+  const securityEvents = () => SecurityEvent.find({ action: 'upload.pdf' }).lean()
+
+  async function storedPdfOf(reference: string) {
+    const [file] = (await ContactRequest.findOne({ reference }).lean())?.attachments ?? []
+    return Buffer.from(store.objects.get(`request-files/${file.id}`)?.body ?? [])
+  }
+
+  it('takes out scripts, actions, attached files, forms, and media, wherever they are in the file', async () => {
+    const hostile = await hostilePdf()
+    // The test file really holds them all.
+    expect(HOSTILE_MARKERS.filter((marker) => !hostile.toString('latin1').includes(marker))).toEqual([])
+    const res = await send([[hostile, 'pump layout.pdf']])
+    expect(res.status).toBe(201)
+    const stored = (await storedPdfOf(res.body.reference)).toString('latin1')
+    expect(HOSTILE_MARKERS.filter((marker) => stored.includes(marker))).toEqual([])
+  })
+
+  it('keeps the page, its size, a web link, and a link to its own page', async () => {
+    const res = await send([[await hostilePdf(), 'pump layout.pdf']])
+    const rebuilt = await PDFDocument.load(await storedPdfOf(res.body.reference))
+    expect(rebuilt.getPages().map((page) => [page.getWidth(), page.getHeight()])).toEqual([[400, 300]])
+    const stored = (await storedPdfOf(res.body.reference)).toString('latin1')
+    expect(stored).toContain('https://gpecengineering.com')
+    expect(stored).toContain('/GoTo')
+    // The link whose action led on to a script lost that action.
+    expect(stored).not.toContain('https://example.com/next')
+  })
+
+  it('records what was taken out in the security log, with the request, but no customer details', async () => {
+    const res = await send([[await hostilePdf(), 'pump layout.pdf']])
+    await vi.waitFor(async () => expect(await securityEvents()).toHaveLength(1))
+    const [event] = await securityEvents()
+    expect(event).toMatchObject({ outcome: 'success', detail: 'scripts,actions,files,forms,media', account: null, target: { type: 'contactRequest', id: res.body.reference }, via: 'website' })
+    expect(JSON.stringify(event)).not.toContain(FIELDS.email)
+  })
+
+  it('records nothing for a PDF with nothing to take out', async () => {
+    expect((await send([[PDF, 'drawing.pdf']])).status).toBe(201)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(await securityEvents()).toEqual([])
+  })
+
+  it('accepts a PDF locked only against editing, and stores it unlocked', async () => {
+    const res = await send([[await lockedPdf(''), 'datasheet.pdf']])
+    expect(res.status).toBe(201)
+    const rebuilt = await PDFDocument.load(await storedPdfOf(res.body.reference))
+    expect(rebuilt.isEncrypted).toBe(false)
+    expect(rebuilt.getPageCount()).toBe(1)
+  })
+
+  it('refuses a PDF that needs a password, saying why, and records it', async () => {
+    const res = await send([[await photo(), 'fine.jpg'], [await lockedPdf('secret'), 'quote.pdf']])
+    expect(res.status).toBe(400)
+    expect(res.body.message).toBe('“quote.pdf” needs a password to open, so GPEC cannot check it. Remove the password, or send photos of the pages instead.')
+    expect(res.body.errors.files).toBe(res.body.message)
+    expect(await ContactRequest.countDocuments()).toBe(0)
+    expect(requestFileKeys()).toEqual([])
+    await vi.waitFor(async () => expect(await securityEvents()).toEqual([expect.objectContaining({ outcome: 'failure', reason: 'PDF_PASSWORD', target: null })]))
+  })
+
+  it.each([
+    ['a file that only starts and ends like a PDF', Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n')],
+    ['a file that only starts like a PDF', Buffer.from('%PDF-1.4 and then nothing else')],
+  ])('refuses %s, naming it, and records it', async (_label, body) => {
+    const res = await send([[body, 'drawing.pdf']])
+    expect(res.status).toBe(400)
+    expect(res.body.message).toBe('“drawing.pdf” could not be read as a PDF. Attach JPEG, PNG, or WebP photos, or PDF documents.')
+    expect(await ContactRequest.countDocuments()).toBe(0)
+    await vi.waitFor(async () => expect(await securityEvents()).toEqual([expect.objectContaining({ outcome: 'failure', reason: 'NOT_A_PDF' })]))
+  })
+
+  it('refuses a PDF with no pages', async () => {
+    const doc = await PDFDocument.create()
+    const empty = Buffer.from(await doc.save({ addDefaultPage: false }))
+    const res = await send([[empty, 'empty.pdf']])
+    expect(res.status).toBe(400)
+    expect(res.body.message).toBe('“empty.pdf” could not be read as a PDF. Attach JPEG, PNG, or WebP photos, or PDF documents.')
+  })
+})
+
 describe('demo contact requests', () => {
   it('come with sample files when storage is set up, stored like a customer’s', async () => {
     expect((await seedDemoData(Date.now(), store)).files).toBe(3)
@@ -224,7 +315,7 @@ describe('staff opening attached files', () => {
     const res = await agent.get(`${LIST}/${reference}`)
     expect(res.body.item.attachments).toEqual([
       { id: photoFile.id, name: 'nameplate.webp', contentType: 'image/webp', size: photoFile.size },
-      { id: pdfFile.id, name: 'wiring drawing.pdf', contentType: 'application/pdf', size: PDF.length },
+      { id: pdfFile.id, name: 'wiring drawing.pdf', contentType: 'application/pdf', size: pdfFile.size },
     ])
   })
 
@@ -343,7 +434,6 @@ describe('limits on forms with files', () => {
     return req
   }
 
-  const pdfOf = (size: number) => Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(size - 15), Buffer.from('\n%%EOF')])
 
   it('refuses files over 25 MB in total before they arrive', async () => {
     const { answer } = await stalledUpload(limited, '203.0.113.1', { contentLength: 26 * MB })
@@ -352,7 +442,7 @@ describe('limits on forms with files', () => {
   })
 
   it('refuses files over 25 MB in total even when the size given leaves room for them', async () => {
-    const res = await sendFrom('203.0.113.1', [[pdfOf(10 * MB), 'a.pdf'], [pdfOf(10 * MB), 'b.pdf'], [pdfOf(5 * MB + 1), 'c.pdf']])
+    const res = await sendFrom('203.0.113.1', [[await pdfOfSize(10 * MB), 'a.pdf'], [await pdfOfSize(10 * MB), 'b.pdf'], [await pdfOfSize(5 * MB + 1), 'c.pdf']])
     expect(res.status).toBe(413)
     expect(res.body).toMatchObject({ code: 'FILES_TOO_LARGE' })
     expect(await ContactRequest.countDocuments()).toBe(0)
@@ -360,7 +450,7 @@ describe('limits on forms with files', () => {
   })
 
   it('accepts files of exactly 25 MB in total', async () => {
-    const res = await sendFrom('203.0.113.1', [[pdfOf(10 * MB), 'a.pdf'], [pdfOf(10 * MB), 'b.pdf'], [pdfOf(5 * MB), 'c.pdf']])
+    const res = await sendFrom('203.0.113.1', [[await pdfOfSize(10 * MB), 'a.pdf'], [await pdfOfSize(10 * MB), 'b.pdf'], [await pdfOfSize(5 * MB), 'c.pdf']])
     expect(res.status).toBe(201)
     expect(requestFileKeys()).toHaveLength(3)
   })

@@ -308,7 +308,8 @@ records): business changes are in AuditRecord; **who got in and what they looked
 every login step and attempt (also unknown addresses, deactivated accounts, and the login rate
 limit's refusals), logouts, password changes, reset requests and resets, two-step login on/off and
 new recovery codes, a wrong password given again (`requirePassword`), changes refused for their
-`Origin`, the admin command's create/reset/disable-2fa, and staff **opening** an order, a contact
+`Origin`, the admin command's create/reset/disable-2fa, a PDF from the contact form refused or with
+parts taken out (no account; 2026-10-28, M-05), and staff **opening** an order, a contact
 request, or an attached file (lists, histories, and notes are not recorded). Each entry: action,
 success or failure with the API's error code, the account (copied, with its role), the record's
 reference, the IP address and browser, and when. Never passwords, codes, links, cookies, the
@@ -556,7 +557,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── routes/           # HTTP wiring: public (products, product images, contact, checkout, Paystack webhook) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord, SecurityEvent
-│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, photos, productImages, requestFiles, customerEmail
+│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, photos, pdfs, heavyWork, productImages, requestFiles, customerEmail
 │       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers; paging.ts: admin page size, cursors
 │       └── data/             # sampleProducts.ts (seed products); demoData.ts (demo orders and contact requests)
@@ -940,8 +941,14 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
   200 MB for a moment. The API container has a memory limit in Coolify (RUNBOOK 1.2).
 - `services/requestFiles.ts` checks each file by its content, never its name or declared type:
   photos are re-encoded as WebP (fit in 2400×2400, upright, camera details dropped;
-  `services/photos.ts`, shared with product photos); PDFs must start with `%PDF-` and end with
-  `%%EOF` and are stored as sent; anything else refuses the whole request, naming the file. Stored
+  `services/photos.ts`, shared with product photos); PDFs are **rebuilt** (`services/pdfs.ts`,
+  2026-10-28, audit finding M-05, the user's choice; `@cantoo/pdf-lib`, the maintained fork of
+  `pdf-lib`): a new PDF gets copies of the pages only, then loses scripts, actions other than going to
+  a page or to a web or email address, attached files, form fields, and media, and anything no longer
+  reachable is dropped, so the customer's own bytes are never stored. A PDF that needs a password, is
+  not readable, or has no pages is refused (one locked only against editing opens and is accepted);
+  anything else refuses the whole request, naming the file. Photos and PDFs are opened one at a time
+  across the API (`services/heavyWork.ts`). Stored
   under `request-files/<32 random hex>` with only `{ id, name, contentType, size }` on the
   ContactRequest. Never a public address.
 - Staff open them only through `GET /api/admin/contact-requests/:reference/files/:id` (behind
@@ -950,8 +957,11 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
   This replaces the earlier plan of short-lived download links: the admin cookie is sent with the
   panel's `<img>` and links (the site and API are the same site), so no link works without a login,
   even briefly.
-- Not done: virus scanning (photos are re-encoded; PDFs are not, which is why they are only ever
-  downloaded, never shown inside the site), and deleting files (the key cannot). The S3 key's
+- Not done: virus scanning. ClamAV needs 3–4 GB (its own documentation), more than the 4 GB server can
+  spare; GuardDuty's S3 scanning is not offered on the AWS account's plan (checked 2026-10-28). The user
+  chose rebuilding without a scanner, and GPEC's staff check PDFs with their own antivirus before
+  opening them. Rebuilt PDFs are still only ever downloaded, never shown inside the site. Also not
+  done: deleting files (the key cannot). The S3 key's
   policy must include `request-files/*` (RUNBOOK 1.7).
 
 ---
@@ -1290,7 +1300,9 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   complaint handling beyond SES's account-level suppression list (SES can report these through SNS).
 - Contact-form attachments (2026-10-24) need the `request-files/*` line in the live S3 key's policy
   before they are deployed (RUNBOOK 1.7); without it, requests with files fail and requests without
-  files still work. PDFs are not scanned for viruses (see Section 8).
+  files still work. Files are not scanned for viruses; PDFs are rebuilt without the parts that can run
+  (see Section 8). The live site's privacy notice, if saved in Site content before 2026-10-28, still
+  says PDFs are kept as sent: staff update that sentence there (the starting text has the new wording).
 - **The refunds policy (`#refunds`) and the FAQ (home page) were written by the developer** at the
   user's request (2026-10-24) as proposals for GPEC to review: every rule in the policy (time limits,
   what can be returned, fees refunded, warranty) is GPEC's decision, with its legal adviser. Both show

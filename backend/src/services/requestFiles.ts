@@ -1,14 +1,16 @@
 import { randomBytes } from 'node:crypto'
 import { ValidationError } from '../errors.js'
 import type { ImageStore } from './imageStore.js'
+import { cleanPdf } from './pdfs.js'
+import type { PdfRefusal, RemovedPdfPart } from './pdfs.js'
 import { reencodePhoto } from './photos.js'
 
 // Photos and drawings a customer may attach to a contact request (optional): JPEG, PNG, or WebP
 // photos, and PDF documents. They are seen only by staff, through the admin panel; the bucket is
-// private (services/imageStore.ts). Photos are never stored as received: they are re-saved as WebP,
-// which drops hidden details such as where they were taken (services/photos.ts). PDFs cannot be
-// cleaned that way, so they are stored as sent, only after checking they really are PDFs, and the
-// admin panel always downloads them rather than opening them inside the site.
+// private (services/imageStore.ts). Nothing is stored as received: photos are re-saved as WebP, which
+// drops hidden details such as where they were taken (services/photos.ts), and PDFs are rebuilt from
+// their pages without scripts, actions, attached files, forms, or media (services/pdfs.ts). The admin
+// panel still always downloads PDFs rather than opening them inside the site.
 export const REQUEST_FILE_UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 export const MAX_REQUEST_FILES = 5
 export const MAX_REQUEST_FILE_BYTES = 10 * 1024 * 1024
@@ -38,12 +40,20 @@ export interface PreparedRequestFile {
   contentType: StoredRequestFileType
   size: number
   body: Buffer
+  // What rebuilding a PDF took out (none for photos), for the security log.
+  removed: RemovedPdfPart[]
 }
 
-// Every PDF starts with %PDF- and ends with %%EOF (some programs add a few bytes after it).
-function isPdf(input: Buffer) {
-  return input.subarray(0, 5).toString('latin1') === '%PDF-' && input.subarray(-1024).toString('latin1').includes('%%EOF')
+// A PDF refused when rebuilt (services/pdfs.ts): the request is refused, naming the file, and the
+// route records it in the security log.
+export class RefusedPdfError extends ValidationError {
+  constructor(readonly reason: PdfRefusal, message: string) {
+    super({ files: message }, message)
+  }
 }
+
+// Every PDF starts with %PDF-; anything else that starts that way is refused when rebuilt.
+const looksLikePdf = (input: Buffer) => input.subarray(0, 5).toString('latin1') === '%PDF-'
 
 // The customer's own file name, without control characters.
 // oxlint-disable-next-line no-control-regex -- removing control characters is the point
@@ -62,16 +72,23 @@ export async function prepareRequestFiles(files: ReceivedFile[]): Promise<Prepar
   const prepared: PreparedRequestFile[] = []
   for (const file of files) {
     const id = randomBytes(16).toString('hex')
-    if (isPdf(file.buffer)) {
-      prepared.push({ id, name: displayName(file.originalname, '.pdf', 'document'), contentType: 'application/pdf', size: file.buffer.length, body: file.buffer })
+    const shownName = `“${cleanName(file.originalname).slice(0, MAX_NAME_LENGTH) || 'A file'}”`
+    if (looksLikePdf(file.buffer)) {
+      const pdf = await cleanPdf(file.buffer)
+      if ('refused' in pdf) {
+        throw new RefusedPdfError(pdf.refused, pdf.refused === 'password'
+          ? `${shownName} needs a password to open, so GPEC cannot check it. Remove the password, or send photos of the pages instead.`
+          : `${shownName} could not be read as a PDF. ${NOT_ACCEPTED_FILE}`)
+      }
+      prepared.push({ id, name: displayName(file.originalname, '.pdf', 'document'), contentType: 'application/pdf', size: pdf.body.length, body: pdf.body, removed: pdf.removed })
       continue
     }
     const photo = await reencodePhoto(file.buffer, MAX_PHOTO_DIMENSION)
     if (!photo) {
-      const message = `“${cleanName(file.originalname).slice(0, MAX_NAME_LENGTH) || 'A file'}” could not be read as a photo or PDF. ${NOT_ACCEPTED_FILE}`
+      const message = `${shownName} could not be read as a photo or PDF. ${NOT_ACCEPTED_FILE}`
       throw new ValidationError({ files: message }, message)
     }
-    prepared.push({ id, name: displayName(file.originalname, '.webp', 'photo'), contentType: 'image/webp', size: photo.length, body: photo })
+    prepared.push({ id, name: displayName(file.originalname, '.webp', 'photo'), contentType: 'image/webp', size: photo.length, body: photo, removed: [] })
   }
   return prepared
 }

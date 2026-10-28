@@ -89,7 +89,7 @@ export default function RequestFilesField({ files, onChange, disabled }: Request
     <p className="quote-files-title">Photos or drawings <span>(optional)</span></p>
     <input ref={inputRef} id="contact-files" className="visually-hidden" type="file" multiple accept={UPLOAD_TYPES.join(',')} disabled={disabled} onChange={handleChange} aria-describedby={problems.length > 0 ? 'contact-files-hint contact-files-problems' : 'contact-files-hint'} />
     <label className="quote-files-button" htmlFor="contact-files">{files.length > 0 ? 'Add more files' : 'Attach photos or PDFs'}</label>
-    <small id="contact-files-hint">Up to {MAX_FILES} files, each up to 10 MB and 25 MB together: JPEG, PNG, or WebP photos, or PDF documents, such as a nameplate, a drawing, or the site. Only GPEC staff can see them. Photos are re-saved without hidden details such as where they were taken.</small>
+    <small id="contact-files-hint">Up to {MAX_FILES} files, each up to 10 MB and 25 MB together: JPEG, PNG, or WebP photos, or PDF documents, such as a nameplate, a drawing, or the site. Only GPEC staff can see them. Photos are re-saved without hidden details such as where they were taken, and PDFs are rebuilt without anything that could run when opened (PDFs that need a password cannot be accepted).</small>
     {files.length > 0 && <ul className="quote-file-list" aria-label="Attached files">
       {files.map((file, index) => <li key={`${file.name}-${file.size}`}>
         <FilePreview file={file} />

@@ -12,6 +12,7 @@ import { seedDemoData } from '../src/services/demoData.js'
 import { open } from '../src/services/secretBox.js'
 import { currentStep, totpCode } from '../src/services/totp.js'
 import { MemoryImageStore, RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, TEST_TWO_FACTOR_KEY, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
+import { samplePdf } from './pdfFixtures.js'
 
 useTestDatabase()
 
@@ -199,7 +200,7 @@ describe('customer records staff open', () => {
   it('records opening an attached file', async () => {
     const store = new MemoryImageStore()
     const withFiles = testApp({ email: TEST_EMAIL_SETTINGS }, mailer, undefined, store)
-    const pdf = Buffer.from('%PDF-1.4\n1 0 obj << >> endobj\n%%EOF\n')
+    const pdf = await samplePdf()
     const sent = await request(withFiles).post('/api/contact-requests').field('fullName', 'Ada Buyer').field('email', 'ada@example.com').field('message', 'See the drawing.').attach('files', pdf, 'drawing.pdf').expect(201)
     const filesAgent = await loggedInAgent(withFiles)
     const detail = await filesAgent.get(`/api/admin/contact-requests/${sent.body.reference}`).expect(200)

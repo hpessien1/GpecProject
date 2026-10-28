@@ -357,7 +357,10 @@ export const securityLogContent = {
     'command.create': 'Account created on the server',
     'command.reset': 'Password reset on the server',
     'command.disableTwoFactor': 'Two-step login turned off on the server',
+    'upload.pdf': 'A PDF sent with the contact form had parts taken out that could run when opened',
   } satisfies Record<SecurityAction, string>,
+  // Entries made by a visitor to the site rather than an admin (no account).
+  visitor: 'A visitor (the contact form)',
   // What failed, in plain words, for each action that can fail.
   failedActions: {
     'login.password': 'Login failed',
@@ -370,7 +373,16 @@ export const securityLogContent = {
     'twoFactor.disable': 'Turning off two-step login failed',
     'twoFactor.recoveryCodes': 'New recovery codes refused',
     'access.refused': 'A change sent from another website was refused',
+    'upload.pdf': 'A PDF sent with the contact form was refused',
   } as Partial<Record<SecurityAction, string>>,
+  // What was taken out of a PDF (upload.pdf).
+  pdfParts: {
+    scripts: 'scripts',
+    actions: 'actions',
+    files: 'attached files',
+    forms: 'form fields',
+    media: 'media',
+  } as Record<string, string>,
   details: {
     code_needed: 'password correct, waiting for the two-step code',
     app: 'authenticator app',
@@ -392,5 +404,7 @@ export const securityLogContent = {
     PASSWORD_BREACHED: 'the new password is known from a data breach',
     VALIDATION_ERROR: 'details missing or not valid',
     NOT_FOUND: 'not found',
+    PDF_PASSWORD: 'it needs a password to open, so it could not be checked',
+    NOT_A_PDF: 'it could not be read as a PDF',
   } as Record<string, string>,
 }

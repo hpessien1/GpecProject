@@ -1062,6 +1062,25 @@ test.describe('forgot password', () => {
 
 // Audit M-06: who logged in or tried to, changes to admins' own logins, and customer records opened.
 test.describe('security log', () => {
+  // Audit M-05: PDFs from the contact form that were refused or had parts taken out.
+  test('shows PDFs from the contact form as a visitor’s, with what was taken out or why one was refused', async ({ page }) => {
+    const api = await mockApi(page)
+    const base = { reason: null, detail: null, account: null, target: null, via: 'website' as const, ip: '102.89.34.10', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36' }
+    api.securityLog = [
+      { ...base, action: 'upload.pdf', outcome: 'success', detail: 'scripts,actions,files', target: { type: 'contactRequest', id: CONTACT_REF }, createdAt: '2026-10-21T09:58:00Z' },
+      { ...base, action: 'upload.pdf', outcome: 'failure', reason: 'PDF_PASSWORD', createdAt: '2026-10-21T09:50:00Z' },
+    ]
+    await logInAsAdmin(page)
+    await page.goto('/#admin/security-log')
+    const entries = page.locator('.admin-security-log ol > li')
+    await expect(entries).toHaveCount(2)
+    await expect(entries.nth(0)).toContainText('A visitor (the contact form)')
+    await expect(entries.nth(0).locator('.admin-security-what')).toHaveText(`A PDF sent with the contact form had parts taken out that could run when opened (scripts, actions, attached files) ${CONTACT_REF}`)
+    await expect(entries.nth(0).getByRole('link', { name: CONTACT_REF })).toHaveAttribute('href', `#admin/contact-requests/${CONTACT_REF}`)
+    await expect(entries.nth(1)).toHaveClass(/admin-security-failed/)
+    await expect(entries.nth(1).locator('.admin-security-what')).toHaveText('FailedA PDF sent with the contact form was refused: it needs a password to open, so it could not be checked')
+  })
+
   test('lists what happened in plain words, newest first, with failed attempts marked', async ({ page }) => {
     await mockApi(page)
     await logInAsAdmin(page)

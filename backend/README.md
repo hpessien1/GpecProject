@@ -133,7 +133,9 @@ admin's own calendar), `?page=` for a numbered page, ten per page) answers `{ en
 totalPages, total, accounts }`. Each entry: `action`, `outcome`, `reason` (the API error code when it failed),
 `detail`, `account { name, email, role }` or `null`, `target { type, id }` or `null`, `via`, `ip`,
 `userAgent`, `createdAt`. Written by the server for logins, account changes, refused origins, the
-admin command, and opening an order, contact request, or attached file; kept 12 months.
+admin command, opening an order, contact request, or attached file, and contact-form PDFs refused or
+with parts taken out (`upload.pdf`, no account; `detail` lists what was taken out, such as
+`scripts,actions`); kept 12 months.
 
 **The password again** (`middleware/requirePassword.ts`): `PATCH /api/admin/bank-transfer`, `PATCH
 /api/admin/customer-email`, and `POST …/transfer-received` also need the admin's current password as
@@ -161,9 +163,12 @@ Both public form routes have a spam trap: a request whose `website` field has a 
 
 Files are optional. With files, the same fields come as `multipart/form-data`, plus up to 5 files in
 `files` (each up to 10 MB, 25 MB together): JPEG, PNG, or WebP photos, re-saved as WebP (upright, at most 2400×2400,
-camera details removed), or PDFs (checked to start with `%PDF-` and end with `%%EOF`, stored as
-sent). They go to the private S3 bucket under `request-files/<random id>`, never a public address.
-Refusals: a file that is neither gets `400 VALIDATION_ERROR` naming it (and nothing is saved); more
+camera details removed), or PDFs, rebuilt from their pages without scripts, actions (other than
+going to a page or a web or email address), attached files, form fields, or media
+(`services/pdfs.ts`). They go to the private S3 bucket under `request-files/<random id>`, never a public address.
+Refusals: a file that is neither, or a PDF that needs a password or has no pages, gets
+`400 VALIDATION_ERROR` naming it (and nothing is saved; a refused PDF, or one with parts taken out, is
+recorded in the security log as `upload.pdf`); more
 than 5 files `400 TOO_MANY_FILES`; a file over 10 MB `413 FILE_TOO_LARGE`; files over 25 MB together
 `413 FILES_TOO_LARGE` (refused before reading when the stated size is too large; a multipart form with
 no stated size gets `411`); files while the `S3_*` settings are unset `503 FILE_UPLOADS_OFF` (also

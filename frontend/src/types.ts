@@ -538,13 +538,15 @@ export type SecurityAction =
   | 'access.refused'
   | 'record.order' | 'record.contactRequest' | 'record.file'
   | 'command.create' | 'command.reset' | 'command.disableTwoFactor'
+  | 'upload.pdf'
 
 export interface SecurityLogEntry {
   action: SecurityAction
   outcome: 'success' | 'failure'
   // The API's error code when it failed (WRONG_PASSWORD, TOO_MANY_ATTEMPTS, …).
   reason: string | null
-  // code_needed, or the kind of code used: app, email, recovery_code.
+  // code_needed, the kind of code used (app, email, recovery_code), or for upload.pdf what was taken
+  // out of the PDF, comma-separated (scripts,actions,files,forms,media).
   detail: string | null
   // null when no admin account could be named.
   account: { name: string, email: string, role: string } | null

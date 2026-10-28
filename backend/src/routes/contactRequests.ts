@@ -5,7 +5,8 @@ import { HttpError } from '../errors.js'
 import ContactRequest from '../models/ContactRequest.js'
 import type { ImageStore } from '../services/imageStore.js'
 import type { Notifier } from '../services/notifications.js'
-import { MAX_REQUEST_FILE_BYTES, MAX_REQUEST_FILES, MAX_REQUEST_FILES_TOTAL_BYTES, prepareRequestFiles, storeRequestFiles } from '../services/requestFiles.js'
+import { MAX_REQUEST_FILE_BYTES, MAX_REQUEST_FILES, MAX_REQUEST_FILES_TOTAL_BYTES, RefusedPdfError, prepareRequestFiles, storeRequestFiles } from '../services/requestFiles.js'
+import { recordSecurityEvent } from '../services/securityLog.js'
 import { createReference } from '../utils/reference.js'
 import { validateContactRequest } from '../validation/contactRequest.js'
 import { isLikelySpam } from '../validation/fields.js'
@@ -131,7 +132,13 @@ export default function contactRequestsRouter(notifier: Notifier, imageStore: Im
       res.status(201).json({ reference: contactRequest.reference, createdAt: contactRequest.createdAt })
       // After answering, so email never delays or breaks the customer's request (the notifier never throws).
       void notifier.contactRequestReceived({ ...value, reference: contactRequest.reference, createdAt: contactRequest.createdAt, files: prepared.length })
+      // A PDF that held scripts, actions, attached files, forms, or media (taken out when it was
+      // rebuilt) goes in the security log with its request, so staff can see attempts (audit M-05).
+      for (const file of prepared.filter(({ removed }) => removed.length > 0)) {
+        void recordSecurityEvent(req, { action: 'upload.pdf', outcome: 'success', detail: file.removed.join(','), target: { type: 'contactRequest', id: contactRequest.reference } })
+      }
     } catch (error) {
+      if (error instanceof RefusedPdfError) void recordSecurityEvent(req, { action: 'upload.pdf', outcome: 'failure', reason: error.reason === 'password' ? 'PDF_PASSWORD' : 'NOT_A_PDF' })
       return next(error)
     }
   })

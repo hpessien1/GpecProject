@@ -19,6 +19,9 @@ export const SECURITY_ACTIONS = [
   'record.order', 'record.contactRequest', 'record.file',
   // The admin command on the server (npm run admin:create).
   'command.create', 'command.reset', 'command.disableTwoFactor',
+  // A PDF sent with the contact form (no account): refused (not a PDF, or it needs a password), or
+  // accepted with parts taken out (detail: scripts, actions, files, forms, media; audit M-05).
+  'upload.pdf',
 ] as const
 export type SecurityAction = typeof SECURITY_ACTIONS[number]
 
@@ -40,8 +43,8 @@ const securityEventSchema = new mongoose.Schema({
   outcome: { type: String, required: true, enum: ['success', 'failure'] },
   // Why it failed, as the API's error code (WRONG_PASSWORD, TOO_MANY_ATTEMPTS, …); null on success.
   reason: { type: String, default: null, maxlength: 60 },
-  // More about a success: code_needed (a password step waiting for its code), or the kind of code used
-  // (app, email, recovery_code).
+  // More about a success: code_needed (a password step waiting for its code), the kind of code used
+  // (app, email, recovery_code), or what was taken out of a PDF (scripts,actions,…).
   detail: { type: String, default: null, maxlength: 60 },
   // null when no account could be named (an unknown address, a refused link).
   account: { type: accountSchema, default: null },

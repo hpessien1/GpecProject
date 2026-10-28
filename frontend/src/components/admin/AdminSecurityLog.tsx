@@ -35,7 +35,9 @@ function describe(entry: SecurityLogEntry) {
     const why = entry.reason ? reasons[entry.reason] ?? entry.reason : ''
     return why ? `${what}: ${why}` : what
   }
-  const detail = entry.detail ? details[entry.detail] ?? entry.detail : ''
+  const detail = !entry.detail ? ''
+    : entry.action === 'upload.pdf' ? entry.detail.split(',').map((part) => securityLogContent.pdfParts[part] ?? part).join(', ')
+    : details[entry.detail] ?? entry.detail
   return detail ? `${actions[entry.action]} (${detail})` : actions[entry.action]
 }
 
@@ -51,7 +53,7 @@ function Entry({ entry }: EntryProps) {
   const failed = entry.outcome === 'failure'
   return <li className={failed ? 'admin-security-failed' : undefined}>
     <p className="admin-history-meta">
-      <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.account ? `${entry.account.name} (${entry.account.email})` : securityLogContent.unknownAccount}
+      <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.account ? `${entry.account.name} (${entry.account.email})` : entry.action === 'upload.pdf' ? securityLogContent.visitor : securityLogContent.unknownAccount}
     </p>
     <p className="admin-security-what">
       {failed && <span className="admin-status admin-status-failed">{securityLogContent.failed}</span>}
@@ -65,8 +67,9 @@ function Entry({ entry }: EntryProps) {
 }
 
 // The security log, newest first, a page at a time, for every account or one, and between two days if
-// staff choose: logins and attempts, changes to admins' own logins, and customer records opened
-// (backend models/SecurityEvent.ts). Read only.
+// staff choose: logins and attempts, changes to admins' own logins, customer records opened, and PDFs
+// from the contact form that were refused or had parts taken out (backend models/SecurityEvent.ts).
+// Read only.
 export default function AdminSecurityLog({ onSessionEnded }: AdminSecurityLogProps) {
   // Kept while staff open an order or request from an entry and come back.
   const [position, setPosition] = useRememberedState<Position>('securityLog', { page: 1, accountId: '', from: '', to: '' })
