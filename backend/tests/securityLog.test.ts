@@ -239,7 +239,8 @@ describe('the security log screen', () => {
     // Nothing can change or remove an entry.
     expect((await agent.delete(LOG).set('Origin', ORIGIN)).status).toBe(404)
     expect((await agent.patch(LOG).set('Origin', ORIGIN).send({})).status).toBe(404)
-  })
+    // Twelve password checks (scrypt) in a row: 5.4 s on a busy CI runner (2026-10-29).
+  }, 30_000)
 
   it('lists every account to filter by, and shows one account’s entries', async () => {
     const second = await createTestAdmin({ email: 'second@example.test', name: 'Second Admin' })
