@@ -266,11 +266,11 @@ These block launch, and several block steps 4 to 6. Ask early.
       login; reset links checked before the new password, with a limit on attempts; the stock count
       being guessable at checkout accepted (the user's decision). **Audit closed 2026-10-29** after a
       full recheck; deployed the same day.
-- [ ] Third security audit (2026-10-29, detailed only in a local file): password and two-step login
+- [x] Third security audit (2026-10-29, detailed only in a local file): password and two-step login
       changes saved only if the account is unchanged since its password was checked; a contact form
       with files keeps its upload place until its work has ended, and one stopped or abandoned is not
-      saved; emails for a password changed in the panel and for new recovery codes. Fixed 2026-10-29,
-      not yet deployed.
+      saved; emails for a password changed in the panel and for new recovery codes. Fixed and
+      deployed 2026-10-29.
 - [x] Staff screens (2026-10-28, user's requests): the Security log filters by date, with numbered
       pages; completed and cancelled orders cannot be changed again, and cancelling puts back the
       stock the order took; a confirmation dialog in the panel's own style for completing or

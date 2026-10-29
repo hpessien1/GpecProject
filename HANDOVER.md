@@ -1,8 +1,7 @@
 # Next-session handover
 
-Last updated: 2026-10-29 (the **third security audit**: all three findings fixed and committed,
-**not pushed or deployed**; the second audit closed and deployed earlier that day; SES production access
-granted).
+Last updated: 2026-10-29 (the **third security audit**: all three findings fixed, pushed, CI green,
+and deployed; the second audit closed and deployed earlier that day; SES production access granted).
 Start a new session with:
 
 ```text
@@ -12,12 +11,11 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `90db053` (second audit close-out) is pushed, CI green (run
-  40848256225, including the full-history secret scan), and deployed by the user on 2026-10-29.
-  **Not pushed yet:** the third audit's fixes (S3-M01, S3-M02, S3-L01), committed with this handover;
-  locally backend 692 tests, lint, type-check, build pass (no frontend code changed). The user pushes; check with
-  `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this repository's runs;
-  it cannot push).
+- **Git and CI:** everything up to `354975a` (the third audit's fixes and a longer time limit for
+  one slow security-log test, which timed out on CI's first run) is pushed, CI green (run
+  40874475288, including the browser, contrast, and full-history secret-scan jobs), and deployed by
+  the user on 2026-10-29. Check runs with `gh run list -R hpessien1/GpecProject` (the `gh` login
+  `v25-hub` can read this repository's runs; it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23). GPEC's team uses it to see how everything behaves. So: every feature comes with demo
   data there too (`seed:demo`), sample values are labelled rather than blocked, and "replace/remove
@@ -224,7 +222,7 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
    also covers turning two-step login off and new recovery codes, which the report did not list),
    S3-M02 (a contact form with files keeps its place until its work ends; stopped or abandoned ones
    are not saved), S3-L01 (emails for a panel password change and for new recovery codes), committed
-   together. Next: push, CI, deploy (the user), then mark them deployed in the table.
+   together, CI green, and deployed 2026-10-29. Nothing left to do for it.
    Second audit, for reference:
    **Second security audit** (2026-10-28): `SECURITY_AUDIT_SECOND.md` at the repository root,
    git-ignored like the first; never commit it, and keep its details out of committed files. Handled
