@@ -2,6 +2,7 @@ import 'dotenv/config'
 import mongoose from 'mongoose'
 import createApp from './app.js'
 import { loadConfig } from './config.js'
+import { RepeatedRefusals, writeRepeatedRefusals } from './services/securityLog.js'
 import type { Config } from './config.js'
 
 // Production must use the gpec database. Anything else (gpec_dev, or Atlas's default "test" when the
@@ -38,7 +39,10 @@ try {
     process.once(signal, () => {
       console.log(`${signal} received; finishing open requests and shutting down.`)
       server.close(() => {
-        mongoose.disconnect().finally(() => process.exit(0))
+        // Counts of repeated refusals not yet written go into the security log first (audit S2-M02).
+        const repeated: unknown = app.locals.repeatedRefusals
+        const counts = repeated instanceof RepeatedRefusals ? writeRepeatedRefusals(repeated, true) : Promise.resolve()
+        counts.finally(() => mongoose.disconnect().finally(() => process.exit(0)))
       })
     })
   }

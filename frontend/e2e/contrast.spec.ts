@@ -333,8 +333,11 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.locator('.admin-field-error').waitFor()
     await audit.page(page, `${label} admin customer emails refused, email off`)
     api.emailOn = true
-    // The security log: entries, failed ones marked, the second page, days in the wrong order, and dates
-    // that match nothing.
+    // The security log: entries, failed ones marked, a count of repeated refusals in place of the
+    // second-oldest entry (still twelve), the second page, days in the wrong order, and dates that
+    // match nothing.
+    const realLog = api.securityLog
+    api.securityLog = [...realLog.slice(0, 10), { ...realLog[5], reason: 'TOO_MANY_ATTEMPTS', account: null, repeats: 4812, repeatsSince: realLog[10].createdAt }, realLog[11]]
     await open('#admin/security-log', '.admin-security-failed')
     await audit.page(page, `${label} admin security log`)
     if (hovering) await audit.hover(page, `${label} admin security log`)

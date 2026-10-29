@@ -11,6 +11,9 @@ interface SecurityEventOptions {
   target?: (req: Request) => SecurityEventInput['target']
   // Record only when an admin is logged in: a visitor without a session is simply refused.
   signedInOnly?: boolean
+  // Record only when the account is found: a logout without a session ends nothing (audit S2-M02:
+  // anyone can send one, as often as they like).
+  accountOnly?: boolean
 }
 
 // Records the request in the security log (audit M-06) once its answer has gone out: a success below
@@ -27,7 +30,7 @@ export function securityEvent(action: SecurityAction, options: SecurityEventOpti
       const admin = res.locals.admin
       if (options.signedInOnly && !admin) return
       const failed = res.statusCode >= 400
-      void found.then((account) => recordSecurityEvent(req, {
+      void found.then((account) => (options.accountOnly && !account?.adminId && !account?.email) ? undefined : recordSecurityEvent(req, {
         action,
         outcome: failed ? 'failure' : 'success',
         reason: failed ? res.locals.securityReason ?? res.locals.errorCode ?? (res.statusCode === 429 ? 'TOO_MANY_ATTEMPTS' : `HTTP_${res.statusCode}`) : null,

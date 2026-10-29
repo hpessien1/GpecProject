@@ -56,6 +56,11 @@ const securityEventSchema = new mongoose.Schema({
   // The visitor's internet address and browser, from the request; empty for the command.
   ip: { type: String, default: '', maxlength: 60 },
   userAgent: { type: String, default: '', maxlength: 300 },
+  // On an entry that counts repeats (audit S2-M02): how many more refusals like it came from the address
+  // ('' for many addresses) after the ones written in full, from repeatsSince until the entry was
+  // written. The browser is the last one seen. Missing on entries stored before 2026-10-29.
+  repeats: { type: Number, default: null, min: 1 },
+  repeatsSince: { type: Date, default: null },
 }, { timestamps: { createdAt: true, updatedAt: false }, strict: 'throw' })
 
 securityEventSchema.index({ createdAt: 1 }, { expireAfterSeconds: KEEP_FOR_SECONDS })

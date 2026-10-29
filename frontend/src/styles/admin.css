@@ -554,11 +554,15 @@
   border-left-color: var(--lime);
 }
 .admin-security-what,
+.admin-security-repeats,
 .admin-security-where {
   margin: 0;
   font-size: 0.85rem;
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+.admin-security-repeats {
+  font-weight: 700;
 }
 .admin-security-what .admin-status {
   margin-right: 0.5rem;

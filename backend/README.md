@@ -132,7 +132,9 @@ included, `to` not; the site sends the start of the first day and of the day aft
 admin's own calendar), `?page=` for a numbered page, ten per page) answers `{ entries, page, pageSize,
 totalPages, total, accounts }`. Each entry: `action`, `outcome`, `reason` (the API error code when it failed),
 `detail`, `account { name, email, role }` or `null`, `target { type, id }` or `null`, `via`, `ip`,
-`userAgent`, `createdAt`. Written by the server for logins, account changes, refused origins, the
+`userAgent`, `repeats`, `repeatsSince`, `createdAt`. `repeats` is `null` except on an entry that counts
+refusals of one kind from one address (`ip` empty for many addresses) after the first 5 in 15 minutes,
+which are written in full; `repeatsSince` is when the counting began. Written by the server for logins, account changes, refused origins, the
 admin command, opening an order, contact request, or attached file, and contact-form PDFs refused or
 with parts taken out (`upload.pdf`, no account; `detail` lists what was taken out, such as
 `scripts,actions`); kept 12 months.

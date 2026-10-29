@@ -51,17 +51,23 @@ function Target({ target }: Pick<SecurityLogEntry, 'target'>) {
 
 function Entry({ entry }: EntryProps) {
   const failed = entry.outcome === 'failure'
+  const counted = entry.repeats !== null && entry.repeatsSince !== null
+  const who = counted ? securityLogContent.repeatedAccount
+    : entry.account ? `${entry.account.name} (${entry.account.email})`
+    : entry.action === 'upload.pdf' ? securityLogContent.visitor : securityLogContent.unknownAccount
   return <li className={failed ? 'admin-security-failed' : undefined}>
     <p className="admin-history-meta">
-      <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.account ? `${entry.account.name} (${entry.account.email})` : entry.action === 'upload.pdf' ? securityLogContent.visitor : securityLogContent.unknownAccount}
+      <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {who}
     </p>
     <p className="admin-security-what">
       {failed && <span className="admin-status admin-status-failed">{securityLogContent.failed}</span>}
       {describe(entry)}<Target target={entry.target} />
     </p>
+    {counted && <p className="admin-security-repeats">{securityLogContent.repeats(entry.repeats ?? 0, formatDateTime(entry.repeatsSince ?? entry.createdAt), !entry.ip)}</p>}
     <p className="admin-security-where">
       {entry.via === 'command line' ? securityLogContent.commandLine
-        : <>From <span className="admin-mono">{entry.ip || 'an unknown address'}</span> · <span title={entry.userAgent}>{describeBrowser(entry.userAgent)}</span></>}
+        : counted && !entry.ip ? <>From {securityLogContent.manyAddresses} · last seen <span title={entry.userAgent}>{describeBrowser(entry.userAgent)}</span></>
+        : <>From <span className="admin-mono">{entry.ip || 'an unknown address'}</span> · {counted && 'last seen '}<span title={entry.userAgent}>{describeBrowser(entry.userAgent)}</span></>}
     </p>
   </li>
 }

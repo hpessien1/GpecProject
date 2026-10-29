@@ -9,6 +9,8 @@ import Order from '../src/models/Order.js'
 import SecurityEvent from '../src/models/SecurityEvent.js'
 import { createPasswordReset } from '../src/services/adminAuth.js'
 import { seedDemoData } from '../src/services/demoData.js'
+import { REPEAT_SETTINGS, RepeatedRefusals, writeRepeatedRefusals } from '../src/services/securityLog.js'
+import type { RepeatSettings } from '../src/services/securityLog.js'
 import { open } from '../src/services/secretBox.js'
 import { currentStep, totpCode } from '../src/services/totp.js'
 import { MemoryImageStore, RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, TEST_TWO_FACTOR_KEY, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
@@ -214,9 +216,11 @@ describe('the security log screen', () => {
   const LOG = '/api/admin/security-log'
 
   it('is for admins only, read-only, and newest first, ten to a page', async () => {
-    expect((await request(app).get(LOG)).status).toBe(401)
-    const agent = await loggedInAgent(app)
-    for (let i = 0; i < 11; i++) await post(request(app), LOGIN, { email: TEST_ADMIN.email, password: 'not the right password' })
+    // Eleven refusals from one address, all written in full.
+    const roomy = testApp({ securityLogRepeats: { ...REPEAT_SETTINGS, perSource: 20 } })
+    expect((await request(roomy).get(LOG)).status).toBe(401)
+    const agent = await loggedInAgent(roomy)
+    for (let i = 0; i < 11; i++) await post(request(roomy), LOGIN, { email: TEST_ADMIN.email, password: 'not the right password' })
     await events(12)
     const first = await agent.get(LOG).expect(200)
     expect(first.headers['cache-control']).toBe('no-store')
@@ -277,6 +281,119 @@ describe('the security log screen', () => {
       const refused = await agent.get(`${LOG}?${query}`)
       expect({ query, status: refused.status }).toEqual({ query, status: 400 })
     }
+  })
+})
+
+// Audit S2-M02: anyone can be refused as often as they like, so refusals of one kind from one address
+// are written in full five times in 15 minutes, then counted and written once with the count.
+describe('repeated refusals', () => {
+  const MINUTE = 60_000
+  let clock: number
+  const settings = (changes: Partial<RepeatSettings> = {}): RepeatSettings => ({ ...REPEAT_SETTINGS, now: () => clock, ...changes })
+  beforeEach(() => { clock = Date.UTC(2026, 9, 29, 10) })
+
+  // An app counting with the test's clock; production: true, so X-Forwarded-For names the address.
+  function countingApp(changes: Partial<RepeatSettings> = {}, config: Parameters<typeof testApp>[0] = {}) {
+    return testApp({ securityLogRepeats: settings(changes), ...config })
+  }
+  const refuse = (target: ReturnType<typeof testApp>, from = '203.0.113.7') =>
+    request(target).patch('/api/admin/products/probe').set('Origin', 'https://evil.example').set('X-Forwarded-For', from).set('User-Agent', BROWSER).send({})
+  // Lets entries already on their way be written, so a missing one is really missing.
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 100))
+  const counts = () => SecurityEvent.find({ repeats: { $ne: null } }).sort({ createdAt: 1, _id: 1 }).lean()
+  const writeEnded = (target: ReturnType<typeof testApp>, all = false) => writeRepeatedRefusals(target.locals.repeatedRefusals as RepeatedRefusals, all)
+
+  it('writes the first five of a login refused by the limit, counts the rest, and writes the count when the 15 minutes end', async () => {
+    const limited = countingApp({}, { adminLoginRateLimit: { windowMs: 60 * MINUTE, limit: 1 } })
+    await post(request(limited), LOGIN, { email: TEST_ADMIN.email, password: 'not the right password' }).expect(401)
+    const findAccount = vi.spyOn(AdminUser, 'findOne')
+    for (let i = 0; i < 12; i++) await post(request(limited), LOGIN, { email: TEST_ADMIN.email, password: 'not the right password' }).expect(429)
+    await settle()
+    const refused = await SecurityEvent.find({ reason: 'TOO_MANY_ATTEMPTS' }).lean()
+    expect(refused).toHaveLength(5)
+    expect(refused[0]).toMatchObject({ outcome: 'failure', account, repeats: null })
+    // A counted refusal is not looked up either.
+    expect(findAccount).toHaveBeenCalledTimes(5)
+
+    clock += 14 * MINUTE
+    await writeEnded(limited)
+    expect(await counts()).toEqual([])
+    clock += MINUTE
+    await writeEnded(limited)
+    const [count] = await counts()
+    expect(count).toMatchObject({ action: 'login.password', outcome: 'failure', reason: 'TOO_MANY_ATTEMPTS', repeats: 7, account: null, userAgent: BROWSER, via: 'website' })
+    expect(count.repeatsSince).toEqual(new Date(clock - 15 * MINUTE))
+    expect(count.ip).toMatch(/127\.0\.0\.1/)
+    // Written once.
+    await writeEnded(limited)
+    expect(await counts()).toHaveLength(1)
+  })
+
+  it('counts changes refused for their origin with no one logged in, and starts again after 15 minutes', async () => {
+    const counting = countingApp({}, { isProduction: true })
+    for (let i = 0; i < 9; i++) await refuse(counting).expect(403)
+    await settle()
+    expect(await SecurityEvent.countDocuments({ action: 'access.refused', repeats: null })).toBe(5)
+    clock += 15 * MINUTE
+    for (let i = 0; i < 6; i++) await refuse(counting).expect(403)
+    await settle()
+    // The first window's count, and five more in full in the new one.
+    expect(await SecurityEvent.countDocuments({ action: 'access.refused', repeats: null })).toBe(10)
+    await writeEnded(counting, true)
+    expect((await counts()).map((entry) => [entry.ip, entry.repeats])).toEqual([['203.0.113.7', 4], ['203.0.113.7', 1]])
+  })
+
+  it('counts each address, and each kind of refusal, on its own', async () => {
+    const counting = countingApp({ perSource: 1 }, { isProduction: true })
+    for (const from of ['203.0.113.1', '203.0.113.1', '203.0.113.2']) await refuse(counting, from).expect(403)
+    await post(request(counting), LOGIN, {}).set('X-Forwarded-For', '203.0.113.1').expect(400)
+    await settle()
+    expect((await SecurityEvent.find().lean()).map((entry) => [entry.action, entry.ip])).toEqual([
+      ['access.refused', '203.0.113.1'], ['access.refused', '203.0.113.2'], ['login.password', '203.0.113.1'],
+    ])
+  })
+
+  it('counts refusals from more addresses than it holds together, and never holds more', async () => {
+    const counting = countingApp({ perSource: 1, maxSources: 3 }, { isProduction: true })
+    for (let i = 1; i <= 10; i++) await refuse(counting, `203.0.113.${i}`).expect(403)
+    await settle()
+    expect((await SecurityEvent.find().lean()).map((entry) => entry.ip)).toEqual(['203.0.113.1', '203.0.113.2', '203.0.113.3'])
+    await writeEnded(counting, true)
+    expect((await counts()).map((entry) => [entry.ip, entry.repeats])).toEqual([['', 7]])
+  })
+
+  it('writes at most so many refusals in full across the site in 15 minutes', async () => {
+    const counting = countingApp({ maxWrites: 3 }, { isProduction: true })
+    for (const from of ['203.0.113.1', '203.0.113.1', '203.0.113.2', '203.0.113.2']) await refuse(counting, from).expect(403)
+    await settle()
+    expect(await SecurityEvent.countDocuments()).toBe(3)
+    await writeEnded(counting, true)
+    expect((await counts()).map((entry) => [entry.ip, entry.repeats])).toEqual([['203.0.113.2', 1]])
+  })
+
+  it('always writes successes in full', async () => {
+    const counting = countingApp({ perSource: 1, maxWrites: 1 })
+    for (let i = 0; i < 3; i++) await post(request(counting), LOGIN, { email: TEST_ADMIN.email, password: TEST_ADMIN.password }).expect(200)
+    expect(await events(3, { action: 'login.password', outcome: 'success' })).toHaveLength(3)
+  })
+
+  it('writes nothing for a logout without a session', async () => {
+    for (let i = 0; i < 3; i++) await request(app).delete(LOGIN).set('Origin', ORIGIN).expect(204)
+    await request(app).delete(LOGIN).set('Origin', ORIGIN).set('Cookie', 'gpec_admin_session=made-up').expect(204)
+    await settle()
+    expect(await SecurityEvent.countDocuments({ action: 'logout' })).toBe(0)
+  })
+
+  it('shows the count on the security log screen', async () => {
+    const counting = countingApp()
+    for (let i = 0; i < 7; i++) await refuse(counting).expect(403)
+    await settle()
+    await writeEnded(counting, true)
+    const agent = await loggedInAgent(counting)
+    const log = await agent.get('/api/admin/security-log').expect(200)
+    const shown = log.body.entries.filter((entry: { action: string }) => entry.action === 'access.refused')
+    expect(shown[0]).toMatchObject({ repeats: 2, repeatsSince: new Date(clock).toISOString(), outcome: 'failure', reason: 'ORIGIN_NOT_ALLOWED', account: null })
+    expect(shown[1]).toMatchObject({ repeats: null, repeatsSince: null })
   })
 })
 

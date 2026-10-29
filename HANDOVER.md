@@ -218,8 +218,8 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
 
 0. **Second security audit** (2026-10-28): `SECURITY_AUDIT_SECOND.md` at the repository root,
    git-ignored like the first; never commit it. Handled the same way as the first (above). Progress
-   is in its "Remediation Status" table; S2-M04 (contact-form PDFs) fixed locally 2026-10-29, next
-   is S2-M02. S2-L01 needs a decision from GPEC or the user. Push the earlier audit close-out docs
+   is in its "Remediation Status" table; S2-M04 (contact-form PDFs, `ca9f1ad`) and S2-M02 (security
+   log) fixed 2026-10-29; next is S2-M01. S2-L01 needs a decision from GPEC or the user. Push the earlier audit close-out docs
    too (the user).
 1. **Ask whether RUNBOOK 1.2 items 7 and 8 were done** (Coolify memory limit; API port not reachable
    directly). **GPEC staff:** the live privacy notice's sentence about PDFs (Site content) should

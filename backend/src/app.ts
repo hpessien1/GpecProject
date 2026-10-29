@@ -7,6 +7,8 @@ import type { Config, RateLimitSettings } from './config.js'
 import { HttpError } from './errors.js'
 import { sesMailer } from './services/email.js'
 import { databaseIsReachable } from './services/health.js'
+import { RepeatedRefusals, REPEAT_SETTINGS, writeRepeatedRefusals } from './services/securityLog.js'
+import type { RepeatSettings } from './services/securityLog.js'
 import { shortLived } from './utils/freshness.js'
 import type { Mailer } from './services/email.js'
 import { pwnedPasswordsCheck } from './services/breachedPasswords.js'
@@ -43,6 +45,8 @@ const SITE_CONTENT_ADMIN_PATH = '/api/admin/content'
 export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments' | 'twoFactorKey' | 'publicReadRateLimit' | 'imageReadRateLimit'> & {
   // Limits on contact forms with files (routes/contactRequests.ts); tests set shorter ones.
   uploadLimits?: UploadLimits
+  // How repeated refusals are counted in the security log (services/securityLog.ts); tests set a clock.
+  securityLogRepeats?: RepeatSettings
 }
 
 // Errors from express.json and express.raw carry a 4xx status and type (e.g. 'entity.too.large').
@@ -107,6 +111,11 @@ export default function createApp(
   const databaseCheck = shortLived(() => databaseIsReachable(), 5_000)
   const app = express()
   app.disable('x-powered-by')
+  // Repeated refusals are counted, not written one by one (audit S2-M02); the counts are written each
+  // minute once their window ends, and all of them when the server stops (server.ts).
+  const repeatedRefusals = new RepeatedRefusals(config.securityLogRepeats ?? REPEAT_SETTINGS)
+  app.locals.repeatedRefusals = repeatedRefusals
+  setInterval(() => void writeRepeatedRefusals(repeatedRefusals), 60_000).unref()
   // In production the API sits behind Coolify's proxy; trust one hop so req.ip (and so the rate
   // limit) is the visitor's address. Without it, every visitor shares the proxy's single budget.
   if (config.isProduction) app.set('trust proxy', 1)

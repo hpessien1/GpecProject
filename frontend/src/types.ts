@@ -554,6 +554,10 @@ export interface SecurityLogEntry {
   via: 'website' | 'command line'
   ip: string
   userAgent: string
+  // On an entry that counts repeated refusals (backend RepeatedRefusals): how many more like it came
+  // from the address ('' for many addresses) since repeatsSince, after the ones written in full.
+  repeats: number | null
+  repeatsSince: string | null
   createdAt: string
 }
 

@@ -255,7 +255,7 @@ function sampleSecurityLog(): SecurityLogEntry[] {
   const admin = { name: ADMIN.name, email: ADMIN.email, role: 'admin' }
   const second = { name: SECOND_ADMIN.name, email: SECOND_ADMIN.email, role: 'admin' }
   const at = (minutesAgo: number) => new Date(Date.parse(now) - minutesAgo * 60_000).toISOString()
-  const entry = (minutesAgo: number, fields: Partial<SecurityLogEntry> & Pick<SecurityLogEntry, 'action'>): SecurityLogEntry => ({ outcome: 'success', reason: null, detail: null, account: admin, target: null, via: 'website', ip: '102.89.34.10', userAgent: SAMPLE_BROWSER, createdAt: at(minutesAgo), ...fields })
+  const entry = (minutesAgo: number, fields: Partial<SecurityLogEntry> & Pick<SecurityLogEntry, 'action'>): SecurityLogEntry => ({ outcome: 'success', reason: null, detail: null, account: admin, target: null, via: 'website', ip: '102.89.34.10', userAgent: SAMPLE_BROWSER, repeats: null, repeatsSince: null, createdAt: at(minutesAgo), ...fields })
   return [
     entry(1, { action: 'record.order', target: { type: 'order', id: ORDER_REF } }),
     entry(2, { action: 'record.file', target: { type: 'file', id: `${CONTACT_REF}/${SAMPLE_ATTACHMENTS[0].id}` } }),

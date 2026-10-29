@@ -339,6 +339,10 @@ export const securityLogContent = {
   unknownAccount: 'No admin account (the address typed was not an admin’s, or the link was not valid)',
   commandLine: 'On the server (the admin command)',
   failed: 'Failed',
+  // An entry counting refusals of one kind instead of listing each (from many addresses when ip is empty).
+  repeatedAccount: 'Repeated attempts, counted rather than listed one by one',
+  repeats: (count: number, since: string, many: boolean) => `${count.toLocaleString('en-GB')} more like this ${many ? 'from many different addresses' : 'from this address'} since ${since}, after the ones listed separately.`,
+  manyAddresses: 'many different addresses',
   actions: {
     'login.password': 'Logged in',
     'login.code': 'Two-step code accepted',

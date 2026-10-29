@@ -318,7 +318,15 @@ success or failure with the API's error code, the account (copied, with its role
 reference, the IP address and browser, and when. Never passwords, codes, links, cookies, the
 address typed for an unknown account, or customers' details. A route records with the
 `securityEvent` middleware (mounted before its rate limiter, so refusals are recorded) or
-`recordSecurityEvent`; a log that cannot be written never stops the request. MongoDB deletes entries
+`recordSecurityEvent`; a log that cannot be written never stops the request. **Repeated refusals are
+counted, not written one by one** (2026-10-29, second audit S2-M02; the user chose five): anyone can
+be refused as often as they like, so the first 5 refusals of one kind from one address in 15 minutes
+are written in full, the rest only counted (no account lookup either), and the count is written as one
+entry (`repeats`, `repeatsSince`) when the 15 minutes end, or when the server stops; at most 500
+refusals in full across the site per 15 minutes, and at most 1,000 addresses counted at once, past
+which they are counted together ("from many different addresses"). Successes are always written in
+full; a logout without a session writes nothing (`RepeatedRefusals`, `services/securityLog.ts`).
+MongoDB deletes entries
 after 12 months (TTL index); nothing on the site changes or deletes one. Any new login step,
 account change, or screen that opens customer data records the same way. **Roles:** two people use
 the admin side today; GPEC plans roles with fewer permissions (2026-10-27). When they come, the
@@ -499,8 +507,9 @@ name), and logs which database it found. The guard only works if production sets
 - **SecurityEvent** (`backend/src/models/SecurityEvent.ts`, 2026-10-27) — `action`, `outcome`
   (`success` | `failure`), `reason` (the API error code), `detail`, `account { adminId, email, name,
   role }` (copied; null when no admin account could be named), `target { type, id }` (order, contact
-  request, or file reference), `via` (`website` | `command line`), `ip`, `userAgent`, `createdAt`
-  (TTL: deleted after 12 months). Never edited or deleted by the application (Section 4.6).
+  request, or file reference), `via` (`website` | `command line`), `ip`, `userAgent`, `repeats` and
+  `repeatsSince` (on an entry counting repeated refusals, Section 4.6; missing on older entries),
+  `createdAt` (TTL: deleted after 12 months). Never edited or deleted by the application (Section 4.6).
 - **WebhookEvent** (`backend/src/models/WebhookEvent.ts`) — `eventId` (unique), `event`,
   `reference`, `outcome` (`received` | `processed` | `ignored`), timestamps (Section 4.1).
 
@@ -602,7 +611,8 @@ name), and logs which database it found. The guard only works if production sets
 ### 6.3 Runtime topology
 
 Run **exactly one API instance**. The rate limiters, the per-recipient email confirmation cap, the
-contact form's upload places, and the public reads' short-lived copies (Section 4.7) live in memory. Before running two instances, move that state to a shared store. In Coolify, set the
+contact form's upload places, the public reads' short-lived copies (Section 4.7), and the security
+log's counts of repeated refusals (Section 4.6) live in memory. Before running two instances, move that state to a shared store. In Coolify, set the
 API replica count to 1 and do not enable autoscaling; this is enforced only by that setting, not
 by code.
 

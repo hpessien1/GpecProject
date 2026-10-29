@@ -1065,7 +1065,7 @@ test.describe('security log', () => {
   // Audit M-05: PDFs from the contact form that were refused or had parts taken out.
   test('shows PDFs from the contact form as a visitor’s, with what was taken out or why one was refused', async ({ page }) => {
     const api = await mockApi(page)
-    const base = { reason: null, detail: null, account: null, target: null, via: 'website' as const, ip: '102.89.34.10', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36' }
+    const base = { reason: null, detail: null, account: null, target: null, via: 'website' as const, ip: '102.89.34.10', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36', repeats: null, repeatsSince: null }
     api.securityLog = [
       { ...base, action: 'upload.pdf', outcome: 'success', detail: 'scripts,actions,files', target: { type: 'contactRequest', id: CONTACT_REF }, createdAt: '2026-10-21T09:58:00Z' },
       { ...base, action: 'upload.pdf', outcome: 'failure', reason: 'PDF_PASSWORD', createdAt: '2026-10-21T09:50:00Z' },
@@ -1079,6 +1079,27 @@ test.describe('security log', () => {
     await expect(entries.nth(0).getByRole('link', { name: CONTACT_REF })).toHaveAttribute('href', `#admin/contact-requests/${CONTACT_REF}`)
     await expect(entries.nth(1)).toHaveClass(/admin-security-failed/)
     await expect(entries.nth(1).locator('.admin-security-what')).toHaveText('FailedA PDF sent with the contact form was refused: it needs a password to open, so it could not be checked')
+  })
+
+  // Audit S2-M02: refusals repeated from one address, or from many, are counted rather than listed.
+  test('shows counted refusals with how many, since when, and from where', async ({ page }) => {
+    const api = await mockApi(page)
+    const base = { detail: null, account: null, target: null, via: 'website' as const, userAgent: 'python-requests/2.31', outcome: 'failure' as const }
+    api.securityLog = [
+      { ...base, action: 'login.password', reason: 'TOO_MANY_ATTEMPTS', ip: '45.155.205.3', repeats: 4812, repeatsSince: '2026-10-21T09:00:00Z', createdAt: '2026-10-21T09:15:00Z' },
+      { ...base, action: 'access.refused', reason: 'ORIGIN_NOT_ALLOWED', ip: '', repeats: 37, repeatsSince: '2026-10-21T08:40:00Z', createdAt: '2026-10-21T08:55:00Z' },
+    ]
+    await logInAsAdmin(page)
+    await page.goto('/#admin/security-log')
+    const entries = page.locator('.admin-security-log ol > li')
+    await expect(entries).toHaveCount(2)
+    await expect(entries.nth(0).locator('.admin-history-meta')).toContainText('Repeated attempts, counted rather than listed one by one')
+    await expect(entries.nth(0).locator('.admin-security-what')).toHaveText('FailedLogin failed: too many attempts from this address')
+    await expect(entries.nth(0).locator('.admin-security-repeats')).toHaveText(/^4,812 more like this from this address since 21 Oct 2026, \d\d:00, after the ones listed separately\.$/)
+    await expect(entries.nth(0).locator('.admin-security-where')).toHaveText('From 45.155.205.3 · last seen a script, not a browser')
+    await expect(entries.nth(1).locator('.admin-security-repeats')).toHaveText(/^37 more like this from many different addresses since 21 Oct 2026, \d\d:40, after the ones listed separately\.$/)
+    await expect(entries.nth(1).locator('.admin-security-where')).toHaveText('From many different addresses · last seen a script, not a browser')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0)
   })
 
   test('lists what happened in plain words, newest first, with failed attempts marked', async ({ page }) => {

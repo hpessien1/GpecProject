@@ -268,7 +268,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
   })
 
   // Works even if the session has already expired, so the browser's cookie is always cleared.
-  router.delete('/', securityEvent('logout', { account: async (req) => ({ adminId: (await findSessionAdmin(readCookie(req.headers.cookie, SESSION_COOKIE)))?.id ?? null }) }), async (req, res, next) => {
+  router.delete('/', securityEvent('logout', { accountOnly: true, account: async (req) => ({ adminId: (await findSessionAdmin(readCookie(req.headers.cookie, SESSION_COOKIE)))?.id ?? null }) }), async (req, res, next) => {
     try {
       await logOut(readCookie(req.headers.cookie, SESSION_COOKIE))
       res.clearCookie(SESSION_COOKIE, cookieOptions)
