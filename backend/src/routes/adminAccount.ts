@@ -4,7 +4,7 @@ import { rateLimit } from 'express-rate-limit'
 import { HttpError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { securityEvent } from '../middleware/securityEvent.js'
-import { SESSION_COOKIE, readCookie } from '../services/adminAuth.js'
+import { SESSION_COOKIE, SESSION_DURATION_MS, sessionCookieOptions } from '../services/adminAuth.js'
 import type { Notifier } from '../services/notifications.js'
 import { EMAIL_CODE_MINUTES, createAccountEmailCode, disableTwoFactor, enableTwoFactor, regenerateRecoveryCodes, startAppSetup, twoFactorStatus } from '../services/twoFactor.js'
 import type { VerifiedResult } from '../services/twoFactor.js'
@@ -80,7 +80,8 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
   })
 
   // Turns it on with the password and a first code from the chosen method. The ten recovery codes are
-  // in this answer only; the admin's other sessions end.
+  // in this answer only; every session from before ends, and this browser gets a new cookie (audit
+  // S2-M01).
   // Turning two-step login on or off, and new recovery codes, go in the security log (audit M-06).
   router.post('/two-factor/enable', securityEvent('twoFactor.enable', { signedInOnly: true }), verifyLimiter, async (req, res, next) => {
     try {
@@ -88,7 +89,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
       const { errors, value } = validateEnable(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       if (value.method === 'email' && !notifier.isOn) throw new HttpError(409, 'Codes cannot be emailed right now: email is not set up on this website.', 'EMAIL_UNAVAILABLE')
-      const result = await enableTwoFactor(admin.id, value.method, value.password, value.code, config.twoFactorKey, readCookie(req.headers.cookie, SESSION_COOKIE))
+      const result = await enableTwoFactor(admin.id, value.method, value.password, value.code, config.twoFactorKey)
       if (result.status === 'already-on') throw new HttpError(409, 'Two-step login is already on.', 'TWO_FACTOR_ALREADY_ON')
       if (result.status === 'not-started') throw new HttpError(409, value.method === 'app' ? 'Start again: the setup has timed out.' : 'Ask for a new code: the last one has expired or was used.', 'SETUP_NOT_STARTED')
       if (result.status === 'wrong-password') {
@@ -100,6 +101,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
         throw new HttpError(400, WRONG_CODE, 'WRONG_CODE', { code: WRONG_CODE })
       }
       res.locals.securityDetail = value.method
+      res.cookie(SESSION_COOKIE, result.sessionToken, { ...sessionCookieOptions(config.isProduction), maxAge: SESSION_DURATION_MS })
       res.json({ recoveryCodes: result.recoveryCodes, ...await statusReply(admin.id) })
       return notifier.twoFactorChanged(admin, { on: true, method: value.method })
     } catch (error) {

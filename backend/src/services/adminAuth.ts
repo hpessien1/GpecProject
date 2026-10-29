@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import mongoose from 'mongoose'
 import type { ClientSession } from 'mongoose'
+import type { CookieOptions } from 'express'
 import AdminLoginChallenge from '../models/AdminLoginChallenge.js'
 import AdminPasswordReset from '../models/AdminPasswordReset.js'
 import AdminSession from '../models/AdminSession.js'
@@ -11,6 +12,9 @@ import type { TwoFactorMethod } from './twoFactor.js'
 
 export const SESSION_COOKIE = 'gpec_admin_session'
 export const SESSION_DURATION_MS = 8 * 60 * 60 * 1000
+// The session cookie: httpOnly, so page scripts cannot read it; SameSite=Strict, so other sites cannot
+// make the browser send it; Secure in production (HTTPS only); sent only to admin routes.
+export const sessionCookieOptions = (isProduction: boolean): CookieOptions => ({ httpOnly: true, secure: isProduction, sameSite: 'strict', path: '/api/admin' })
 // How long a "forgot password" link works. Short, because the link is as good as a password.
 export const RESET_LINK_MINUTES = 30
 
@@ -43,7 +47,8 @@ export async function logIn(email: string, password: string): Promise<LoginResul
   return { kind: 'session', token: await startSession(admin._id, admin.credentialVersion ?? 0), admin: identity }
 }
 
-async function createSession(adminId: unknown, credentialVersion: number, session: ClientSession | null = null) {
+// A new session for an admin, in the given transaction if any (twoFactor.ts uses it too).
+export async function createSession(adminId: unknown, credentialVersion: number, session: ClientSession | null = null) {
   const token = randomBytes(32).toString('base64url')
   await AdminSession.create([{ tokenHash: hashToken(token), admin: adminId, credentialVersion, expiresAt: new Date(Date.now() + SESSION_DURATION_MS) }], { session })
   return token

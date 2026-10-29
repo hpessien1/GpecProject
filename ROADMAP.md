@@ -260,6 +260,10 @@ These block launch, and several block steps 4 to 6. Ask early.
       contact-form PDFs rebuilt without anything that can run; tidier email caps; passwords checked
       as stored. **Audit closed 2026-10-28**; the two items left are not code and are deferred: the
       Atlas lock-down (Atlas owner) and how long customer data is kept (GPEC).
+- [ ] Second security audit (2026-10-28, again detailed only in a local file): 2026-10-29,
+      contact-form PDFs checked the way a PDF reader reads them; repeated refused attempts counted in
+      the Security log instead of listed one by one; turning on two-step login ends every earlier
+      login. Two findings left (one needs GPEC's decision).
 - [x] Staff screens (2026-10-28, user's requests): the Security log filters by date, with numbered
       pages; completed and cancelled orders cannot be changed again, and cancelling puts back the
       stock the order took; a confirmation dialog in the panel's own style for completing or

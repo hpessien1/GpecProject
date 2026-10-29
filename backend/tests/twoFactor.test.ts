@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import request from 'supertest'
 import type TestAgent from 'supertest/lib/agent.js'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadConfig } from '../src/config.js'
 import AdminLoginChallenge from '../src/models/AdminLoginChallenge.js'
+import AdminSession from '../src/models/AdminSession.js'
 import AdminUser from '../src/models/AdminUser.js'
 import { createPasswordReset } from '../src/services/adminAuth.js'
 import { open, seal } from '../src/services/secretBox.js'
@@ -26,6 +27,10 @@ beforeEach(async () => {
   app = testApp({ email: TEST_EMAIL_SETTINGS }, mailer)
   await createTestAdmin()
   agent = await loggedInAgent(app)
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
@@ -187,6 +192,65 @@ describe('setting up an authenticator app', () => {
 
 // A session alone (a browser left logged in, a copied cookie) must not be enough to put someone
 // else's phone on the account and lock its owner out.
+// Audit S2-M01: turning two-step login on ends everything logged in with the password alone, including
+// a login whose password was checked just before, and a copy of this browser's own cookie.
+describe('turning it on ends every session from before', () => {
+  const ORDERS = '/api/admin/orders'
+
+  it('refuses a login whose password step ran while two-step login was being turned on', async () => {
+    await post(agent, `${ACCOUNT}/app`).expect(200)
+    // The other login stops just before its session is saved, after its password and two-step checks.
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const save = AdminSession.create.bind(AdminSession)
+    const create = vi.spyOn(AdminSession, 'create').mockImplementationOnce((async (...args: Parameters<typeof save>) => {
+      await gate
+      return save(...args)
+    }) as typeof save)
+    const attacker = request.agent(app)
+    const login = post(attacker, LOGIN, { email: TEST_ADMIN.email, password: TEST_ADMIN.password }).then((res) => res)
+    await vi.waitFor(() => expect(create).toHaveBeenCalled())
+
+    await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code: totpCode(await appSecret(), currentStep()) }).expect(200)
+    release()
+    expect((await login).status).toBe(200)
+    expect((await attacker.get(ORDERS)).status).toBe(401)
+    expect((await agent.get(ORDERS)).status).toBe(200)
+  })
+
+  it.each(['app', 'email'] as const)('gives this browser a new cookie, so a copy of the old one stops working (%s)', async (method) => {
+    const old = (await post(request.agent(app), LOGIN, { email: TEST_ADMIN.email, password: TEST_ADMIN.password }).expect(200)).headers['set-cookie']
+    const browser = (path: string, body: object = {}) => request(app).post(path).set('Origin', ORIGIN).set('Cookie', old).send(body)
+    let code: string
+    if (method === 'app') {
+      await browser(`${ACCOUNT}/app`).expect(200)
+      code = totpCode(await appSecret(), currentStep())
+    } else {
+      await browser(`${ACCOUNT}/email-code`).expect(202)
+      await settle()
+      code = lastEmailedCode()
+    }
+    const enabled = await browser(`${ACCOUNT}/enable`, { method, password: TEST_ADMIN.password, code }).expect(200)
+    const fresh = enabled.headers['set-cookie']
+    expect(String(fresh)).toMatch(/^gpec_admin_session=[^;]+; Max-Age=28800; Path=\/api\/admin; Expires=[^;]+; HttpOnly; SameSite=Strict$/)
+    expect(String(fresh).split(';')[0]).not.toBe(String(old).split(';')[0])
+    expect((await request(app).get(ORDERS).set('Cookie', old)).status).toBe(401)
+    expect((await request(app).get(ORDERS).set('Cookie', fresh)).status).toBe(200)
+    // Still the one session, not one more.
+    expect(await AdminSession.countDocuments()).toBe(1)
+  })
+
+  it('changes nothing when it is refused', async () => {
+    await post(agent, `${ACCOUNT}/app`).expect(200)
+    const before = (await AdminUser.findOne({ email: TEST_ADMIN.email }).lean())?.credentialVersion ?? 0
+    const refused = await post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code: '000000' === totpCode(await appSecret(), currentStep()) ? '111111' : '000000' })
+    expect(refused.status).toBe(400)
+    expect(refused.headers['set-cookie']).toBeUndefined()
+    expect((await AdminUser.findOne({ email: TEST_ADMIN.email }).lean())?.credentialVersion ?? 0).toBe(before)
+    expect((await agent.get(ORDERS)).status).toBe(200)
+  })
+})
+
 describe('turning it on needs the current password', () => {
   it('refuses a missing or wrong password with an app code, and leaves the setup usable', async () => {
     await post(agent, `${ACCOUNT}/app`).expect(200)
@@ -265,7 +329,7 @@ describe('logging in with an authenticator app', () => {
     // A new login cancels earlier ones, but two started at the same instant can both stay open.
     const secondToken = 'B'.repeat(43)
     const admin = await AdminUser.findOne({ email: TEST_ADMIN.email }).lean()
-    await AdminLoginChallenge.create({ tokenHash: createHash('sha256').update(secondToken).digest('hex'), admin: admin?._id, expiresAt: new Date(Date.now() + 60_000) })
+    await AdminLoginChallenge.create({ tokenHash: createHash('sha256').update(secondToken).digest('hex'), admin: admin?._id, credentialVersion: admin?.credentialVersion, expiresAt: new Date(Date.now() + 60_000) })
     const statuses = await Promise.all([
       post(first.client, `${LOGIN}/two-factor`, { code }),
       request(app).post(`${LOGIN}/two-factor`).set('Origin', ORIGIN).set('Cookie', `gpec_admin_login=${secondToken}`).send({ code }),

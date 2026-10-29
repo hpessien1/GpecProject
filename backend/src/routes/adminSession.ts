@@ -8,7 +8,7 @@ import AdminUser from '../models/AdminUser.js'
 import { recordSecurityEvent } from '../services/securityLog.js'
 import { asFields } from '../validation/fields.js'
 import type { BreachedPasswordCheck } from '../services/breachedPasswords.js'
-import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
+import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, sessionCookieOptions, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
 import type { AdminIdentity } from '../services/adminAuth.js'
 import { CHALLENGE_MINUTES, EMAIL_CODE_MINUTES, completeLoginChallenge, loginChallengeAdminId, maskEmail, resendLoginEmailCode } from '../services/twoFactor.js'
 import { currencyInfo } from '../services/currency.js'
@@ -34,9 +34,7 @@ const LOGIN_EXPIRED_MESSAGE = 'Your login has timed out. Enter your email and pa
 // imageUploads: whether product photo uploads are set up, so the admin screens can offer them.
 export default function adminSessionRouter(config: AppConfig, breachCheck: BreachedPasswordCheck, imageUploads: boolean, notifier: Notifier) {
   const router = Router()
-  // httpOnly: page scripts cannot read it. SameSite=Strict: other sites cannot make the browser send
-  // it. Secure in production (HTTPS only). Sent only to admin routes.
-  const cookieOptions: CookieOptions = { httpOnly: true, secure: config.isProduction, sameSite: 'strict', path: '/api/admin' }
+  const cookieOptions = sessionCookieOptions(config.isProduction)
   // The same protections, sent only to these login routes.
   const challengeCookieOptions: CookieOptions = { ...cookieOptions, path: '/api/admin/session' }
 

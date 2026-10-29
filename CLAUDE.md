@@ -283,8 +283,11 @@ add a frontend gate, confirm the backend enforces the same condition.
     entered (the code step takes it back from the limiter's own store).
   - Turning it on needs the password and a first code from the chosen method (the password since
     2026-10-26, audit finding M-01: a session alone, such as a browser left logged in, must not put
-    someone else's phone on the account), ends the admin's other sessions, and shows the recovery
-    codes once. Turning it off and new recovery codes need the password **and** a
+    someone else's phone on the account), ends every session from before, and shows the recovery
+    codes once. Like a new password, it moves `credentialVersion` up in the same transaction, so a
+    login whose password was checked just before is refused even if its session is saved afterwards,
+    and this browser gets a new session cookie, so a copy of the old one stops working (2026-10-29,
+    second audit S2-M01). Turning it off and new recovery codes need the password **and** a
     current code (wrong ones count toward a per-IP limit). Each change, and each recovery-code login,
     is emailed to the admin. A password reset does not skip it.
   - Not mandatory (user's choice): admins without it see a banner suggesting it, closed with "Not
@@ -466,7 +469,7 @@ name), and logs which database it found. The guard only works if production sets
   `npm run seed:products` (Section 11).
 
 - **AdminUser** — `email` (unique), `name`, `passwordHash`, `role` (`admin`), `isActive`,
-  `lastLoginAt`, `passwordChangedAt`, `credentialVersion` (up by one at each password change; missing
+  `lastLoginAt`, `passwordChangedAt`, `credentialVersion` (up by one at each password change and when two-step login is turned on; missing
   on accounts, sessions, and challenges stored before 2026-10-26, read as 0); two-step login: `twoFactorMethod` (`app` | `email` | null),
   `twoFactorSecret` (encrypted), `twoFactorEnabledAt`, `lastTotpStep`, `recoveryCodeHashes`, and a
   setup or emailed code in progress (`pendingTwoFactor*`, `accountCode*`), and the hourly login

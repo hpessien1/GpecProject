@@ -1,8 +1,8 @@
 # Next-session handover
 
-Last updated: 2026-10-28 (end of session: close an abandoned Paystack order as not paid, admin
-header Menu button, and the last security-audit code fixes; everything up to `0c9b03a` pushed, CI
-green, deployed by the user; **the security audit is closed**, its two non-code items deferred).
+Last updated: 2026-10-29 (end of session: the **second security audit** started; three of its five
+findings fixed and committed locally, **not pushed or deployed**; the first audit stays closed).
+Earlier: 2026-10-28, everything up to `0c9b03a` pushed, CI green, deployed by the user.
 Start a new session with:
 
 ```text
@@ -12,9 +12,11 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `0c9b03a` is pushed, CI green (run 40677641975). This handover
-  and the audit close-out docs come after it. Locally on 2026-10-28: backend 660 tests, browser 365
-  (+5 skipped), contrast 20, lint, type-check, format, build. The user pushes; check with
+- **Git and CI:** everything up to `0c9b03a` is pushed, CI green (run 40677641975). **Not pushed
+  yet** (the user pushes): `6eb3e61` (first audit close-out docs), `ca9f1ad` (S2-M04),
+  `e485181` (S2-M02), and the S2-M01 commit with this handover. Locally on 2026-10-29: backend 676
+  tests, lint, type-check, build (after S2-M01); browser 367 (+5 skipped), contrast 20, frontend
+  lint, type-check, format, build (after S2-M02; S2-M01 changed no frontend code). The user pushes; check with
   `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this repository's runs;
   it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
@@ -27,7 +29,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
 - **What is deployed:** everything up to `0c9b03a` (both `gpec-api` and `gpec-web`, 2026-10-28,
-  the user).
+  the user). The three second-audit fixes need a deploy of both (`gpec-web` for the security log's
+  counted entries) once pushed and CI is green.
 - **Two owner steps from this session, not confirmed done** (ask the user): RUNBOOK 1.2 item 7 (a
   1 GB memory limit on `gpec-api` in Coolify, audit M-04) and item 8 (check that port 5001 on the
   server's IP cannot be reached directly, audit M-08: the per-visitor limits trust the proxy's
@@ -217,10 +220,15 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
 ## Open items for the next session
 
 0. **Second security audit** (2026-10-28): `SECURITY_AUDIT_SECOND.md` at the repository root,
-   git-ignored like the first; never commit it. Handled the same way as the first (above). Progress
-   is in its "Remediation Status" table; S2-M04 (contact-form PDFs, `ca9f1ad`) and S2-M02 (security
-   log) fixed 2026-10-29; next is S2-M01. S2-L01 needs a decision from GPEC or the user. Push the earlier audit close-out docs
-   too (the user).
+   git-ignored like the first; never commit it, and keep its details out of committed files. Handled
+   the same way as the first (above: explain in plain terms, wait for the user's go-ahead, tests that
+   fail first, break each safeguard, all checks one suite at a time, commit only when asked).
+   Progress is in its "Remediation Status" table. Fixed 2026-10-29: S2-M04 (contact-form PDFs,
+   `ca9f1ad`), S2-M02 (security log counts repeated refusals, `e485181`; the user chose 5 per
+   address per 15 minutes), S2-M01 (turning on two-step login, committed with this handover).
+   **Next: S2-M03** (password-reset confirmation), then **S2-L01**, which needs a decision from GPEC
+   or the user before any code. After the commits: **push** (the user), check CI, deploy both
+   resources (the user), then set the commits in the audit's status table.
 1. **Ask whether RUNBOOK 1.2 items 7 and 8 were done** (Coolify memory limit; API port not reachable
    directly). **GPEC staff:** the live privacy notice's sentence about PDFs (Site content) should
    now say that PDF documents are rebuilt from their pages, which removes anything that could run

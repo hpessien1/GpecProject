@@ -207,7 +207,7 @@ All admin responses are sent with `Cache-Control: no-store`.
 - `/api/admin/account/two-factor` (logged in, own account only): `GET` → `{ method, enabledAt,
   recoveryCodesLeft, available: { app, email } }`; `POST /app` → `{ secret, uri }` (Base32 key and
   `otpauth://` link, 15 minutes to confirm); `POST /email-code` emails a code; `POST /enable` with
-  `{ method, password, code }` → the status plus `recoveryCodes` (shown once; ends other sessions);
+  `{ method, password, code }` → the status plus `recoveryCodes` (shown once; ends every earlier session, and sets a new session cookie for this browser);
   `POST /disable` and `POST /recovery-codes` with `{ password, code | recoveryCode }`. All three
   answer `400 WRONG_PASSWORD` / `WRONG_CODE`, both counted per IP.
 - `POST /api/admin/session/password` with `{ currentPassword, newPassword }` changes the logged-in
