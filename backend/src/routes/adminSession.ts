@@ -8,7 +8,7 @@ import AdminUser from '../models/AdminUser.js'
 import { recordSecurityEvent } from '../services/securityLog.js'
 import { asFields } from '../validation/fields.js'
 import type { BreachedPasswordCheck } from '../services/breachedPasswords.js'
-import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, sessionCookieOptions, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, isUsableResetLink, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
+import { ACCOUNT_CHANGED_MESSAGE, RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, sessionCookieOptions, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, isUsableResetLink, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
 import type { AdminIdentity } from '../services/adminAuth.js'
 import { CHALLENGE_MINUTES, EMAIL_CODE_MINUTES, completeLoginChallenge, loginChallengeAdminId, maskEmail, resendLoginEmailCode } from '../services/twoFactor.js'
 import { currencyInfo } from '../services/currency.js'
@@ -210,15 +210,19 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
       const breached = await breachCheck.isBreached(value.newPassword)
       if (breached) throw new HttpError(400, BREACHED_MESSAGE, 'PASSWORD_BREACHED', { newPassword: BREACHED_MESSAGE })
       if (breached === null) console.warn('Password change: the breached-password check could not be made; the change went ahead without it.')
-      const token = await changePassword(currentAdmin(res).id, value.currentPassword, value.newPassword)
+      const admin = currentAdmin(res)
+      const result = await changePassword(admin.id, value.currentPassword, value.newPassword)
       // 400, not 401: the session is still valid, only the password typed was wrong.
-      if (!token) {
+      if (result.status === 'wrong-password') {
         res.locals.wrongPassword = true
         throw new HttpError(400, 'Your current password is incorrect.', 'WRONG_PASSWORD', { currentPassword: 'Your current password is incorrect.' })
       }
+      if (result.status === 'changed') throw new HttpError(409, ACCOUNT_CHANGED_MESSAGE, 'ACCOUNT_CHANGED')
       // Every session ended with the old password, this one too: this browser carries on with a new one.
-      res.cookie(SESSION_COOKIE, token, { ...cookieOptions, maxAge: SESSION_DURATION_MS })
-      return res.status(204).end()
+      res.cookie(SESSION_COOKIE, result.token, { ...cookieOptions, maxAge: SESSION_DURATION_MS })
+      res.status(204).end()
+      // After answering; never throws. Tells the admin in case it was not them (audit S3-L01).
+      return notifier.passwordChanged(admin, 'panel')
     } catch (error) {
       return next(error)
     }
@@ -272,7 +276,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
       res.clearCookie(SESSION_COOKIE, cookieOptions)
       res.status(204).end()
       // After answering; never throws (a failed email is logged).
-      return notifier.passwordChanged(admin)
+      return notifier.passwordChanged(admin, 'reset')
     } catch (error) {
       return next(error)
     }

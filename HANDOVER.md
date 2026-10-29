@@ -1,8 +1,8 @@
 # Next-session handover
 
-Last updated: 2026-10-29 (the **second security audit**: four of its five findings fixed and one
-accepted, **not pushed or deployed**; SES production access granted; the first audit stays closed).
-Earlier: 2026-10-28, everything up to `0c9b03a` pushed, CI green, deployed by the user.
+Last updated: 2026-10-29 (the **third security audit**: all three findings fixed and committed,
+**not pushed or deployed**; the second audit closed and deployed earlier that day; SES production access
+granted).
 Start a new session with:
 
 ```text
@@ -12,12 +12,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `0c9b03a` is pushed, CI green (run 40677641975). **Not pushed
-  yet** (the user pushes): `6eb3e61` (first audit close-out docs), `ca9f1ad` (S2-M04),
-  `e485181` (S2-M02), `98637f7` (S2-M01), and the S2-M03 commit with this handover (S2-L01, audit close-out).
-  Locally on 2026-10-29, after S2-M03: backend 679 tests, lint, type-check, build; browser 367 (+5
-  skipped), contrast 20, frontend lint, type-check, format, build; `npm audit` clean. The user
-  pushes; check with
+- **Git and CI:** everything up to `90db053` (second audit close-out) is pushed, CI green (run
+  40848256225, including the full-history secret scan), and deployed by the user on 2026-10-29.
+  **Not pushed yet:** the third audit's fixes (S3-M01, S3-M02, S3-L01), committed with this handover;
+  locally backend 692 tests, lint, type-check, build pass (no frontend code changed). The user pushes; check with
   `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this repository's runs;
   it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
@@ -220,7 +218,15 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
 
 ## Open items for the next session
 
-0. **Second security audit** (2026-10-28): `SECURITY_AUDIT_SECOND.md` at the repository root,
+0. **Third security audit** (2026-10-29): `SECURITY_AUDIT_THIRD.md`, git-ignored like the others;
+   handled the same way. All three fixed 2026-10-29 (its "Remediation Status" table): S3-M01 (password
+   and two-step changes saved only if the account is unchanged since the check, `409 ACCOUNT_CHANGED`;
+   also covers turning two-step login off and new recovery codes, which the report did not list),
+   S3-M02 (a contact form with files keeps its place until its work ends; stopped or abandoned ones
+   are not saved), S3-L01 (emails for a panel password change and for new recovery codes), committed
+   together. Next: push, CI, deploy (the user), then mark them deployed in the table.
+   Second audit, for reference:
+   **Second security audit** (2026-10-28): `SECURITY_AUDIT_SECOND.md` at the repository root,
    git-ignored like the first; never commit it, and keep its details out of committed files. Handled
    the same way as the first (above: explain in plain terms, wait for the user's go-ahead, tests that
    fail first, break each safeguard, all checks one suite at a time, commit only when asked).
@@ -230,9 +236,8 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
    checked before the breach check, plus a limit of 20 attempts per 15 minutes; the user chose 20).
    S2-L01 (stock count can be worked out at checkout) **accepted** by the user, recorded in CLAUDE.md
    and ECOMMERCE_REQUIREMENTS.md. All five handled; **audit closed 2026-10-29** after a full recheck
-   (every suite, `npm audit` clean; gitleaks left to CI, not installed locally). Next: **push** (the
-   user), check CI, deploy both resources (the user), mark the fixes deployed in the audit's
-   status table, then the live check listed at the top of that file.
+   (every suite, `npm audit` clean; gitleaks passed in CI). Pushed, CI green, deployed 2026-10-29;
+   the user reported everything working. Nothing left from this audit.
 1. **Ask whether RUNBOOK 1.2 items 7 and 8 were done** (Coolify memory limit; API port not reachable
    directly). **GPEC staff:** the live privacy notice's sentence about PDFs (Site content) should
    now say that PDF documents are rebuilt from their pages, which removes anything that could run

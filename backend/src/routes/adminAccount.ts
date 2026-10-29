@@ -4,7 +4,7 @@ import { rateLimit } from 'express-rate-limit'
 import { HttpError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
 import { securityEvent } from '../middleware/securityEvent.js'
-import { SESSION_COOKIE, SESSION_DURATION_MS, sessionCookieOptions } from '../services/adminAuth.js'
+import { ACCOUNT_CHANGED_MESSAGE, SESSION_COOKIE, SESSION_DURATION_MS, sessionCookieOptions } from '../services/adminAuth.js'
 import type { Notifier } from '../services/notifications.js'
 import { EMAIL_CODE_MINUTES, createAccountEmailCode, disableTwoFactor, enableTwoFactor, regenerateRecoveryCodes, startAppSetup, twoFactorStatus } from '../services/twoFactor.js'
 import type { VerifiedResult } from '../services/twoFactor.js'
@@ -37,6 +37,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
   // Turns a refused password or code into its answer, and marks it for the limiter.
   function refuse(result: Exclude<VerifiedResult, { status: 'ok' }>, res: Response): never {
     if (result.status === 'off') throw new HttpError(409, 'Two-step login is already off.', 'TWO_FACTOR_OFF')
+    if (result.status === 'changed') throw new HttpError(409, ACCOUNT_CHANGED_MESSAGE, 'ACCOUNT_CHANGED')
     res.locals.wrongPassword = true
     if (result.status === 'wrong-password') throw new HttpError(400, WRONG_PASSWORD, 'WRONG_PASSWORD', { password: WRONG_PASSWORD })
     throw new HttpError(400, WRONG_CODE, 'WRONG_CODE', { code: WRONG_CODE })
@@ -91,6 +92,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
       if (value.method === 'email' && !notifier.isOn) throw new HttpError(409, 'Codes cannot be emailed right now: email is not set up on this website.', 'EMAIL_UNAVAILABLE')
       const result = await enableTwoFactor(admin.id, value.method, value.password, value.code, config.twoFactorKey)
       if (result.status === 'already-on') throw new HttpError(409, 'Two-step login is already on.', 'TWO_FACTOR_ALREADY_ON')
+      if (result.status === 'changed') throw new HttpError(409, ACCOUNT_CHANGED_MESSAGE, 'ACCOUNT_CHANGED')
       if (result.status === 'not-started') throw new HttpError(409, value.method === 'app' ? 'Start again: the setup has timed out.' : 'Ask for a new code: the last one has expired or was used.', 'SETUP_NOT_STARTED')
       if (result.status === 'wrong-password') {
         res.locals.wrongPassword = true
@@ -131,7 +133,9 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       const result = await regenerateRecoveryCodes(admin.id, value.password, value.step, config.twoFactorKey)
       if (result.status !== 'ok') refuse(result, res)
-      return res.json({ recoveryCodes: result.recoveryCodes, ...await statusReply(admin.id) })
+      res.json({ recoveryCodes: result.recoveryCodes, ...await statusReply(admin.id) })
+      // The old codes stopped working: tells the admin in case it was not them (audit S3-L01).
+      return notifier.recoveryCodesReplaced(admin)
     } catch (error) {
       return next(error)
     }

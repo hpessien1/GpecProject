@@ -201,6 +201,6 @@ async function rebuild(input: Buffer): Promise<CleanedPdf> {
 
 // One at a time across the API, with photos (services/heavyWork.ts): a 10 MB PDF takes a good deal
 // more memory while it is opened and copied.
-export function cleanPdf(input: Buffer) {
-  return oneAtATime(() => rebuild(input))
+export function cleanPdf(input: Buffer, signal?: AbortSignal) {
+  return oneAtATime(() => rebuild(input), signal)
 }

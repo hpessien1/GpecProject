@@ -226,7 +226,8 @@ add a frontend gate, confirm the backend enforces the same condition.
   emails take as long to reject as wrong passwords, and both get the same message.
 - Admins change their own password at `#admin/password` (current password required, at least 15
   characters per NIST SP 800-63B, no composition rules); it ends their other sessions and gives this
-  browser a new session token (a copied cookie stops working). Wrong current
+  browser a new session token (a copied cookie stops working), and emails the admin that it was
+  changed in the panel (worded apart from a reset link's email; 2026-10-29, third audit S3-L01). Wrong current
   passwords count toward the login rate limit. New passwords known from data breaches are refused
   (`400 PASSWORD_BREACHED`), checked with Have I Been Pwned's free Pwned Passwords API
   (`services/breachedPasswords.ts`; approved by the user 2026-10-22). Only the first 5 characters
@@ -260,6 +261,14 @@ add a frontend gate, confirm the backend enforces the same condition.
   were started under and are refused once it moves on, which covers a login whose password check
   ran while the password was changing. Established two-step login stays on. Any new way to set a
   password must use it.
+- **A change made with the password is saved only if the account is unchanged since the check**
+  (2026-10-29, third audit S3-M01): changing the password in the panel, and turning two-step login
+  on or off or making new recovery codes, save with `unchangedSince` (`services/adminAuth.ts`) in the
+  update's filter (still active, the same password hash and `credentialVersion`; turning on the app
+  also needs the same setup still waiting). Otherwise nothing is saved, no session is started, and the
+  answer is `409 ACCOUNT_CHANGED`, so a change that was still running when the owner reset the
+  password cannot undo the reset. A reset link and `admin:create` keep their own authority. Any new
+  change made with the password uses the same condition.
 - **The password again for changes that decide where money or customers' replies go** (2026-10-26,
   audit finding M-02; the owner chose to include confirming transfers): GPEC's bank details, the
   reply-to address, and "transfer received" need the admin's current password with the change, as
@@ -292,8 +301,9 @@ add a frontend gate, confirm the backend enforces the same condition.
     login whose password was checked just before is refused even if its session is saved afterwards,
     and this browser gets a new session cookie, so a copy of the old one stops working (2026-10-29,
     second audit S2-M01). Turning it off and new recovery codes need the password **and** a
-    current code (wrong ones count toward a per-IP limit). Each change, and each recovery-code login,
-    is emailed to the admin. A password reset does not skip it.
+    current code (wrong ones count toward a per-IP limit). Each change (on, off, new recovery codes;
+    the last since 2026-10-29, third audit S3-L01), and each recovery-code login, is emailed to the
+    admin, never with a code in it. A password reset does not skip it.
   - Not mandatory (user's choice): admins without it see a banner suggesting it, closed with "Not
     now" until their next login (`AdminSession.twoFactorPromptDismissed`).
   - Last resort for a lost phone and lost codes: `admin:create -- --email … --disable-2fa`, only
@@ -968,7 +978,11 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
   (`429 UPLOAD_IN_PROGRESS`), and at most 3 are handled at once across the site (`503 UPLOADS_BUSY`,
   `Retry-After: 60`; the form keeps the message and files). One that takes over 5 minutes is
   stopped (`408 UPLOAD_TOO_SLOW`; 5 minutes lets 25 MB arrive at about 0.7 Mbit/s, as on slow mobile
-  connections). Forms without files are never held up. `services/photos.ts` opens one photo at a
+  connections). **A form keeps its place until its work has ended** (2026-10-29, third audit S3-M02),
+  not just until its answer or connection ends: once it is stopped or the sender hangs up, its
+  remaining steps are skipped (files waiting their turn are not opened, nothing more is stored, no
+  request is saved), and a step already running finishes before the place frees, so "3 at once"
+  holds. Forms without files are never held up. `services/photos.ts` opens one photo at a
   time across the whole API (contact files and product photos), as a large one takes up to about
   200 MB for a moment. The API container has a memory limit in Coolify (RUNBOOK 1.2).
 - `services/requestFiles.ts` checks each file by its content, never its name or declared type:

@@ -1,7 +1,7 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
 import { DEFAULT_REPLY_TO, getCustomerEmailSettings } from './customerEmail.js'
-import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
+import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminRecoveryCodesReplacedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
 import type { AdminEmailData, ContactEmailData, OrderEmailData, OrderUpdate } from './emailTemplates.js'
 import { EmailBudget } from '../utils/emailBudget.js'
 
@@ -26,12 +26,14 @@ export interface Notifier {
   replyToChanged(adminEmails: string[], changedBy: AdminEmailData, from: string, to: string): Promise<void>
   // token: for the link only; it is never logged.
   passwordResetRequested(admin: AdminEmailData, token: string, minutes: number): Promise<void>
-  passwordChanged(admin: AdminEmailData): Promise<void>
+  // how: with a reset link, or in the admin panel.
+  passwordChanged(admin: AdminEmailData, how: 'reset' | 'panel'): Promise<void>
   // Two-step login: codes (never logged) and notices of changes to it.
   loginCode(admin: AdminEmailData, code: string, minutes: number): Promise<void>
   accountCode(admin: AdminEmailData, code: string, minutes: number): Promise<void>
   twoFactorChanged(admin: AdminEmailData, change: { on: true, method: 'app' | 'email' } | { on: false }): Promise<void>
   recoveryCodeUsed(admin: AdminEmailData, left: number): Promise<void>
+  recoveryCodesReplaced(admin: AdminEmailData): Promise<void>
 }
 
 // Sends staff notifications and customer confirmations after a request is saved. Never throws: a
@@ -106,9 +108,9 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
       if (!mailer || !settings) return
       await deliver('an admin password reset', [{ to: [admin.email], ...adminPasswordResetEmail(admin, `${settings.siteUrl}/#admin/reset-password/${token}`, minutes) }])
     },
-    async passwordChanged(admin) {
+    async passwordChanged(admin, how) {
       if (!mailer || !settings) return
-      await deliver('an admin password change', [{ to: [admin.email], ...adminPasswordChangedEmail(admin, settings.siteUrl) }])
+      await deliver('an admin password change', [{ to: [admin.email], ...adminPasswordChangedEmail(admin, how, settings.siteUrl) }])
     },
     async loginCode(admin, code, minutes) {
       if (!mailer || !settings) return
@@ -125,6 +127,10 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     async recoveryCodeUsed(admin, left) {
       if (!mailer || !settings) return
       await deliver('a recovery code login', [{ to: [admin.email], ...adminRecoveryCodeUsedEmail(admin, left, settings.siteUrl) }])
+    },
+    async recoveryCodesReplaced(admin) {
+      if (!mailer || !settings) return
+      await deliver('new recovery codes', [{ to: [admin.email], ...adminRecoveryCodesReplacedEmail(admin, settings.siteUrl) }])
     },
   }
 }

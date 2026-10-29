@@ -176,7 +176,9 @@ than 5 files `400 TOO_MANY_FILES`; a file over 10 MB `413 FILE_TOO_LARGE`; files
 no stated size gets `411`); files while the `S3_*` settings are unset `503 FILE_UPLOADS_OFF` (also
 before reading). Upload limits (audit M-04; `UPLOAD_LIMITS` in `routes/contactRequests.ts`): one form
 with files at a time per sender, `429 UPLOAD_IN_PROGRESS`; at most 3 at once across the site,
-`503 UPLOADS_BUSY` with `Retry-After: 60`; over 5 minutes to arrive, `408 UPLOAD_TOO_SLOW`. Forms
+`503 UPLOADS_BUSY` with `Retry-After: 60`; over 5 minutes to arrive and be checked,
+`408 UPLOAD_TOO_SLOW`. A form keeps its place until its files' checking and storing has ended; one
+stopped or abandoned skips its remaining steps and is not saved (audit S3-M02). Forms
 without files (JSON) are never held up. Photos are re-saved one at a time across the API. The text
 fields are checked first. The emails say how many
 files came, without attaching them. `GET /api/contact-requests/options` answers `{ fileUploads }`
@@ -209,12 +211,16 @@ All admin responses are sent with `Cache-Control: no-store`.
   `otpauth://` link, 15 minutes to confirm); `POST /email-code` emails a code; `POST /enable` with
   `{ method, password, code }` → the status plus `recoveryCodes` (shown once; ends every earlier session, and sets a new session cookie for this browser);
   `POST /disable` and `POST /recovery-codes` with `{ password, code | recoveryCode }`. All three
-  answer `400 WRONG_PASSWORD` / `WRONG_CODE`, both counted per IP.
+  answer `400 WRONG_PASSWORD` / `WRONG_CODE`, both counted per IP, and `409 ACCOUNT_CHANGED` (nothing
+  saved) if the password was changed or reset after it was checked. Turning it on or off and new
+  recovery codes each email the admin (never with a code).
 - `POST /api/admin/session/password` with `{ currentPassword, newPassword }` changes the logged-in
   admin's password (new one at least 15 characters, different from the current one), ends their
   other sessions, reset links, and logins waiting for a code, and sets a new session cookie for this
-  browser (the old one stops working). A wrong current password gets `400 WRONG_PASSWORD` and counts toward the
-  failed-attempt limit. A new password known from a data breach gets `400 PASSWORD_BREACHED`: the
+  browser (the old one stops working), then emails the admin that their password was changed in the
+  admin panel. A wrong current password gets `400 WRONG_PASSWORD` and counts toward the
+  failed-attempt limit; `409 ACCOUNT_CHANGED` (nothing saved, no new cookie) if the password was
+  reset or changed elsewhere after it was checked. A new password known from a data breach gets `400 PASSWORD_BREACHED`: the
   server asks `api.pwnedpasswords.com` (sending only the first 5 characters of the password's
   SHA-1 hash) and, if that service cannot be reached within 3 seconds, allows the change and logs
   a warning.

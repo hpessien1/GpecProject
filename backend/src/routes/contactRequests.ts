@@ -63,19 +63,48 @@ function uploadGate(imageStore: ImageStore | null, limits: UploadLimits): Reques
       return next(new HttpError(503, 'Many people are sending files right now. Please try again in a minute: your message and files are still in the form.', 'UPLOADS_BUSY'))
     }
     senders.add(sender)
+    // Audit S3-M02: the place is held until the form's work has ended, not just its answer. Once the
+    // form is stopped (timed out) or abandoned (connection closed), its work is skipped from the next
+    // step on (the signal); a step already running finishes, and the place frees only then.
+    const stopped = new AbortController()
+    let working = false
+    let closed = false
     // Answered directly, as the upload may still be arriving; the connection is closed, so nothing
     // more of it is read.
     const timer = setTimeout(() => {
       if (res.headersSent) return
       res.set('Connection', 'close').status(408).json({ message: 'Sending your files took too long. Try again with fewer or smaller files, or on a faster connection.', code: 'UPLOAD_TOO_SLOW' })
+      stopped.abort()
     }, limits.timeoutMs)
     // Whether the form was answered, refused, stopped, or abandoned by the sender.
     res.once('close', () => {
       clearTimeout(timer)
-      senders.delete(sender)
+      closed = true
+      stopped.abort()
+      if (!working) senders.delete(sender)
     })
+    const place: UploadPlace = {
+      signal: stopped.signal,
+      start() {
+        if (stopped.signal.aborted) return null
+        working = true
+        return () => {
+          working = false
+          if (closed) senders.delete(sender)
+        }
+      },
+    }
+    res.locals.uploadPlace = place
     return next()
   }
+}
+
+// A form with files' place (uploadGate), for the route: start() marks the start of checking and storing
+// its files and returns the function that ends it, or null if the form is already stopped or abandoned
+// (then nothing is done). signal: aborted once it is.
+interface UploadPlace {
+  signal: AbortSignal
+  start(): (() => void) | null
 }
 
 // multer's refusals become the customer's mistake (4xx) with a message they can act on, never a 500.
@@ -117,19 +146,29 @@ export default function contactRequestsRouter(notifier: Notifier, imageStore: Im
     const { errors, value } = validateContactRequest(req.body)
     if (Object.keys(errors).length > 0) return res.status(400).json({ message: 'Check your details and try again.', errors })
 
+    // Forms with files only (JSON forms have no place).
+    const place = res.locals.uploadPlace as UploadPlace | undefined
+    const finish = place ? place.start() : () => {}
+    // Stopped or abandoned before its files were checked: nothing is done or saved.
+    if (!finish) return
+    const signal = place?.signal
     try {
       if (files.length > 0 && !imageStore) throw new HttpError(503, FILE_UPLOADS_OFF, 'FILE_UPLOADS_OFF')
       if (files.reduce((total, file) => total + file.size, 0) > MAX_REQUEST_FILES_TOTAL_BYTES) throw filesTooLarge()
-      const prepared = await prepareRequestFiles(files)
+      const prepared = await prepareRequestFiles(files, signal)
+      signal?.throwIfAborted()
       // Stored before the request, so a saved request never lists a file that is not there. If saving
       // the request then fails, its files stay in the bucket unreferenced, like unsaved product photos.
       if (imageStore && prepared.length > 0) await storeRequestFiles(imageStore, prepared)
+      // The customer was told it did not go through (or has gone): not saved.
+      signal?.throwIfAborted()
       const contactRequest = await ContactRequest.create({
         ...value,
         reference: createReference('GPEC-C'),
         attachments: prepared.map(({ id, name, contentType, size }) => ({ id, name, contentType, size })),
       })
-      res.status(201).json({ reference: contactRequest.reference, createdAt: contactRequest.createdAt })
+      // Stopped while it was being saved: it stands (staff are told), though the customer saw the 408.
+      if (!res.headersSent) res.status(201).json({ reference: contactRequest.reference, createdAt: contactRequest.createdAt })
       // After answering, so email never delays or breaks the customer's request (the notifier never throws).
       void notifier.contactRequestReceived({ ...value, reference: contactRequest.reference, createdAt: contactRequest.createdAt, files: prepared.length })
       // A PDF that held scripts, actions, attached files, forms, or media (taken out when it was
@@ -138,8 +177,12 @@ export default function contactRequestsRouter(notifier: Notifier, imageStore: Im
         void recordSecurityEvent(req, { action: 'upload.pdf', outcome: 'success', detail: file.removed.join(','), target: { type: 'contactRequest', id: contactRequest.reference } })
       }
     } catch (error) {
+      // Stopped or abandoned: already answered, or nobody to answer.
+      if (signal?.aborted) return
       if (error instanceof RefusedPdfError) void recordSecurityEvent(req, { action: 'upload.pdf', outcome: 'failure', reason: error.reason === 'password' ? 'PDF_PASSWORD' : 'NOT_A_PDF' })
       return next(error)
+    } finally {
+      finish()
     }
   })
 

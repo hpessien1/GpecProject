@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import mongoose from 'mongoose'
 import request from 'supertest'
 import type TestAgent from 'supertest/lib/agent.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -491,6 +492,183 @@ describe('turning it off and new recovery codes', () => {
     const { client } = await startLogin()
     expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: secondOld })).status).toBe(400)
     expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: res.body.recoveryCodes[0] })).status).toBe(200)
+  })
+})
+
+// Audit S3-M01: a change whose password (and code) was checked, but which was saved only after the owner
+// reset the password, must save nothing and start no session.
+describe('changes checked before the owner reset the password', () => {
+  const OWNER_PASSWORD = 'the owner’s rescue passphrase'
+
+  // Holds the first transaction (the change being saved) until released.
+  function pauseTransaction() {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const original = mongoose.connection.transaction.bind(mongoose.connection)
+    const spy = vi.spyOn(mongoose.connection, 'transaction').mockImplementationOnce((async (...args: Parameters<typeof original>) => {
+      await gate
+      return original(...args)
+    }) as typeof original)
+    return { release, reached: () => expect(spy).toHaveBeenCalled() }
+  }
+
+  // Holds the first AdminUser.updateOne whose update matches, until released.
+  function pauseUpdate(matches: (update: Record<string, unknown>) => boolean) {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const original = AdminUser.updateOne.bind(AdminUser)
+    let paused = false
+    vi.spyOn(AdminUser, 'updateOne').mockImplementation(((filter: Parameters<typeof original>[0], update: Record<string, unknown>) => {
+      if (paused || !matches(update)) return original(filter, update)
+      paused = true
+      return gate.then(() => original(filter, update))
+    }) as unknown as typeof original)
+    return { release, reached: () => expect(paused).toBe(true) }
+  }
+
+  async function ownerResets() {
+    const reset = await createPasswordReset(TEST_ADMIN.email)
+    await post(request.agent(app), `${LOGIN}/password-reset/confirm`, { token: reset?.token, newPassword: OWNER_PASSWORD }).expect(204)
+  }
+
+  async function logsIn(password: string) {
+    return (await post(request.agent(app), LOGIN, { email: TEST_ADMIN.email, password })).status === 200
+  }
+
+  it('a password change saves nothing and starts no session', async () => {
+    const paused = pauseTransaction()
+    const change = post(agent, `${LOGIN}/password`, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD }).then((res) => res)
+    await vi.waitFor(paused.reached)
+    await ownerResets()
+    paused.release()
+    const res = await change
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('ACCOUNT_CHANGED')
+    expect(res.headers['set-cookie']).toBeUndefined()
+    expect(await AdminSession.countDocuments()).toBe(0)
+    expect(await logsIn(OWNER_PASSWORD)).toBe(true)
+    expect(await logsIn(NEW_PASSWORD)).toBe(false)
+  })
+
+  it.each(['app', 'email'] as const)('turning two-step login on saves nothing and starts no session (%s)', async (method) => {
+    let code: string
+    if (method === 'app') {
+      await post(agent, `${ACCOUNT}/app`).expect(200)
+      code = totpCode(await appSecret(), currentStep())
+    } else {
+      await post(agent, `${ACCOUNT}/email-code`).expect(202)
+      await settle()
+      code = lastEmailedCode()
+    }
+    const paused = pauseTransaction()
+    const enable = post(agent, `${ACCOUNT}/enable`, { method, password: TEST_ADMIN.password, code }).then((res) => res)
+    await vi.waitFor(paused.reached)
+    await ownerResets()
+    paused.release()
+    const res = await enable
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('ACCOUNT_CHANGED')
+    expect(res.headers['set-cookie']).toBeUndefined()
+    const stored = await AdminUser.findOne({ email: TEST_ADMIN.email }).lean()
+    expect(stored).toMatchObject({ twoFactorMethod: null, twoFactorSecret: null, recoveryCodeHashes: [] })
+    expect(await AdminSession.countDocuments()).toBe(0)
+  })
+
+  it('the app setup must still be the one checked, even if the account is otherwise unchanged', async () => {
+    await post(agent, `${ACCOUNT}/app`).expect(200)
+    const code = totpCode(await appSecret(), currentStep())
+    const paused = pauseTransaction()
+    const enable = post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code }).then((res) => res)
+    await vi.waitFor(paused.reached)
+    await AdminUser.updateOne({ email: TEST_ADMIN.email }, { pendingTwoFactorSecret: null, pendingTwoFactorExpiresAt: null })
+    paused.release()
+    expect((await enable).body.code).toBe('ACCOUNT_CHANGED')
+    expect((await AdminUser.findOne({ email: TEST_ADMIN.email }).lean())?.twoFactorMethod).toBeNull()
+  })
+
+  it('turning two-step login off leaves it on', async () => {
+    const [first] = await turnOnApp()
+    const paused = pauseUpdate((update) => update.twoFactorMethod === null)
+    const disable = post(agent, `${ACCOUNT}/disable`, { password: TEST_ADMIN.password, recoveryCode: first }).then((res) => res)
+    await vi.waitFor(paused.reached)
+    await ownerResets()
+    paused.release()
+    const res = await disable
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('ACCOUNT_CHANGED')
+    expect((await AdminUser.findOne({ email: TEST_ADMIN.email }).lean())?.twoFactorMethod).toBe('app')
+  })
+
+  it('new recovery codes are not made; the owner’s codes keep working', async () => {
+    const [first, second] = await turnOnApp()
+    const paused = pauseUpdate((update) => Array.isArray(update.recoveryCodeHashes))
+    const regenerate = post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, recoveryCode: first }).then((res) => res)
+    await vi.waitFor(paused.reached)
+    await ownerResets()
+    paused.release()
+    const res = await regenerate
+    expect(res.status).toBe(409)
+    expect(res.body.code).toBe('ACCOUNT_CHANGED')
+    expect(res.body.recoveryCodes).toBeUndefined()
+    const login = request.agent(app)
+    await post(login, LOGIN, { email: TEST_ADMIN.email, password: OWNER_PASSWORD }).expect(200)
+    expect((await post(login, `${LOGIN}/two-factor`, { recoveryCode: second })).status).toBe(200)
+  })
+
+  it('still works for an account stored before password versions existed', async () => {
+    const legacy = async () => {
+      await AdminUser.collection.updateMany({}, { $unset: { credentialVersion: '' } })
+      await AdminSession.collection.updateMany({}, { $unset: { credentialVersion: '' } })
+    }
+    await legacy()
+    const [first] = await turnOnApp()
+    await legacy()
+    expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, recoveryCode: first })).status).toBe(200)
+    expect((await post(agent, `${ACCOUNT}/disable`, { password: TEST_ADMIN.password, code: totpCode(await appSecret(), currentStep() + 1) })).status).toBe(200)
+  })
+})
+
+// Audit S3-L01: a password changed in the panel and new recovery codes emailed nobody, so an owner
+// whose account was misused would not hear of it.
+describe('emails for changes made in the admin panel', () => {
+  it('tells the admin their password was changed in the panel, only once it was, and never says it', async () => {
+    const wrong = await post(agent, `${LOGIN}/password`, { currentPassword: 'not the password at all', newPassword: NEW_PASSWORD })
+    expect(wrong.body.code).toBe('WRONG_PASSWORD')
+    await settle()
+    expect(mailer.sent).toEqual([])
+    await post(agent, `${LOGIN}/password`, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD }).expect(204)
+    await settle()
+    expect(mailer.sent).toHaveLength(1)
+    const [email] = mailer.sent
+    expect(email).toMatchObject({ to: [TEST_ADMIN.email], subject: 'Your GPEC admin password was changed' })
+    expect(email.text).toContain('changed in the admin panel')
+    expect(email.text).not.toContain('reset link,')
+    expect(email.text).toContain(`${TEST_EMAIL_SETTINGS.siteUrl}/#admin/forgot-password`)
+    expect(email.text).not.toContain(NEW_PASSWORD)
+    expect(email.text).not.toContain(TEST_ADMIN.password)
+  })
+
+  it('keeps the reset-link wording for a reset', async () => {
+    const reset = await createPasswordReset(TEST_ADMIN.email)
+    await post(request.agent(app), `${LOGIN}/password-reset/confirm`, { token: reset?.token, newPassword: NEW_PASSWORD }).expect(204)
+    await settle()
+    expect(mailer.sent.at(-1)?.text).toContain('changed using a reset link')
+  })
+
+  it('tells the admin new recovery codes were made, only once they were, without the codes', async () => {
+    const [first, second] = await turnOnApp()
+    await settle()
+    const before = mailer.sent.length
+    expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, recoveryCode: 'aaaaa-aaaaa' })).body.code).toBe('WRONG_CODE')
+    await settle()
+    expect(mailer.sent).toHaveLength(before)
+    const res = await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, recoveryCode: first }).expect(200)
+    await settle()
+    expect(mailer.sent).toHaveLength(before + 1)
+    const email = mailer.sent.at(-1)
+    expect(email).toMatchObject({ to: [TEST_ADMIN.email], subject: 'New recovery codes were made for your GPEC admin account' })
+    expect(email?.text).toContain('The old ones no longer work.')
+    for (const code of [first, second, ...res.body.recoveryCodes as string[]]) expect(email?.text).not.toContain(code)
   })
 })
 

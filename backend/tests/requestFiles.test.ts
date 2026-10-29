@@ -9,6 +9,7 @@ import ContactRequest from '../src/models/ContactRequest.js'
 import SecurityEvent from '../src/models/SecurityEvent.js'
 import { UPLOAD_LIMITS } from '../src/routes/contactRequests.js'
 import { seedDemoData } from '../src/services/demoData.js'
+import { oneAtATime } from '../src/services/heavyWork.js'
 import { activePdfParts } from '../src/services/pdfs.js'
 import { MemoryImageStore, RecordingMailer, TEST_EMAIL_SETTINGS, createTestAdmin, loggedInAgent, noBreaches, testApp, useTestDatabase } from './helpers.js'
 import { HOSTILE_MARKERS, INDIRECT_MARKER, hostilePdf, indirectPdf, lockedPdf, pdfOfSize, samplePdf } from './pdfFixtures.js'
@@ -576,5 +577,89 @@ describe('limits on forms with files', () => {
 
   it('allows five minutes by default', () => {
     expect(UPLOAD_LIMITS).toEqual({ concurrent: 3, timeoutMs: 5 * 60_000 })
+  })
+
+  // Audit S3-M02: a form's place was given back when its connection closed, while its files were still
+  // being checked or stored, so more than the limit could be in memory at once.
+  describe('a form stopped or abandoned while its files are handled', () => {
+    // Holds the first file stored until released; later ones go straight in.
+    class PausedStore extends MemoryImageStore {
+      started = 0
+      release = () => {}
+      private readonly gate = new Promise<void>((resolve) => { this.release = resolve })
+      override async put(key: string, body: Buffer, contentType: string) {
+        this.started += 1
+        if (this.started === 1) await this.gate
+        return super.put(key, body, contentType)
+      }
+    }
+
+    // The whole form, sent in full, so the server goes on to check and store its file.
+    async function completeUpload(target: ReturnType<typeof testApp>, sender: string) {
+      const server = await new Promise<http.Server>((resolve) => { const started = target.listen(0, () => resolve(started)) })
+      servers.push(server)
+      const parts = Object.entries(FIELDS).map(([name, value]) => Buffer.from(`--${BOUNDARY}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`))
+      const body = Buffer.concat([...parts, Buffer.from(`--${BOUNDARY}\r\nContent-Disposition: form-data; name="files"; filename="a.pdf"\r\nContent-Type: application/pdf\r\n\r\n`), PDF, Buffer.from(`\r\n--${BOUNDARY}--\r\n`)])
+      const upload = http.request({ port: (server.address() as AddressInfo).port, method: 'POST', path: '/api/contact-requests', headers: { 'Content-Type': `multipart/form-data; boundary=${BOUNDARY}`, 'Content-Length': String(body.length), 'X-Forwarded-For': sender } })
+      upload.on('error', () => {})
+      uploads.push(upload)
+      const answer = new Promise<Answer>((resolve) => upload.on('response', (res) => {
+        let text = ''
+        res.on('data', (chunk) => { text += chunk })
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: text ? JSON.parse(text) : null }))
+      }))
+      upload.end(body)
+      return { answer, upload }
+    }
+
+    function sendTo(target: ReturnType<typeof testApp>, sender: string) {
+      const req = request(target).post('/api/contact-requests').set('X-Forwarded-For', sender)
+      for (const [name, value] of Object.entries(FIELDS)) req.field(name, value)
+      return req.attach('files', PDF, 'a.pdf')
+    }
+
+    it('keeps the place of a sender who hung up until the work ends, and saves nothing for them', async () => {
+      const paused = new PausedStore()
+      const one = testApp({ isProduction: true, uploadLimits: { concurrent: 1, timeoutMs: 60_000 } }, null, noBreaches, paused)
+      const { upload } = await completeUpload(one, '203.0.113.1')
+      await vi.waitFor(() => expect(paused.started).toBe(1))
+      upload.destroy()
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      // Its file is still being stored, so the only place is still taken.
+      expect((await sendTo(one, '203.0.113.2')).body.code).toBe('UPLOADS_BUSY')
+      paused.release()
+      await vi.waitFor(async () => expect((await sendTo(one, '203.0.113.2')).status).toBe(201))
+      expect(await ContactRequest.countDocuments()).toBe(1)
+    })
+
+    it('keeps the place of a form stopped by the time limit until its work ends, and saves nothing', async () => {
+      const paused = new PausedStore()
+      const quick = testApp({ isProduction: true, uploadLimits: { concurrent: 1, timeoutMs: 300 } }, null, noBreaches, paused)
+      const { answer } = await completeUpload(quick, '203.0.113.1')
+      const res = await Promise.race([answer, new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))])
+      expect(res).toMatchObject({ status: 408, body: { code: 'UPLOAD_TOO_SLOW' } })
+      expect((await sendTo(quick, '203.0.113.2')).body.code).toBe('UPLOADS_BUSY')
+      paused.release()
+      await vi.waitFor(async () => expect((await sendTo(quick, '203.0.113.2')).status).toBe(201))
+      expect(await ContactRequest.countDocuments()).toBe(1)
+    })
+  })
+})
+
+describe('photos and PDFs opened one at a time', () => {
+  it('skips a job whose form was stopped or abandoned while it waited its turn', async () => {
+    let releaseFirst = () => {}
+    const gate = new Promise<void>((resolve) => { releaseFirst = resolve })
+    const first = oneAtATime(async () => { await gate; return 'first' })
+    const stopped = new AbortController()
+    const ran: string[] = []
+    const waiting = oneAtATime(async () => { ran.push('abandoned'); return 'abandoned' }, stopped.signal)
+    const next = oneAtATime(async () => { ran.push('next'); return 'next' })
+    stopped.abort()
+    releaseFirst()
+    expect(await first).toBe('first')
+    await expect(waiting).rejects.toMatchObject({ name: 'AbortError' })
+    expect(await next).toBe('next')
+    expect(ran).toEqual(['next'])
   })
 })

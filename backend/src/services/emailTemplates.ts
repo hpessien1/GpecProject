@@ -67,13 +67,17 @@ export function adminPasswordResetEmail(admin: AdminEmailData, link: string, min
   }
 }
 
-export function adminPasswordChangedEmail(admin: AdminEmailData, siteUrl: string) {
+// how: with a reset link, or in the admin panel by someone logged in with the current password (audit
+// S3-L01); each says what actually happened.
+export function adminPasswordChangedEmail(admin: AdminEmailData, how: 'reset' | 'panel', siteUrl: string) {
   return {
     subject: 'Your GPEC admin password was changed',
     text: [
       `Hello ${admin.name},`,
       '',
-      'The password for your GPEC website admin account was just changed using a reset link, and you were logged out everywhere.',
+      how === 'reset'
+        ? 'The password for your GPEC website admin account was just changed using a reset link, and you were logged out everywhere.'
+        : 'The password for your GPEC website admin account was just changed in the admin panel, by someone logged in who knew the current password. Everywhere else you were logged in has been logged out.',
       '',
       `If this was you, there is nothing to do. If it was not, ask for a new reset link at ${siteUrl}/#admin/forgot-password straight away and tell the site administrator.`,
       '',
@@ -135,6 +139,22 @@ export function adminTwoFactorChangedEmail(admin: AdminEmailData, change: { on: 
         : 'Two-step login was just turned off for your GPEC website admin account. Logging in now needs only your password.',
       '',
       `If this was you, there is nothing to do. If it was not, change your password at ${siteUrl}/#admin/password straight away and tell the site administrator.`,
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
+// The codes themselves are never emailed (audit S3-L01).
+export function adminRecoveryCodesReplacedEmail(admin: AdminEmailData, siteUrl: string) {
+  return {
+    subject: 'New recovery codes were made for your GPEC admin account',
+    text: [
+      `Hello ${admin.name},`,
+      '',
+      'New recovery codes were just made for your GPEC website admin account. The old ones no longer work.',
+      '',
+      `If this was you, keep the new ones somewhere safe. If it was not, someone has your password and a way to get your codes: ask for a reset link at ${siteUrl}/#admin/forgot-password straight away and tell the site administrator.`,
       '',
       'GPEC website',
     ].join('\n'),

@@ -67,14 +67,16 @@ function displayName(original: string, extension: string, fallback: string) {
 }
 
 // Checks each file and makes the version to store. Refuses the whole request, naming the file, if
-// any one is not a readable photo or PDF, so the customer can remove it and send again.
-export async function prepareRequestFiles(files: ReceivedFile[]): Promise<PreparedRequestFile[]> {
+// any one is not a readable photo or PDF, so the customer can remove it and send again. signal: stops
+// before the next file once the form is abandoned or stopped (throws its reason; audit S3-M02).
+export async function prepareRequestFiles(files: ReceivedFile[], signal?: AbortSignal): Promise<PreparedRequestFile[]> {
   const prepared: PreparedRequestFile[] = []
   for (const file of files) {
+    signal?.throwIfAborted()
     const id = randomBytes(16).toString('hex')
     const shownName = `“${cleanName(file.originalname).slice(0, MAX_NAME_LENGTH) || 'A file'}”`
     if (looksLikePdf(file.buffer)) {
-      const pdf = await cleanPdf(file.buffer)
+      const pdf = await cleanPdf(file.buffer, signal)
       if ('refused' in pdf) {
         throw new RefusedPdfError(pdf.refused, pdf.refused === 'password'
           ? `${shownName} needs a password to open, so GPEC cannot check it. Remove the password, or send photos of the pages instead.`
@@ -83,7 +85,7 @@ export async function prepareRequestFiles(files: ReceivedFile[]): Promise<Prepar
       prepared.push({ id, name: displayName(file.originalname, '.pdf', 'document'), contentType: 'application/pdf', size: pdf.body.length, body: pdf.body, removed: pdf.removed })
       continue
     }
-    const photo = await reencodePhoto(file.buffer, MAX_PHOTO_DIMENSION)
+    const photo = await reencodePhoto(file.buffer, MAX_PHOTO_DIMENSION, signal)
     if (!photo) {
       const message = `${shownName} could not be read as a photo or PDF. ${NOT_ACCEPTED_FILE}`
       throw new ValidationError({ files: message }, message)

@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import AdminLoginChallenge from '../models/AdminLoginChallenge.js'
 import AdminSession from '../models/AdminSession.js'
 import AdminUser from '../models/AdminUser.js'
-import { createSession } from './adminAuth.js'
+import { createSession, unchangedSince } from './adminAuth.js'
 import { verifyPassword } from './passwords.js'
 import { open, seal } from './secretBox.js'
 import { matchTotp, newTotpSecret, otpauthUri, toBase32 } from './totp.js'
@@ -274,7 +274,7 @@ async function useAccountEmailCode(adminId: unknown, code: string) {
   return passed
 }
 
-export type EnableResult = { status: 'ok', recoveryCodes: string[], sessionToken: string } | { status: 'wrong' } | { status: 'wrong-password' } | { status: 'not-started' } | { status: 'already-on' }
+export type EnableResult = { status: 'ok', recoveryCodes: string[], sessionToken: string } | { status: 'wrong' } | { status: 'wrong-password' } | { status: 'not-started' } | { status: 'already-on' } | { status: 'changed' }
 
 // Turns two-step login on once the admin proves it is them (the password: a session alone, such as a
 // browser left logged in, must not be able to put someone else's phone on the account and lock its
@@ -283,7 +283,9 @@ export type EnableResult = { status: 'ok', recoveryCodes: string[], sessionToken
 // alone (audit S2-M01): the account's credentialVersion goes up in the same update that turns it on, so
 // a login whose password was checked just before is refused even if its session is saved afterwards,
 // every session is deleted, and this browser gets a new one (sessionToken), so a copy of its old cookie
-// stops working too.
+// stops working too. Saved only if the account is still as it was when the password was checked, with
+// the same app setup waiting ('changed' otherwise; audit S3-M01): a password reset meanwhile clears the
+// setup, and the copy read here must not be installed after it.
 export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, password: string, code: string, key: Buffer | null): Promise<EnableResult> {
   const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
   if (!admin) return { status: 'not-started' }
@@ -310,7 +312,8 @@ export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, 
   const { codes, hashes } = newRecoveryCodes()
   const sessionToken = await mongoose.connection.transaction(async (session) => {
     // Conditional on still being off, so two confirmations at once cannot both hand out codes.
-    const updated = await AdminUser.findOneAndUpdate({ _id: admin._id, twoFactorMethod: null }, {
+    const expected = { _id: admin._id, twoFactorMethod: null, ...unchangedSince(admin), ...(method === 'app' ? { pendingTwoFactorSecret: secret } : {}) }
+    const updated = await AdminUser.findOneAndUpdate(expected, {
       twoFactorMethod: method,
       twoFactorSecret: secret,
       twoFactorEnabledAt: new Date(),
@@ -324,15 +327,17 @@ export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, 
     await AdminSession.deleteMany({ admin: admin._id }, { session })
     return createSession(admin._id, updated.credentialVersion ?? 0, session)
   })
-  if (sessionToken === null) return { status: 'already-on' }
+  if (sessionToken === null) return (await AdminUser.exists({ _id: admin._id, twoFactorMethod: { $ne: null } })) ? { status: 'already-on' } : { status: 'changed' }
   return { status: 'ok', recoveryCodes: codes, sessionToken }
 }
 
-export type VerifiedResult = { status: 'ok' } | { status: 'wrong-password' } | { status: 'wrong-code' } | { status: 'off' }
+export type VerifiedResult = { status: 'ok' } | { status: 'wrong-password' } | { status: 'wrong-code' } | { status: 'off' } | { status: 'changed' }
 
 // Turning two-step login off and making new recovery codes need the password and a current second
 // step (app code, emailed account code, or recovery code), so a browser left logged in is not enough.
-async function verifyAdmin(adminId: string, password: string, step: SecondStep, key: Buffer | null): Promise<VerifiedResult> {
+// expected: what the account must still be when the change is saved (audit S3-M01): the same password,
+// credentialVersion, and two-step method as when they were checked.
+async function verifyAdmin(adminId: string, password: string, step: SecondStep, key: Buffer | null): Promise<{ status: 'ok', expected: Record<string, unknown> } | Exclude<VerifiedResult, { status: 'ok' }>> {
   const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
   if (!admin?.twoFactorMethod) return { status: 'off' }
   if (!await verifyPassword(password, admin.passwordHash)) return { status: 'wrong-password' }
@@ -340,14 +345,15 @@ async function verifyAdmin(adminId: string, password: string, step: SecondStep, 
   if ('recoveryCode' in step) passed = await useRecoveryCode(admin._id, step.recoveryCode)
   else if (admin.twoFactorMethod === 'app') passed = await useAppCode(admin._id, admin.twoFactorSecret, admin.lastTotpStep, step.code, key)
   else passed = await useAccountEmailCode(admin._id, step.code)
-  return passed === true ? { status: 'ok' } : { status: 'wrong-code' }
+  if (passed !== true) return { status: 'wrong-code' }
+  return { status: 'ok', expected: { _id: admin._id, twoFactorMethod: admin.twoFactorMethod, ...unchangedSince(admin) } }
 }
 
-export async function disableTwoFactor(adminId: string, password: string, step: SecondStep, key: Buffer | null) {
+export async function disableTwoFactor(adminId: string, password: string, step: SecondStep, key: Buffer | null): Promise<VerifiedResult> {
   const verified = await verifyAdmin(adminId, password, step, key)
   if (verified.status !== 'ok') return verified
-  await AdminUser.updateOne({ _id: adminId }, { twoFactorMethod: null, twoFactorSecret: null, twoFactorEnabledAt: null, lastTotpStep: null, recoveryCodeHashes: [], accountCodeHash: null, accountCodeExpiresAt: null })
-  return verified
+  const { matchedCount } = await AdminUser.updateOne(verified.expected, { twoFactorMethod: null, twoFactorSecret: null, twoFactorEnabledAt: null, lastTotpStep: null, recoveryCodeHashes: [], accountCodeHash: null, accountCodeExpiresAt: null })
+  return matchedCount === 1 ? { status: 'ok' } : { status: 'changed' }
 }
 
 // Ten new recovery codes; the old ones stop working.
@@ -355,6 +361,6 @@ export async function regenerateRecoveryCodes(adminId: string, password: string,
   const verified = await verifyAdmin(adminId, password, step, key)
   if (verified.status !== 'ok') return verified
   const { codes, hashes } = newRecoveryCodes()
-  await AdminUser.updateOne({ _id: adminId }, { recoveryCodeHashes: hashes })
-  return { status: 'ok' as const, recoveryCodes: codes }
+  const { matchedCount } = await AdminUser.updateOne(verified.expected, { recoveryCodeHashes: hashes })
+  return matchedCount === 1 ? { status: 'ok' as const, recoveryCodes: codes } : { status: 'changed' as const }
 }

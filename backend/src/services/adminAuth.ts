@@ -86,14 +86,28 @@ export async function findSessionAdmin(token: string): Promise<AdminIdentity | n
   return { id: admin._id.toString(), email: admin.email, name: admin.name }
 }
 
+// Matches the account only while it is as it was when its password was checked: still active, the same
+// password, and the same credentialVersion (audit S3-M01). A change checked against an older state, such
+// as one that was still running when the owner reset the password, then saves nothing. Accounts stored
+// before credentialVersion existed have none (read as 0).
+export function unchangedSince(admin: { passwordHash: string, credentialVersion?: number | null }) {
+  const version = admin.credentialVersion ?? 0
+  return { isActive: true, passwordHash: admin.passwordHash, credentialVersion: version === 0 ? { $in: [0, null] } : version }
+}
+
+// The answer when a change was refused because the account changed after its password was checked.
+export const ACCOUNT_CHANGED_MESSAGE = 'Your account changed while this was being saved, for example its password was reset. Log in again, then try again.'
+
 // A new password cancels everything handed out under the old one, since someone else may know it:
 // every session, "forgot password" link, login waiting for its code, and two-step login setup or
 // emailed account code in progress. credentialVersion moves on too, so a session or login started
 // from the old password while this runs is refused when used. Part of the caller's transaction, so
-// the password never changes without the rest. Established two-step login stays on. Returns the new
-// credentialVersion, or null if there is no such admin.
-async function replaceCredentials(session: ClientSession, adminId: unknown, passwordHash: string) {
-  const admin = await AdminUser.findOneAndUpdate({ _id: adminId }, {
+// the password never changes without the rest. Established two-step login stays on. expected: what the
+// account must still be (unchangedSince) for a change made with its password; a reset link and the
+// admin:create command have their own authority and pass none. Returns the new credentialVersion, or
+// null if there is no such admin or it no longer matches.
+async function replaceCredentials(session: ClientSession, adminId: unknown, passwordHash: string, expected: ReturnType<typeof unchangedSince> | Record<string, never> = {}) {
+  const admin = await AdminUser.findOneAndUpdate({ _id: adminId, ...expected }, {
     passwordHash,
     passwordChangedAt: new Date(),
     $inc: { credentialVersion: 1 },
@@ -124,15 +138,17 @@ export async function isCurrentPassword(adminId: string, password: string) {
 
 // Changes an admin's own password after checking the current one. Everything started under the old
 // password ends (replaceCredentials); this browser gets a new session token, so a copy of its old
-// cookie stops working too. Returns that token, or null if the current password is wrong.
-export async function changePassword(adminId: string, currentPassword: string, newPassword: string) {
-  const admin = await AdminUser.findOne({ _id: adminId, isActive: true })
-  if (!admin || !await verifyPassword(currentPassword, admin.passwordHash)) return null
+// cookie stops working too. Saved only if the account is still as it was when the current password was
+// checked ('changed' otherwise: nothing saved, no session; audit S3-M01).
+export async function changePassword(adminId: string, currentPassword: string, newPassword: string): Promise<{ status: 'ok', token: string } | { status: 'wrong-password' } | { status: 'changed' }> {
+  const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
+  if (!admin || !await verifyPassword(currentPassword, admin.passwordHash)) return { status: 'wrong-password' }
   const passwordHash = await hashPassword(newPassword)
-  return mongoose.connection.transaction(async (session) => {
-    const version = await replaceCredentials(session, admin._id, passwordHash)
+  const token = await mongoose.connection.transaction(async (session) => {
+    const version = await replaceCredentials(session, admin._id, passwordHash, unchangedSince(admin))
     return version === null ? null : createSession(admin._id, version, session)
   })
+  return token === null ? { status: 'changed' } : { status: 'ok', token }
 }
 
 // Starts a "forgot password" reset for an active admin: returns the token for the emailed link, or

@@ -11,8 +11,8 @@ const MAX_INPUT_PIXELS = 50_000_000
 // Re-encoding leaves behind anything hidden in the original, including camera details such as GPS
 // location, which sharp drops unless asked to keep them. Used for product photos and for photos
 // customers attach to contact requests. One at a time across the API, with PDFs (services/heavyWork.ts).
-export function reencodePhoto(input: Buffer, maxDimension: number) {
-  return oneAtATime(() => reencode(input, maxDimension))
+export function reencodePhoto(input: Buffer, maxDimension: number, signal?: AbortSignal) {
+  return oneAtATime(() => reencode(input, maxDimension), signal)
 }
 
 async function reencode(input: Buffer, maxDimension: number) {
