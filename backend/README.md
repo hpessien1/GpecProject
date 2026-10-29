@@ -228,7 +228,9 @@ All admin responses are sent with `Cache-Control: no-store`.
   (same rules and breach check as above; a refused password leaves the link usable), ends all that
   admin's sessions, other reset links, and logins waiting for a code, clears this browser's cookie, emails the admin that the password changed, and
   returns `204`. An unknown, expired, used, or malformed link, or a deactivated account, gets `400
-  RESET_LINK_INVALID`, which counts toward a per-IP limit.
+  RESET_LINK_INVALID`, which counts toward a per-IP limit; the link is checked before the new
+  password, so such a link never reaches the breach check. Every attempt, refused or not, also counts
+  toward a second per-IP limit (20 per 15 minutes in production; `429`).
 - Every command (creating admins, seeding, checks) is listed in [`docs/COMMANDS.md`](../docs/COMMANDS.md).
 - Every `/api/admin/products` route needs that cookie (`401 ADMIN_AUTH_REQUIRED` otherwise), and
   changes from an origin not in `CLIENT_ORIGIN` get `403`.

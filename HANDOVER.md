@@ -1,7 +1,7 @@
 # Next-session handover
 
-Last updated: 2026-10-29 (end of session: the **second security audit** started; three of its five
-findings fixed and committed locally, **not pushed or deployed**; the first audit stays closed).
+Last updated: 2026-10-29 (the **second security audit**: four of its five findings fixed and one
+accepted, **not pushed or deployed**; SES production access granted; the first audit stays closed).
 Earlier: 2026-10-28, everything up to `0c9b03a` pushed, CI green, deployed by the user.
 Start a new session with:
 
@@ -14,9 +14,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 - **Git and CI:** everything up to `0c9b03a` is pushed, CI green (run 40677641975). **Not pushed
   yet** (the user pushes): `6eb3e61` (first audit close-out docs), `ca9f1ad` (S2-M04),
-  `e485181` (S2-M02), and the S2-M01 commit with this handover. Locally on 2026-10-29: backend 676
-  tests, lint, type-check, build (after S2-M01); browser 367 (+5 skipped), contrast 20, frontend
-  lint, type-check, format, build (after S2-M02; S2-M01 changed no frontend code). The user pushes; check with
+  `e485181` (S2-M02), `98637f7` (S2-M01), and the S2-M03 commit with this handover (S2-L01, audit close-out).
+  Locally on 2026-10-29, after S2-M03: backend 679 tests, lint, type-check, build; browser 367 (+5
+  skipped), contrast 20, frontend lint, type-check, format, build; `npm audit` clean. The user
+  pushes; check with
   `gh run list -R hpessien1/GpecProject` (the `gh` login `v25-hub` can read this repository's runs;
   it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
@@ -158,9 +159,9 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
    never together, and never above the cap** (CLAUDE.md Lessons, `docs/COMMANDS.md` Section 3).
 6. **Paystack payment methods explained for GPEC** (`5b052ce`): card, bank, transfer, and USSD, set
    in GPEC's Paystack dashboard (the code passes no list), in `ECOMMERCE_REQUIREMENTS.md` Section 6.
-7. **Email provider alternatives** to SES (only if Amazon refuses production access): prices checked
-   on each provider's own page, kept in Claude's memory, not in the repository. Recommendation: stay
-   on SES.
+7. **Email provider alternatives** to SES: prices checked on each provider's own page, kept in
+   Claude's memory, not in the repository. Not needed: Amazon granted production access on
+   2026-10-29.
 
 ## What exists
 
@@ -225,10 +226,13 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
    fail first, break each safeguard, all checks one suite at a time, commit only when asked).
    Progress is in its "Remediation Status" table. Fixed 2026-10-29: S2-M04 (contact-form PDFs,
    `ca9f1ad`), S2-M02 (security log counts repeated refusals, `e485181`; the user chose 5 per
-   address per 15 minutes), S2-M01 (turning on two-step login, committed with this handover).
-   **Next: S2-M03** (password-reset confirmation), then **S2-L01**, which needs a decision from GPEC
-   or the user before any code. After the commits: **push** (the user), check CI, deploy both
-   resources (the user), then set the commits in the audit's status table.
+   address per 15 minutes), S2-M01 (turning on two-step login, `98637f7`), S2-M03 (reset links
+   checked before the breach check, plus a limit of 20 attempts per 15 minutes; the user chose 20).
+   S2-L01 (stock count can be worked out at checkout) **accepted** by the user, recorded in CLAUDE.md
+   and ECOMMERCE_REQUIREMENTS.md. All five handled; **audit closed 2026-10-29** after a full recheck
+   (every suite, `npm audit` clean; gitleaks left to CI, not installed locally). Next: **push** (the
+   user), check CI, deploy both resources (the user), mark the fixes deployed in the audit's
+   status table, then the live check listed at the top of that file.
 1. **Ask whether RUNBOOK 1.2 items 7 and 8 were done** (Coolify memory limit; API port not reachable
    directly). **GPEC staff:** the live privacy notice's sentence about PDFs (Site content) should
    now say that PDF documents are rebuilt from their pages, which removes anything that could run
@@ -240,8 +244,8 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
 3. **Tidy-up on the live site:** delete the `[TEST]` contact request from the 2026-10-24 deploy check
    if it is still there (only a check; CLAUDE.md Section 10.3; needs the user, in the database), and
    drop the empty `enquiries` collection in `gpec` (CLAUDE.md Known Gaps).
-4. **SES production access** (requested 2026-10-23): if nothing by now (2026-10-27), check the AWS
-   support case for questions. Alternatives only if refused (see item 7 above).
+4. **SES production access granted** (2026-10-29): check a contact-form confirmation reaches an
+   address that is not verified in SES (and not in its spam folder).
 5. **Illustrative images** (`portfolio-control-panel.jpg`, `portfolio-solar-array.jpg`,
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and

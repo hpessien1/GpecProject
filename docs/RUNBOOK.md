@@ -224,8 +224,8 @@ simply off**: everything else works, and the API log says `Email notifications a
    production access (SES → *Account dashboard* → *Request production access*): use case
    *Transactional*, describing "confirmations and staff notifications for messages submitted on our
    website". AWS says review takes up to 96 hours; customer confirmations to unverified addresses
-   only work after it. A project member can send the request (done 2026-10-23; the form had no
-   use-case box, so AWS may ask by email).
+   only work after it. A project member can send the request (sent 2026-10-23; the form had no
+   use-case box, so AWS may ask by email). **Granted 2026-10-29.**
 5. **A sending-only key.** IAM → *Users* → create `gpec-ses-sender` (no console access) with this
    policy, then create an access key for it:
 

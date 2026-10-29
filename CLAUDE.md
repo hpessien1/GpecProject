@@ -246,7 +246,11 @@ add a frontend gate, confirm the backend enforces the same condition.
   admin's sessions, and emails them that it changed. Limits: requests per IP (every request counts)
   and 3 emails per admin address per hour (an address that is not an active admin's is looked up
   first and never counted or kept; requests are handled one after another, so the last email holds
-  the link that works); refused links per IP (both reuse `adminLoginRateLimit`'s numbers). With email off the request gets `503 PASSWORD_RESET_UNAVAILABLE`; `admin:create --reset`
+  the link that works); refused links per IP (both reuse `adminLoginRateLimit`'s numbers). The link
+  is checked first (known, unexpired, active admin, not used up), so a made-up one is refused and
+  counted before the breach check runs, and every attempt to set a password counts toward its own
+  per-IP limit, 20 per 15 minutes in production (`passwordResetAttemptRateLimit`; 2026-10-29, second
+  audit S2-M03). With email off the request gets `503 PASSWORD_RESET_UNAVAILABLE`; `admin:create --reset`
   still works.
 - **A new password cancels everything issued under the old one** (2026-10-26, audit finding H-01).
   All three ways to set one (`#admin/password`, a reset link, `admin:create --reset`) go through
@@ -345,7 +349,8 @@ per-IP budget (each public form route gets its own) — 10 requests per 15 minut
 production, 100 in development and test (set in `src/config.ts`). The production limit is the
 security boundary; the looser one exists so manual and automated checks do not lock the developer
 out. Keep that difference deliberate. Admin login has a stricter budget that counts **failed**
-attempts only: 5 per 15 minutes in production, 50 otherwise. Checkout has its own budgets
+attempts only: 5 per 15 minutes in production, 50 otherwise; setting a password from a reset link
+also has a budget counting every attempt (20, Section 4.5). Checkout has its own budgets
 (`orderRateLimit` 10, `checkoutReadRateLimit` 120 for quotes and payment checks), and the Paystack
 webhook its own (300). All visitors are anonymous, so key by IP. The in-memory store
 only works with one API instance (Section 6.3). `GET /api/contact-requests/options` (read on every
@@ -456,6 +461,10 @@ name), and logs which database it found. The guard only works if production sets
   of stock when the switch is on or the count is 0 (`isInStock`, same rule in the frontend's
   `utils/stock.ts`). Out-of-stock products stay in the shop, labelled, and cannot be added to the
   cart; archiving removes a product from the shop. Customers see only `inStock`, never the count.
+  Checkout's `NOT_ENOUGH_STOCK` still lets a visitor work out a counted product's number by trying
+  quantities; accepted on 2026-10-29 (second audit S2-L01, the user's decision): low harm, and a
+  coarser rule would change buying for real customers. Revisit if GPEC treats stock levels as
+  confidential.
   `deliveryAvailable` (default true; off means pickup only). The count goes down when an order is
   paid (never below 0, recorded as AuditRecord `product.sale`, with `orderReference` and no actor),
   and cancelling the order puts back exactly what that sale took (`product.restock`, with
@@ -1320,9 +1329,8 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   own password or reset it by email).
 - Product photo uploads are **on** in production since 2026-10-23 (bucket `gpec-product-images`,
   eu-north-1); the first live upload worked the same day.
-- Email notifications are **on** in production since 2026-10-23, but SES is still in the sandbox
-  (production access requested 2026-10-23): until approved, only verified addresses receive mail.
-  Staff notifications go to the developer's address until GPEC names its staff. No bounce or
+- Email notifications are **on** in production since 2026-10-23; SES production access was granted
+  2026-10-29, so customers' unverified addresses receive mail too. Staff notifications go to the developer's address until GPEC names its staff. No bounce or
   complaint handling beyond SES's account-level suppression list (SES can report these through SNS).
 - Contact-form attachments (2026-10-24) need the `request-files/*` line in the live S3 key's policy
   before they are deployed (RUNBOOK 1.7); without it, requests with files fail and requests without

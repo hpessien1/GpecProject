@@ -62,7 +62,7 @@ The shop is for buying: there are no "order enquiries" about price or availabili
 - Availability is managed by GPEC staff in the admin panel, not asked about by customers.
 - A product GPEC no longer sells is archived: it leaves the shop.
 - A product GPEC cannot supply for now is marked out of stock: it stays in the shop, labelled "Out of stock", and cannot be added to the cart or bought. The server refuses it at checkout too.
-- Staff may also keep a stock count for a product (optional). When counted, the product is out of stock at 0. Paid orders reduce the count (never below 0), and cancelling a paid order puts back what it took (2026-10-28). Customers see only in stock or out of stock, never the count.
+- Staff may also keep a stock count for a product (optional). When counted, the product is out of stock at 0. Paid orders reduce the count (never below 0), and cancelling a paid order puts back what it took (2026-10-28). Customers see only in stock or out of stock, never the count. Checkout does say when a quantity is more than is in stock, so someone trying many quantities could work out the count; this was accepted on 2026-10-29 (security review, the user's decision). If GPEC wants stock levels kept private, the alternative is a fixed maximum per online order, with larger quantities through a quote request.
 - Each product page offers a way to ask GPEC a question before buying, through the contact form.
 - Product cards must remain usable on desktop and mobile screens.
 

@@ -153,6 +153,14 @@ export async function createPasswordReset(email: string) {
   return { token, admin: { email: admin.email, name: admin.name } }
 }
 
+// Whether a reset link can still be used (known, unexpired, for an active admin), without using it
+// up. Checked before anything else is done with the new password, so a made-up link causes no work
+// (audit S2-M03: no call to the breached-password service).
+export async function isUsableResetLink(token: string) {
+  const reset = await AdminPasswordReset.findOne({ tokenHash: hashToken(token), expiresAt: { $gt: new Date() } }, { admin: 1 }).lean()
+  return reset !== null && await AdminUser.exists({ _id: reset.admin, isActive: true }) !== null
+}
+
 // Sets a new password from a reset link. The link is used up in the same transaction that sets the
 // password, so it works at most once even if sent twice at the same moment, and everything started
 // under the old password ends (replaceCredentials). Returns the admin, or null if the link is

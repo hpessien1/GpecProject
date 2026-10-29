@@ -67,9 +67,12 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ CURRENCY: 'NAIRA' })).toThrow('CURRENCY must be an ISO 4217 currency code')
   })
 
-  it('applies the stricter admin login limit in production', () => {
+  it('applies the stricter admin login and reset-attempt limits in production', () => {
+    const production = loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://db/gpec', CLIENT_ORIGIN: 'https://gpec.example.com' })
     expect(loadConfig({}).adminLoginRateLimit.limit).toBe(50)
-    expect(loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://db/gpec', CLIENT_ORIGIN: 'https://gpec.example.com' }).adminLoginRateLimit.limit).toBe(5)
+    expect(production.adminLoginRateLimit.limit).toBe(5)
+    expect(loadConfig({}).passwordResetAttemptRateLimit.limit).toBe(200)
+    expect(production.passwordResetAttemptRateLimit.limit).toBe(20)
   })
 
   it('leaves email off when no email setting is given', () => {

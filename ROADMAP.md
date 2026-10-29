@@ -226,7 +226,7 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [ ] Who receives order and contact-request notifications (`STAFF_NOTIFICATION_EMAILS`; the
       developer's address for now).
 - [x] Amazon SES: domain verified, sending key, email on in production (2026-10-23, eu-north-1).
-      Production access requested; until AWS approves it, only verified addresses get mail.
+      Production access granted 2026-10-29 (out of the sandbox: any address gets mail).
 - [x] S3 bucket for product photos and its key, uploads on in production and tested (2026-10-23).
 - [x] Permission to name Afrizone (confirmed by the user, 2026-10-25; GPEC's photos, and the people in
       them, were approved on 2026-10-23).
@@ -260,10 +260,12 @@ These block launch, and several block steps 4 to 6. Ask early.
       contact-form PDFs rebuilt without anything that can run; tidier email caps; passwords checked
       as stored. **Audit closed 2026-10-28**; the two items left are not code and are deferred: the
       Atlas lock-down (Atlas owner) and how long customer data is kept (GPEC).
-- [ ] Second security audit (2026-10-28, again detailed only in a local file): 2026-10-29,
+- [x] Second security audit (2026-10-28, again detailed only in a local file): 2026-10-29,
       contact-form PDFs checked the way a PDF reader reads them; repeated refused attempts counted in
       the Security log instead of listed one by one; turning on two-step login ends every earlier
-      login. Two findings left (one needs GPEC's decision).
+      login; reset links checked before the new password, with a limit on attempts; the stock count
+      being guessable at checkout accepted (the user's decision). **Audit closed 2026-10-29** after a
+      full recheck; a check on the live site follows the deploy.
 - [x] Staff screens (2026-10-28, user's requests): the Security log filters by date, with numbered
       pages; completed and cancelled orders cannot be changed again, and cancelling puts back the
       stock the order took; a confirmation dialog in the panel's own style for completing or

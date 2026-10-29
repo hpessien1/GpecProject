@@ -62,6 +62,9 @@ export interface Config {
   formRateLimit: RateLimitSettings
   // Failed admin logins per IP. Successful logins do not count.
   adminLoginRateLimit: RateLimitSettings
+  // Every attempt per IP to set a password from a reset link, refused or not (audit S2-M03): each one
+  // can ask the breached-password service. Room for someone trying several new passwords.
+  passwordResetAttemptRateLimit: RateLimitSettings
   // Orders started per IP. Price quotes and payment checks (read-only) get a larger budget.
   orderRateLimit: RateLimitSettings
   checkoutReadRateLimit: RateLimitSettings
@@ -205,6 +208,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     clientOrigins: parsed.CLIENT_ORIGIN.split(',').map((entry) => entry.trim()),
     formRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 10 : 100 },
     adminLoginRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 5 : 50 },
+    passwordResetAttemptRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 20 : 200 },
     orderRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 10 : 100 },
     checkoutReadRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 120 : 1000 },
     webhookRateLimit: { windowMs: FIFTEEN_MINUTES, limit: isProduction ? 300 : 1000 },

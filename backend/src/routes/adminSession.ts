@@ -8,7 +8,7 @@ import AdminUser from '../models/AdminUser.js'
 import { recordSecurityEvent } from '../services/securityLog.js'
 import { asFields } from '../validation/fields.js'
 import type { BreachedPasswordCheck } from '../services/breachedPasswords.js'
-import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, sessionCookieOptions, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
+import { RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, sessionCookieOptions, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, isUsableResetLink, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
 import type { AdminIdentity } from '../services/adminAuth.js'
 import { CHALLENGE_MINUTES, EMAIL_CODE_MINUTES, completeLoginChallenge, loginChallengeAdminId, maskEmail, resendLoginEmailCode } from '../services/twoFactor.js'
 import { currencyInfo } from '../services/currency.js'
@@ -68,6 +68,14 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
     skipSuccessfulRequests: true,
     requestWasSuccessful: (_req, res) => res.locals.wrongPassword !== true,
     message: { message: 'Too many attempts with reset links. Please wait 15 minutes and try again.' },
+  })
+  // Every attempt counts, refused or not (audit S2-M03): each one with a working link can ask the
+  // breached-password service. Looser than the refused-link budget, so new passwords can be retried.
+  const resetAttemptLimiter = rateLimit({
+    ...config.passwordResetAttemptRateLimit,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { message: 'Too many attempts to set a new password. Please wait 15 minutes and try again.' },
   })
   // Every request counts, as for reset requests: each one can send an email.
   const loginCodeLimiter = rateLimit({ ...limiterSettings, message: { message: 'Too many codes asked for. Please wait 15 minutes and try again.' } })
@@ -237,7 +245,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
     }).catch((error: unknown) => console.error(`Password reset request could not be handled: ${error instanceof Error ? error.name : 'unknown error'}`))
   })
 
-  router.post('/password-reset/confirm', securityEvent('password.reset'), resetLimiter, async (req, res, next) => {
+  router.post('/password-reset/confirm', securityEvent('password.reset'), resetAttemptLimiter, resetLimiter, async (req, res, next) => {
     try {
       const { errors, value } = validatePasswordReset(req.body)
       if (errors.token) {
@@ -245,6 +253,11 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
         throw new HttpError(400, errors.token, 'RESET_LINK_INVALID')
       }
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+      // The link first, so a made-up one never reaches the breached-password service (audit S2-M03).
+      if (!await isUsableResetLink(value.token)) {
+        res.locals.wrongPassword = true
+        throw new HttpError(400, RESET_LINK_INVALID_MESSAGE, 'RESET_LINK_INVALID')
+      }
       // Checked before the link is used up, so a refused password can be replaced without a new link.
       const breached = await breachCheck.isBreached(value.newPassword)
       if (breached) throw new HttpError(400, BREACHED_MESSAGE, 'PASSWORD_BREACHED', { newPassword: BREACHED_MESSAGE })

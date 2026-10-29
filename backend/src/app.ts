@@ -42,7 +42,7 @@ import siteContentRouter from './routes/siteContent.js'
 
 const SITE_CONTENT_ADMIN_PATH = '/api/admin/content'
 
-export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments' | 'twoFactorKey' | 'publicReadRateLimit' | 'imageReadRateLimit'> & {
+export type AppConfig = Pick<Config, 'isProduction' | 'clientOrigins' | 'formRateLimit' | 'adminLoginRateLimit' | 'passwordResetAttemptRateLimit' | 'orderRateLimit' | 'checkoutReadRateLimit' | 'webhookRateLimit' | 'currency' | 'email' | 'imageStorage' | 'payments' | 'twoFactorKey' | 'publicReadRateLimit' | 'imageReadRateLimit'> & {
   // Limits on contact forms with files (routes/contactRequests.ts); tests set shorter ones.
   uploadLimits?: UploadLimits
   // How repeated refusals are counted in the security log (services/securityLog.ts); tests set a clock.

@@ -269,3 +269,53 @@ describe('using a reset link', () => {
     expect(res.body.message).toBe('Too many attempts with reset links. Please wait 15 minutes and try again.')
   })
 })
+
+// Audit S2-M03: a made-up link with a breached password was answered PASSWORD_BREACHED, so it asked
+// the breached-password service every time and never counted as a refused link.
+describe('reset links and the breached-password check', () => {
+  function countingCheck() {
+    const checked: string[] = []
+    const check: BreachedPasswordCheck = { isBreached: async (password) => { checked.push(password); return true } }
+    return { checked, check }
+  }
+
+  it('never asks about the password for an unknown, expired, used, or deactivated account’s link', async () => {
+    const admin = await createTestAdmin()
+    const { checked, check } = countingCheck()
+    const { app } = emailApp(new RecordingMailer(), check)
+    const expired = await createPasswordReset(TEST_ADMIN.email)
+    await AdminPasswordReset.updateMany({}, { expiresAt: new Date(Date.now() - 1000) })
+    const replaced = await createPasswordReset(TEST_ADMIN.email)
+    const current = await createPasswordReset(TEST_ADMIN.email)
+    admin.isActive = false
+    await admin.save()
+    for (const token of ['A'.repeat(43), expired?.token, replaced?.token, current?.token]) {
+      const res = await confirm(app, { token, newPassword: 'passwordpassword' })
+      expect(res.status).toBe(400)
+      expect(res.body.code).toBe('RESET_LINK_INVALID')
+    }
+    expect(checked).toEqual([])
+  })
+
+  it('counts made-up links as refused even with a breached password (the audit’s reproduction)', async () => {
+    const { checked, check } = countingCheck()
+    const app = testApp({ email: TEST_EMAIL_SETTINGS, adminLoginRateLimit: { windowMs: 60_000, limit: 2 } }, new RecordingMailer(), check)
+    const statuses = []
+    for (let i = 0; i < 8; i += 1) statuses.push((await confirm(app, { token: 'A'.repeat(43), newPassword: 'passwordpassword' })).status)
+    expect(statuses).toEqual([400, 400, 429, 429, 429, 429, 429, 429])
+    expect(checked).toEqual([])
+  })
+
+  it('limits every attempt with a working link, refused or not, and keeps the link usable until then', async () => {
+    await createTestAdmin()
+    const { checked, check } = countingCheck()
+    const app = testApp({ email: TEST_EMAIL_SETTINGS, passwordResetAttemptRateLimit: { windowMs: 60_000, limit: 3 } }, new RecordingMailer(), check)
+    const reset = await createPasswordReset(TEST_ADMIN.email)
+    for (let i = 0; i < 3; i += 1) expect((await confirm(app, { token: reset?.token, newPassword: `breached long passphrase ${i}` })).body.code).toBe('PASSWORD_BREACHED')
+    const res = await confirm(app, { token: reset?.token, newPassword: 'breached long passphrase 3' })
+    expect(res.status).toBe(429)
+    expect(res.body.message).toBe('Too many attempts to set a new password. Please wait 15 minutes and try again.')
+    expect(checked).toHaveLength(3)
+    expect(await AdminPasswordReset.countDocuments()).toBe(1)
+  })
+})

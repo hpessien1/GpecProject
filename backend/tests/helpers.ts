@@ -28,6 +28,7 @@ export function testApp(overrides: Partial<AppConfig> = {}, mailer: Mailer | nul
     clientOrigins: ['http://localhost:5173'],
     formRateLimit: { windowMs: 60_000, limit: 1000 },
     adminLoginRateLimit: { windowMs: 60_000, limit: 1000 },
+    passwordResetAttemptRateLimit: { windowMs: 60_000, limit: 1000 },
     orderRateLimit: { windowMs: 60_000, limit: 1000 },
     checkoutReadRateLimit: { windowMs: 60_000, limit: 1000 },
     webhookRateLimit: { windowMs: 60_000, limit: 1000 },
