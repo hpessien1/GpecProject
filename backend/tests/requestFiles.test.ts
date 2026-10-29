@@ -2,14 +2,16 @@ import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import request from 'supertest'
 import sharp from 'sharp'
-import { PDFDocument } from '@cantoo/pdf-lib'
+import { PDFDict, PDFDocument, PDFName, PDFRef, PDFString } from '@cantoo/pdf-lib'
+import type { PDFObject } from '@cantoo/pdf-lib'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import ContactRequest from '../src/models/ContactRequest.js'
 import SecurityEvent from '../src/models/SecurityEvent.js'
 import { UPLOAD_LIMITS } from '../src/routes/contactRequests.js'
 import { seedDemoData } from '../src/services/demoData.js'
+import { activePdfParts } from '../src/services/pdfs.js'
 import { MemoryImageStore, RecordingMailer, TEST_EMAIL_SETTINGS, createTestAdmin, loggedInAgent, noBreaches, testApp, useTestDatabase } from './helpers.js'
-import { HOSTILE_MARKERS, hostilePdf, lockedPdf, pdfOfSize, samplePdf } from './pdfFixtures.js'
+import { HOSTILE_MARKERS, INDIRECT_MARKER, hostilePdf, indirectPdf, lockedPdf, pdfOfSize, samplePdf } from './pdfFixtures.js'
 
 useTestDatabase()
 const LIST = '/api/admin/contact-requests'
@@ -274,6 +276,71 @@ describe('PDFs are rebuilt without the parts that can run something', () => {
     const res = await send([[empty, 'empty.pdf']])
     expect(res.status).toBe(400)
     expect(res.body.message).toBe('“empty.pdf” could not be read as a PDF. Attach JPEG, PNG, or WebP photos, or PDF documents.')
+  })
+
+  // Audit S2-M04: a label stored elsewhere in the file, behind a reference, is read as a reader reads it.
+  describe('with labels stored elsewhere in the file', () => {
+    // Each link on the stored page: its action's type and its web address, as a reader resolves them.
+    async function storedLinks(reference: string) {
+      const rebuilt = await PDFDocument.load(await storedPdfOf(reference))
+      const resolved = (value: PDFObject | undefined): PDFObject | undefined => value instanceof PDFRef ? resolved(rebuilt.context.lookup(value)) : value
+      const text = (value: PDFObject | undefined) => {
+        const found = resolved(value)
+        return found instanceof PDFName || found instanceof PDFString ? found.decodeText() : null
+      }
+      const annotations = rebuilt.getPages()[0].node.Annots()?.asArray() ?? []
+      return annotations.map((entry) => {
+        const annotation = resolved(entry)
+        if (!(annotation instanceof PDFDict)) throw new Error('Not an annotation.')
+        const action = resolved(annotation.get(PDFName.of('A')))
+        return {
+          subtype: text(annotation.get(PDFName.of('Subtype'))),
+          action: action instanceof PDFDict ? text(action.get(PDFName.of('S'))) : null,
+          uri: action instanceof PDFDict ? text(action.get(PDFName.of('URI'))) : null,
+          other: annotation.has(PDFName.of('PA')),
+        }
+      })
+    }
+
+    it('takes out a Launch action and an attached file, keeping the web link and the link to its page', async () => {
+      const indirect = await indirectPdf()
+      expect(indirect.toString('latin1')).toContain(INDIRECT_MARKER)
+      const res = await send([[indirect, 'pump layout.pdf']])
+      expect(res.status).toBe(201)
+      const stored = (await storedPdfOf(res.body.reference)).toString('latin1')
+      expect([INDIRECT_MARKER, ...HOSTILE_MARKERS].filter((marker) => stored.includes(marker))).toEqual([])
+      expect(await storedLinks(res.body.reference)).toEqual([
+        { subtype: 'Link', action: null, uri: null, other: false },
+        { subtype: 'Link', action: null, uri: null, other: false },
+        { subtype: 'Link', action: null, uri: null, other: false },
+        { subtype: 'Link', action: null, uri: null, other: false },
+        { subtype: 'Link', action: null, uri: null, other: false },
+        { subtype: 'Link', action: 'URI', uri: 'https://gpecengineering.com/indirect', other: false },
+        { subtype: 'Link', action: 'GoTo', uri: null, other: false },
+      ])
+    })
+
+    it('records what was taken out in the security log', async () => {
+      await send([[await indirectPdf(), 'pump layout.pdf']])
+      await vi.waitFor(async () => expect(await securityEvents()).toEqual([expect.objectContaining({ outcome: 'success', detail: 'actions,files' })]))
+    })
+  })
+})
+
+// The last check on every rebuilt PDF (audit S2-M04): anything that can run, found after the rebuild,
+// refuses the file. It reads the file the way the rebuild does, so it is tested on its own here.
+describe('activePdfParts', () => {
+  it('finds every part that can run, including ones stored behind references', async () => {
+    expect(await activePdfParts(await hostilePdf())).toEqual(['scripts', 'actions', 'files', 'forms', 'media'])
+    expect(await activePdfParts(await indirectPdf())).toEqual(['actions', 'files'])
+  })
+
+  it('finds nothing in a plain PDF or one with only safe links', async () => {
+    expect(await activePdfParts(await samplePdf())).toEqual([])
+    const doc = await PDFDocument.create()
+    const page = doc.addPage([400, 300])
+    page.node.Annots()?.push(doc.context.register(doc.context.obj({ Type: 'Annot', Subtype: 'Link', Rect: [0, 0, 10, 10], A: { S: 'URI', URI: PDFString.of('https://gpecengineering.com') } })))
+    expect(await activePdfParts(Buffer.from(await doc.save()))).toEqual([])
   })
 })
 

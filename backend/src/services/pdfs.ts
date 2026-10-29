@@ -42,25 +42,50 @@ const ACTION_PARTS = new Map<string, RemovedPdfPart>([
   ['JavaScript', 'scripts'], ['SubmitForm', 'forms'], ['ImportData', 'forms'], ['ResetForm', 'forms'],
   ['Movie', 'media'], ['Sound', 'media'], ['Rendition', 'media'], ['RichMediaExecute', 'media'],
 ])
+// Every type of action the PDF standard has, to know an action under a key other than A (such as a
+// link's PA) for what it is.
+const ACTION_TYPES = new Set([
+  'GoTo', 'GoToR', 'GoToE', 'GoToDp', 'Launch', 'Thread', 'URI', 'Sound', 'Movie', 'Hide', 'Named',
+  'SubmitForm', 'ResetForm', 'ImportData', 'SetOCGState', 'Rendition', 'Trans', 'GoTo3DView',
+  'JavaScript', 'RichMediaExecute',
+])
 
-const nameOf = (value: PDFObject | undefined) => value instanceof PDFName ? value.decodeText() : null
+// A value as a reader sees it (audit S2-M04): a PDF can store a value elsewhere in the file and leave
+// a reference to it, which readers follow, so every value is followed before it is judged. A
+// reference that leads nowhere, or round in circles, is nothing a reader can use either.
+function resolve(context: PDFContext, value: PDFObject | undefined) {
+  let resolved = value
+  for (let hops = 0; resolved instanceof PDFRef && hops < 32; hops++) resolved = context.lookup(resolved)
+  return resolved instanceof PDFRef ? undefined : resolved
+}
 
-// The part an action belongs to if it must go, or null if it is kept.
+const nameOf = (context: PDFContext, value: PDFObject | undefined) => {
+  const resolved = resolve(context, value)
+  return resolved instanceof PDFName ? resolved.decodeText() : null
+}
+
+// The part an action belongs to if it must go, or null if it is kept. Only going to a page and safe
+// links are kept, and only when their type can be read; a dictionary with no type (S) is not an action.
 function refusedAction(context: PDFContext, value: PDFObject | undefined): RemovedPdfPart | null {
-  const action = value === undefined ? undefined : context.lookup(value)
-  if (!(action instanceof PDFDict)) return null
-  const type = nameOf(action.get(PDFName.of('S')))
-  if (type === null) return null
-  if (!KEPT_ACTIONS.has(type)) return ACTION_PARTS.get(type) ?? 'actions'
+  const action = resolve(context, value)
+  if (!(action instanceof PDFDict) || !action.has(PDFName.of('S'))) return null
+  const type = nameOf(context, action.get(PDFName.of('S')))
+  if (type === null || !KEPT_ACTIONS.has(type)) return ACTION_PARTS.get(type ?? '') ?? 'actions'
   // A link must be a web or email address: readers may run anything else (a "javascript:" address,
   // a file on the computer). A chain of further actions (Next) is never kept.
   if (action.has(PDFName.of('Next'))) return 'actions'
   if (type === 'URI') {
-    const uri = action.get(PDFName.of('URI'))
+    const uri = resolve(context, action.get(PDFName.of('URI')))
     const text = uri instanceof PDFString || uri instanceof PDFHexString ? uri.decodeText() : ''
     if (!SAFE_LINK.test(text.trim())) return 'actions'
   }
   return null
+}
+
+// Whether a value is an action, wherever it sits: its type is one of the standard's action types.
+function isAction(context: PDFContext, value: PDFObject | undefined) {
+  const dict = resolve(context, value)
+  return dict instanceof PDFDict && ACTION_TYPES.has(nameOf(context, dict.get(PDFName.of('S'))) ?? '')
 }
 
 // Checks one dictionary, noting what it holds that must go, and with strip, removing it.
@@ -70,23 +95,24 @@ function checkDict(context: PDFContext, dict: PDFDict, removed: Set<RemovedPdfPa
     removed.add(part)
     if (strip) dict.delete(PDFName.of(key))
   }
-  // A link or other click on a page (A), or a bookmark.
-  const actionPart = refusedAction(context, dict.get(PDFName.of('A')))
-  if (actionPart) {
+  // A link or other click on a page (A), a bookmark, or an action under any other key (such as PA).
+  for (const [key, value] of dict.entries()) {
+    if (key !== PDFName.of('A') && !isAction(context, value)) continue
+    const actionPart = refusedAction(context, value)
+    if (!actionPart) continue
     removed.add(actionPart)
-    if (strip) dict.delete(PDFName.of('A'))
+    if (strip) dict.delete(key)
   }
   // An action's own chain of further actions.
   if (dict.has(PDFName.of('S')) && dict.has(PDFName.of('Next'))) {
     removed.add('actions')
     if (strip) dict.delete(PDFName.of('Next'))
   }
-  const annotations = dict.get(PDFName.of('Annots'))
-  const list = annotations === undefined ? undefined : context.lookup(annotations)
+  const list = resolve(context, dict.get(PDFName.of('Annots')))
   if (!(list instanceof PDFArray)) return
   const kept = list.asArray().filter((entry) => {
-    const annotation = context.lookup(entry)
-    const part = annotation instanceof PDFDict ? REMOVED_ANNOTATIONS.get(nameOf(annotation.get(PDFName.of('Subtype'))) ?? '') : undefined
+    const annotation = resolve(context, entry)
+    const part = annotation instanceof PDFDict ? REMOVED_ANNOTATIONS.get(nameOf(context, annotation.get(PDFName.of('Subtype'))) ?? '') : undefined
     if (part) removed.add(part)
     return !part
   })
@@ -133,6 +159,14 @@ function dropUnreachable(context: PDFContext) {
   }
 }
 
+// The parts that can run something anywhere in a PDF, following every reference; empty for a safe one.
+export async function activePdfParts(input: Buffer): Promise<RemovedPdfPart[]> {
+  const doc = await PDFDocument.load(input, { password: '', updateMetadata: false })
+  const found = new Set<RemovedPdfPart>()
+  eachDict(doc.context, (dict) => checkDict(doc.context, dict, found, false))
+  return REMOVED_PDF_PARTS.filter((part) => found.has(part))
+}
+
 async function rebuild(input: Buffer): Promise<CleanedPdf> {
   if (input.subarray(0, 5).toString('latin1') !== '%PDF-') return { refused: 'not_a_pdf' }
   let source: PDFDocument
@@ -155,6 +189,9 @@ async function rebuild(input: Buffer): Promise<CleanedPdf> {
     eachDict(rebuilt.context, (dict) => checkDict(rebuilt.context, dict, removed, true))
     dropUnreachable(rebuilt.context)
     const body = Buffer.from(await rebuilt.save({ useObjectStreams: false }))
+    // The file as it will be stored, read again: anything that can run still in it refuses the file
+    // rather than reaching staff (audit S2-M04).
+    if ((await activePdfParts(body)).length > 0) return { refused: 'not_a_pdf' }
     return { body, removed: REMOVED_PDF_PARTS.filter((part) => removed.has(part)) }
   } catch {
     // A file that opened but whose pages cannot be read or copied.

@@ -955,7 +955,10 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
   2026-10-28, audit finding M-05, the user's choice; `@cantoo/pdf-lib`, the maintained fork of
   `pdf-lib`): a new PDF gets copies of the pages only, then loses scripts, actions other than going to
   a page or to a web or email address, attached files, form fields, and media, and anything no longer
-  reachable is dropped, so the customer's own bytes are never stored. A PDF that needs a password, is
+  reachable is dropped, so the customer's own bytes are never stored. Every value is read as a reader
+  reads it, following references to values stored elsewhere in the file; an action whose type cannot
+  be read is removed; and the saved file is read again and refused if anything that can run is still
+  in it (2026-10-29, second audit S2-M04). A PDF that needs a password, is
   not readable, or has no pages is refused (one locked only against editing opens and is accepted);
   anything else refuses the whole request, naming the file. Photos and PDFs are opened one at a time
   across the API (`services/heavyWork.ts`). Stored

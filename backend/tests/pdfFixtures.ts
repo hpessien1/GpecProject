@@ -71,3 +71,34 @@ export async function hostilePdf() {
   doc.catalog.lookupMaybe(PDFName.of('Names'), PDFDict)?.set(PDFName.of('JavaScript'), context.obj({ Names: [PDFString.of('start'), script("app.alert('by name')")] }))
   return Buffer.from(await doc.save({ useObjectStreams: false }))
 }
+
+// The file name the hidden actions below point at; in a stored file it would mean one survived.
+export const INDIRECT_MARKER = 'audit-marker-do-not-run.txt'
+
+// Audit S2-M04: the same parts with their labels stored elsewhere in the file, behind references a
+// reader follows, next to a web link and a link to its own page stored the same way, which must stay.
+export async function indirectPdf() {
+  const doc = await PDFDocument.create()
+  const page = doc.addPage([400, 300])
+  page.drawText('Pump layout', { x: 40, y: 200 })
+  const context = doc.context
+  // A value stored on its own, with a reference to it (twice: a reference to a reference).
+  const elsewhere = (value: PDFObject) => context.register(value)
+  const twice = (value: PDFObject) => context.register(elsewhere(value))
+  const launch = (type: PDFObject) => context.obj({ S: type, F: PDFString.of(INDIRECT_MARKER) })
+  const annotation = (fields: Record<string, PDFObject | string | number[]>) => context.register(context.obj({ Type: 'Annot', Rect: [0, 0, 10, 10], ...fields }))
+  const annotations = page.node.Annots()
+  for (const added of [
+    annotation({ Subtype: 'Link', A: launch(elsewhere(PDFName.of('Launch'))) }),
+    annotation({ Subtype: 'Link', A: launch(twice(PDFName.of('Launch'))) }),
+    annotation({ Subtype: elsewhere(PDFName.of('FileAttachment')), FS: PDFString.of(INDIRECT_MARKER) }),
+    // Labels that are not names at all: a reader may still read them, so they go.
+    annotation({ Subtype: 'Link', A: launch(PDFString.of('Launch')) }),
+    annotation({ Subtype: 'Link', A: launch(context.obj(['Launch'])) }),
+    // An action under a key other than A.
+    annotation({ Subtype: 'Link', PA: launch(PDFName.of('Launch')) }),
+    annotation({ Subtype: 'Link', A: context.obj({ S: elsewhere(PDFName.of('URI')), URI: elsewhere(PDFString.of('https://gpecengineering.com/indirect')) }) }),
+    annotation({ Subtype: 'Link', A: context.obj({ S: elsewhere(PDFName.of('GoTo')), D: [page.ref, 'Fit'] }) }),
+  ]) annotations?.push(added)
+  return Buffer.from(await doc.save({ useObjectStreams: false }))
+}
