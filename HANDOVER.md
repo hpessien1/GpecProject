@@ -27,10 +27,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   deploys on push.
 - **What is deployed:** everything up to `a6f8530`, both `gpec-api` and `gpec-web` (2026-10-30, the
   user).
-- **Two owner steps from this session, not confirmed done** (ask the user): RUNBOOK 1.2 item 7 (a
-  1 GB memory limit on `gpec-api` in Coolify, audit M-04) and item 8 (check that port 5001 on the
-  server's IP cannot be reached directly, audit M-08: the per-visitor limits trust the proxy's
-  address).
+- **RUNBOOK 1.2 items 7 and 8 done** (2026-10-30): `gpec-api` has a 1 GB memory limit in Coolify
+  (set by the user, redeployed, health check answered), and port 5001 on the server's IP timed out
+  from outside while `https://api.gpecengineering.com/api/health` answered.
 - **Admin roles are planned** (user, 2026-10-27): two people run the admin side today; GPEC intends
   to add roles that can do some admin functions but not all. Design new admin features so they can be
   limited per role later (only `admin` exists now; the security log stays with full admins).
@@ -125,8 +124,8 @@ raises a new finding, handle it the same way. Fixed, committed, and deployed:
   before opening them.
 
 Deferred (not code; the user's decision at close-out): **H-02** (the Atlas owner, RUNBOOK 1.1) and
-**data retention** (GPEC sets the periods, then the clean-up is built). Owner steps from the fixes, not
-confirmed done: RUNBOOK 1.2 items 7 and 8.
+**data retention** (GPEC sets the periods, then the clean-up is built). Owner steps from the fixes
+(RUNBOOK 1.2 items 7 and 8): done 2026-10-30.
 
 ## Previous session (2026-10-25/26), in order
 
@@ -258,8 +257,7 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
    and ECOMMERCE_REQUIREMENTS.md. All five handled; **audit closed 2026-10-29** after a full recheck
    (every suite, `npm audit` clean; gitleaks passed in CI). Pushed, CI green, deployed 2026-10-29;
    the user reported everything working. Nothing left from this audit.
-1. **Ask whether RUNBOOK 1.2 items 7 and 8 were done** (Coolify memory limit; API port not reachable
-   directly). **GPEC staff:** the live privacy notice's sentence about PDFs (Site content) should
+1. **GPEC staff:** the live privacy notice's sentence about PDFs (Site content) should
    now say that PDF documents are rebuilt from their pages, which removes anything that could run
    when the file is opened, as well as hidden details such as its author.
 2. **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD). The user
