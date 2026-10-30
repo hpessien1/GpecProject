@@ -620,7 +620,8 @@ describe('an emailed account code approves one change', () => {
     const fresh = await emailAccountCode()
     expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code: fresh })).status).toBe(200)
     expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code: fresh })).body.code).toBe('WRONG_CODE')
-  })
+    // Nine password checks (scrypt) in a row: 6.1 s on a busy CI runner (2026-10-30).
+  }, 30_000)
 })
 
 // Audit S3-M01: a change whose password (and code) was checked, but which was saved only after the owner
