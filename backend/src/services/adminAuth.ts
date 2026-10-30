@@ -6,6 +6,7 @@ import AdminLoginChallenge from '../models/AdminLoginChallenge.js'
 import AdminPasswordReset from '../models/AdminPasswordReset.js'
 import AdminSession from '../models/AdminSession.js'
 import AdminUser from '../models/AdminUser.js'
+import type { BreachedPasswordCheck } from './breachedPasswords.js'
 import { getDecoyHash, hashPassword, verifyPassword } from './passwords.js'
 import { startLoginChallenge } from './twoFactor.js'
 import type { TwoFactorMethod } from './twoFactor.js'
@@ -140,15 +141,19 @@ export async function isCurrentPassword(adminId: string, password: string) {
 // password ends (replaceCredentials); this browser gets a new session token, so a copy of its old
 // cookie stops working too. Saved only if the account is still as it was when the current password was
 // checked ('changed' otherwise: nothing saved, no session; audit S3-M01).
-export async function changePassword(adminId: string, currentPassword: string, newPassword: string): Promise<{ status: 'ok', token: string } | { status: 'wrong-password' } | { status: 'changed' }> {
+export async function changePassword(adminId: string, currentPassword: string, newPassword: string, breachCheck: BreachedPasswordCheck): Promise<{ status: 'ok', token: string, breachUnchecked: boolean } | { status: 'wrong-password' } | { status: 'breached' } | { status: 'changed' }> {
   const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
   if (!admin || !await verifyPassword(currentPassword, admin.passwordHash)) return { status: 'wrong-password' }
+  // After the current password, so a session alone (a copied cookie) never reaches the breached-password
+  // service, as for reset links (audit S2-M03). null: the service could not be reached.
+  const breached = await breachCheck.isBreached(newPassword)
+  if (breached) return { status: 'breached' }
   const passwordHash = await hashPassword(newPassword)
   const token = await mongoose.connection.transaction(async (session) => {
     const version = await replaceCredentials(session, admin._id, passwordHash, unchangedSince(admin))
     return version === null ? null : createSession(admin._id, version, session)
   })
-  return token === null ? { status: 'changed' } : { status: 'ok', token }
+  return token === null ? { status: 'changed' } : { status: 'ok', token, breachUnchecked: breached === null }
 }
 
 // Starts a "forgot password" reset for an active admin: returns the token for the emailed link, or

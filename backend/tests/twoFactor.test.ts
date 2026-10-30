@@ -9,6 +9,7 @@ import AdminSession from '../src/models/AdminSession.js'
 import AdminUser from '../src/models/AdminUser.js'
 import { createPasswordReset } from '../src/services/adminAuth.js'
 import { open, seal } from '../src/services/secretBox.js'
+import { MAX_CODE_ATTEMPTS } from '../src/services/twoFactor.js'
 import { currentStep, matchTotp, toBase32, totpCode } from '../src/services/totp.js'
 import { RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, TEST_TWO_FACTOR_KEY, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
 
@@ -492,6 +493,133 @@ describe('turning it off and new recovery codes', () => {
     const { client } = await startLogin()
     expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: secondOld })).status).toBe(400)
     expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: res.body.recoveryCodes[0] })).status).toBe(200)
+  })
+})
+
+// Audit S4-M01: two requests sent at once with the same emailed account code could both be approved,
+// because the code was compared first and cleared afterwards.
+describe('an emailed account code approves one change', () => {
+  const sha256 = (value: string) => createHash('sha256').update(value).digest('hex')
+  const clears = (update: Record<string, unknown>) => 'accountCodeHash' in update && update.accountCodeHash === null
+
+  // Emails an account code to an admin using email codes and returns it.
+  async function emailAccountCode() {
+    await AdminUser.updateOne({ email: TEST_ADMIN.email }, { accountCodeSentAt: new Date(Date.now() - 61_000) })
+    await post(agent, `${ACCOUNT}/email-code`).expect(202)
+    await settle()
+    return lastEmailedCode()
+  }
+
+  // Holds the first two AdminUser.updateOne calls that clear the account code until both have arrived,
+  // so two requests have each checked the code before either clears it.
+  function holdTwoClears() {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const original = AdminUser.updateOne.bind(AdminUser)
+    let held = 0
+    vi.spyOn(AdminUser, 'updateOne').mockImplementation(((filter: Parameters<typeof original>[0], update: Record<string, unknown>) => {
+      if (held >= 2 || !clears(update)) return original(filter, update)
+      held += 1
+      if (held === 2) release()
+      return gate.then(() => original(filter, update))
+    }) as unknown as typeof original)
+  }
+
+  it('two requests for new recovery codes at once: only one gets codes', async () => {
+    await turnOnEmail()
+    const code = await emailAccountCode()
+    holdTwoClears()
+    const results = await Promise.all([1, 2].map(() => post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code })))
+    expect(results.map((res) => res.status).sort()).toEqual([200, 400])
+    const winner = results.find((res) => res.status === 200)
+    expect(results.find((res) => res.status === 400)?.body.code).toBe('WRONG_CODE')
+    // The codes handed out are the ones that work.
+    const { client } = await startLogin()
+    expect((await post(client, `${LOGIN}/two-factor`, { recoveryCode: winner?.body.recoveryCodes[0] })).status).toBe(200)
+  })
+
+  it('new recovery codes and turning two-step login off at once: only one happens', async () => {
+    await turnOnEmail()
+    const code = await emailAccountCode()
+    holdTwoClears()
+    const [regenerate, disable] = await Promise.all([
+      post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code }),
+      post(agent, `${ACCOUNT}/disable`, { password: TEST_ADMIN.password, code }),
+    ])
+    expect([regenerate.status, disable.status].sort()).toEqual([200, 400])
+    const stored = await AdminUser.findOne({ email: TEST_ADMIN.email }).lean()
+    expect(stored?.twoFactorMethod).toBe(disable.status === 200 ? null : 'email')
+  })
+
+  it('a late request with a used-up code does not clear a newer code', async () => {
+    await turnOnEmail()
+    await emailAccountCode()
+    const wrong = lastEmailedCode() === '000000' ? '111111' : '000000'
+    await AdminUser.updateOne({ email: TEST_ADMIN.email }, { accountCodeAttempts: MAX_CODE_ATTEMPTS - 1 })
+    // Holds the clearing of the code used up by its last wrong try (not the try itself).
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const original = AdminUser.updateOne.bind(AdminUser)
+    let paused = false
+    vi.spyOn(AdminUser, 'updateOne').mockImplementation(((filter: Record<string, unknown>, update: Record<string, unknown>) => {
+      if (paused || !clears(update) || filter.accountCodeHash === sha256(wrong)) return original(filter, update)
+      paused = true
+      return gate.then(() => original(filter, update))
+    }) as unknown as typeof original)
+    const late = post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code: wrong }).then((res) => res)
+    await vi.waitFor(() => expect(paused).toBe(true))
+    const newer = await emailAccountCode()
+    release()
+    expect((await late).body.code).toBe('WRONG_CODE')
+    expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code: newer })).status).toBe(200)
+  })
+
+  // The minute between codes was checked on a copy read before saving, so requests at once each sent one.
+  it('requests for a code sent at once email one code, and that code works', async () => {
+    await turnOnEmail()
+    await AdminUser.updateOne({ email: TEST_ADMIN.email }, { accountCodeSentAt: new Date(Date.now() - 61_000) })
+    // Holds each request's write of a new code (a saved document or an update) until both have reached it.
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    let held = 0
+    const hold = () => {
+      held += 1
+      if (held === 2) release()
+      return gate
+    }
+    const save = AdminUser.prototype.save
+    vi.spyOn(AdminUser.prototype, 'save').mockImplementation(async function (this: InstanceType<typeof AdminUser>, ...args: Parameters<typeof save>) {
+      if (held < 2 && this.isModified('accountCodeHash')) await hold()
+      return save.apply(this, args)
+    })
+    const findOneAndUpdate = AdminUser.findOneAndUpdate.bind(AdminUser)
+    vi.spyOn(AdminUser, 'findOneAndUpdate').mockImplementation(((filter: Parameters<typeof findOneAndUpdate>[0], update: Record<string, unknown>, options: Parameters<typeof findOneAndUpdate>[2]) => {
+      const query = findOneAndUpdate(filter, update, options)
+      if (held >= 2 || typeof update?.accountCodeHash !== 'string') return query
+      const wait = hold()
+      const lean = query.lean.bind(query)
+      return Object.assign(query, { lean: async () => { await wait; return lean() } })
+    }) as unknown as typeof findOneAndUpdate)
+    const before = mailer.sent.length
+    const results = await Promise.all([1, 2].map(() => post(agent, `${ACCOUNT}/email-code`)))
+    expect(results.map((res) => res.status).sort()).toEqual([202, 429])
+    await settle()
+    expect(mailer.sent.length - before).toBe(1)
+    expect((await post(agent, `${ACCOUNT}/email-code`)).body.code).toBe('CODE_TOO_SOON')
+    expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code: lastEmailedCode() })).status).toBe(200)
+  })
+
+  it('is used up by five wrong tries, and works once', async () => {
+    await turnOnEmail()
+    const code = await emailAccountCode()
+    const wrong = code === '000000' ? '111111' : '000000'
+    for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+      expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code: wrong })).body.code).toBe('WRONG_CODE')
+    }
+    expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code })).body.code).toBe('WRONG_CODE')
+    const fresh = await emailAccountCode()
+    expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code: fresh })).status).toBe(200)
+    expect((await post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, code: fresh })).body.code).toBe('WRONG_CODE')
   })
 })
 

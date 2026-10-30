@@ -9,6 +9,7 @@ import { fulfilmentMethodLabels, orderStageLabels, ordersContent, paymentMethodL
 import { ApiError } from '../../services/apiClient'
 import { addOrderNote, checkOrderPayment, closeOrderPayment, closeUnpaidTransfer, confirmTransferReceived, getOlderOrderHistory, getOlderOrderNotes, getOrder, setOrderStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
+import { mailtoLink } from '../../utils/mailto'
 import { formatPrice } from '../../utils/money'
 import type { AdminOrderResponse, FulfilmentMethod, FulfilmentStatus } from '../../types'
 
@@ -217,7 +218,7 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
           <dl>
             <dt>Name</dt><dd>{order.customer.fullName}</dd>
             {order.customer.company && <><dt>Company</dt><dd>{order.customer.company}</dd></>}
-            <dt>Email</dt><dd><a href={`mailto:${order.customer.email}?subject=${encodeURIComponent(`Your GPEC order ${order.reference}`)}`}>{order.customer.email}</a></dd>
+            <dt>Email</dt><dd><a href={mailtoLink(order.customer.email, `Your GPEC order ${order.reference}`)}>{order.customer.email}</a></dd>
             <dt>Phone</dt><dd><a href={`tel:${order.customer.phone.replace(/[^\d+]/g, '')}`}>{order.customer.phone}</a></dd>
           </dl>
           <h2>{fulfilmentMethodLabels[order.fulfilmentMethod]}</h2>

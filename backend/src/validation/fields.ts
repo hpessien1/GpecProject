@@ -2,7 +2,11 @@
 export type Fields = Record<string, unknown>
 export type ValidationErrors = Record<string, string>
 
-export const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// After the @, only a domain: labels of letters, digits, and inner hyphens, joined by dots. `?`, `&`,
+// `%`, or `#` there would add recipients to staff's "email the customer" link (audit S4-L01); the links
+// encode the address as well, for addresses saved before this rule.
+const domainLabel = '[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]*[\\p{L}\\p{N}])?'
+export const emailPattern = new RegExp(`^[^\\s@]+@(?:${domainLabel}\\.)+${domainLabel}$`, 'u')
 
 export function asFields(value: unknown): Fields {
   return (value && typeof value === 'object' ? value : {}) as Fields

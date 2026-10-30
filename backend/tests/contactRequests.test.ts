@@ -55,6 +55,24 @@ describe('POST /api/contact-requests', () => {
     expect(res.body.errors).toMatchObject({ email: 'email must be valid.', message: 'message must be 5000 characters or fewer.' })
   })
 
+  // Audit S4-L01: `?`, `&`, and `%` after the @ added recipients to staff's "email the customer" link.
+  it.each([
+    'customer@example.invalid?bcc=audit-copy%40example.invalid&x=',
+    'customer@example.invalid&cc=other.invalid',
+    'customer@example%2Einvalid',
+    'customer@example.invalid#x',
+    'customer@-example.invalid',
+  ])('rejects an email whose domain is not a domain: %s', async (email) => {
+    const res = await request(app).post('/api/contact-requests').send({ ...validRequest(), email })
+    expect(res.status).toBe(400)
+    expect(res.body.errors.email).toBe('email must be valid.')
+    expect(await ContactRequest.countDocuments()).toBe(0)
+  })
+
+  it.each(['ada.obi+orders@mail.example.ng', "o'neil@example.com", 'ada_buyer@sub-domain.example.co.uk', 'ada@xn--80ak6aa92e.com'])('accepts an ordinary email: %s', async (email) => {
+    expect((await request(app).post('/api/contact-requests').send({ ...validRequest(), email })).status).toBe(201)
+  })
+
   it('ignores reference and status sent by the client', async () => {
     const res = await request(app).post('/api/contact-requests').send({ ...validRequest(), reference: 'MINE', status: 'closed' })
     expect(res.status).toBe(201)

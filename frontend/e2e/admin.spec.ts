@@ -834,6 +834,23 @@ test.describe('contact requests', () => {
     await expect(page.getByRole('button', { name: /^New/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  // Audit S4-L01: an address saved before the server refused `?` and `&` must not add recipients.
+  test('email links keep an odd saved address as one recipient, with only the site’s subject', async ({ page }) => {
+    const odd = 'customer@example.invalid?bcc=audit-copy%40example.invalid&x='
+    const api = await mockApi(page)
+    for (const item of [...api.contactRequests, ...api.orders]) item.customer = { ...item.customer, email: odd }
+    await logInAsAdmin(page)
+    for (const [path, subject] of [[`contact-requests/${CONTACT_REF}`, `Your GPEC request ${CONTACT_REF}`], [`orders/${ORDER_REF}`, `Your GPEC order ${ORDER_REF}`]]) {
+      await page.goto(`/#admin/${path}`)
+      const href = await page.getByRole('link', { name: odd }).getAttribute('href')
+      const link = new URL(href ?? '')
+      expect(link.protocol).toBe('mailto:')
+      expect(decodeURIComponent(link.pathname)).toBe(odd)
+      expect([...link.searchParams.keys()]).toEqual(['subject'])
+      expect(link.searchParams.get('subject')).toBe(subject)
+    }
+  })
+
   test('shows a contact request with reply links and records a status change', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)

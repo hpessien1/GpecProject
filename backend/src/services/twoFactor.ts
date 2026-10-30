@@ -246,32 +246,32 @@ export async function startAppSetup(adminId: string, key: Buffer) {
 }
 
 // Emails the logged-in admin a code: to set up email codes, or to confirm turning two-step login off
-// or making new recovery codes. 'too-soon' within a minute of the last one.
+// or making new recovery codes. 'too-soon' within a minute of the last one. The minute is in the
+// update's filter, so requests sent at once email one code (never sent: null, also on old accounts).
 export async function createAccountEmailCode(adminId: string) {
-  const admin = await AdminUser.findOne({ _id: adminId, isActive: true })
-  if (!admin) return null
-  if (admin.accountCodeSentAt && admin.accountCodeSentAt.getTime() > Date.now() - EMAIL_CODE_COOLDOWN_MS) return 'too-soon' as const
   const code = newEmailCode()
-  admin.accountCodeHash = sha256(code)
-  admin.accountCodeExpiresAt = minutesFromNow(EMAIL_CODE_MINUTES)
-  admin.accountCodeAttempts = 0
-  admin.accountCodeSentAt = new Date()
-  await admin.save()
-  return { code, admin: { email: admin.email, name: admin.name } }
-}
-
-// Checks an emailed account code; each try counts, and the code is cleared once used or after
-// MAX_CODE_ATTEMPTS wrong tries.
-async function useAccountEmailCode(adminId: unknown, code: string) {
   const admin = await AdminUser.findOneAndUpdate(
-    { _id: adminId, accountCodeHash: { $ne: null }, accountCodeExpiresAt: { $gt: new Date() }, accountCodeAttempts: { $lt: MAX_CODE_ATTEMPTS } },
-    { $inc: { accountCodeAttempts: 1 } },
+    { _id: adminId, isActive: true, $or: [{ accountCodeSentAt: null }, { accountCodeSentAt: { $lte: new Date(Date.now() - EMAIL_CODE_COOLDOWN_MS) } }] },
+    { accountCodeHash: sha256(code), accountCodeExpiresAt: minutesFromNow(EMAIL_CODE_MINUTES), accountCodeAttempts: 0, accountCodeSentAt: new Date() },
     { new: true },
   ).lean()
-  if (!admin) return false
-  const passed = sameHash(admin.accountCodeHash, code)
-  if (passed || admin.accountCodeAttempts >= MAX_CODE_ATTEMPTS) await AdminUser.updateOne({ _id: adminId }, { accountCodeHash: null, accountCodeExpiresAt: null })
-  return passed
+  if (admin) return { code, admin: { email: admin.email, name: admin.name } }
+  return (await AdminUser.exists({ _id: adminId, isActive: true })) ? 'too-soon' as const : null
+}
+
+// Checks an emailed account code. A right one is used up in the same update that finds it, so two
+// requests sent at once with one code cannot both be approved (audit S4-M01). A wrong one counts a try,
+// and after MAX_CODE_ATTEMPTS the code is cleared, only if it is still that code: a code emailed since
+// is never cleared by a late request.
+async function useAccountEmailCode(adminId: unknown, code: string) {
+  const live = { _id: adminId, accountCodeExpiresAt: { $gt: new Date() }, accountCodeAttempts: { $lt: MAX_CODE_ATTEMPTS } }
+  const used = await AdminUser.updateOne({ ...live, accountCodeHash: sha256(code) }, { accountCodeHash: null, accountCodeExpiresAt: null })
+  if (used.matchedCount === 1) return true
+  const counted = await AdminUser.findOneAndUpdate({ ...live, accountCodeHash: { $ne: null } }, { $inc: { accountCodeAttempts: 1 } }, { new: true }).lean()
+  if (counted && counted.accountCodeAttempts >= MAX_CODE_ATTEMPTS) {
+    await AdminUser.updateOne({ _id: adminId, accountCodeHash: counted.accountCodeHash }, { accountCodeHash: null, accountCodeExpiresAt: null })
+  }
+  return false
 }
 
 export type EnableResult = { status: 'ok', recoveryCodes: string[], sessionToken: string } | { status: 'wrong' } | { status: 'wrong-password' } | { status: 'not-started' } | { status: 'already-on' } | { status: 'changed' }

@@ -204,20 +204,19 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
     try {
       const { errors, value } = validatePasswordChange(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
-      // A password known from a breach is among the first an attacker tries. If the check service
-      // cannot be reached, the change goes ahead (the length rule still applies) rather than locking
-      // staff out of changing their password; the skip is logged.
-      const breached = await breachCheck.isBreached(value.newPassword)
-      if (breached) throw new HttpError(400, BREACHED_MESSAGE, 'PASSWORD_BREACHED', { newPassword: BREACHED_MESSAGE })
-      if (breached === null) console.warn('Password change: the breached-password check could not be made; the change went ahead without it.')
       const admin = currentAdmin(res)
-      const result = await changePassword(admin.id, value.currentPassword, value.newPassword)
+      // A password known from a breach is among the first an attacker tries; checked once the current
+      // password is right. If the check service cannot be reached, the change goes ahead (the length
+      // rule still applies) rather than locking staff out of changing their password; the skip is logged.
+      const result = await changePassword(admin.id, value.currentPassword, value.newPassword, breachCheck)
       // 400, not 401: the session is still valid, only the password typed was wrong.
       if (result.status === 'wrong-password') {
         res.locals.wrongPassword = true
         throw new HttpError(400, 'Your current password is incorrect.', 'WRONG_PASSWORD', { currentPassword: 'Your current password is incorrect.' })
       }
+      if (result.status === 'breached') throw new HttpError(400, BREACHED_MESSAGE, 'PASSWORD_BREACHED', { newPassword: BREACHED_MESSAGE })
       if (result.status === 'changed') throw new HttpError(409, ACCOUNT_CHANGED_MESSAGE, 'ACCOUNT_CHANGED')
+      if (result.breachUnchecked) console.warn('Password change: the breached-password check could not be made; the change went ahead without it.')
       // Every session ended with the old password, this one too: this browser carries on with a new one.
       res.cookie(SESSION_COOKIE, result.token, { ...cookieOptions, maxAge: SESSION_DURATION_MS })
       res.status(204).end()

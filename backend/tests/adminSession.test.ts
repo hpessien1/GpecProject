@@ -233,6 +233,18 @@ describe('changing your own password', () => {
     expect((await logIn(app, { email: TEST_ADMIN.email, password: TEST_ADMIN.password })).status).toBe(200)
   })
 
+  // As for reset links (audit S2-M03): a session alone, such as a copied cookie, asked the breached-
+  // password service about any password as often as it liked, without the wrong-password limit counting.
+  it('checks the current password before asking the breached-password service', async () => {
+    await createTestAdmin()
+    const checked: string[] = []
+    const agent = await loggedInAgent(testApp({}, null, { isBreached: async (password) => { checked.push(password); return true } }))
+    const res = await changePassword(agent, { currentPassword: 'not my password', newPassword: NEW_PASSWORD })
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('WRONG_PASSWORD')
+    expect(checked).toEqual([])
+  })
+
   // Audit L-03: passwords are stored "tidied" (Unicode NFKC: wide look-alike letters become ordinary
   // ones), so every rule must look at the tidied password, the one that is actually stored.
   describe('checks the password as it is stored, with look-alike letters made ordinary', () => {

@@ -216,7 +216,16 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
 
 ## Open items for the next session
 
-0. **Third security audit** (2026-10-29): `SECURITY_AUDIT_THIRD.md`, git-ignored like the others;
+0. **Fourth security audit** (2026-10-29): `SECURITY_AUDIT_FOURTH.md`, git-ignored like the others;
+   handled the same way. Both fixed 2026-10-30 (its "Remediation Status" table): S4-M01 (an emailed
+   account code is used up by the same update that accepts it, so it approves one change), S4-L01
+   (customer email addresses: only a real domain after the @, and staff's email links encode the
+   address). A sweep of every earlier audit's types of finding (2026-10-30) found and fixed two more:
+   requests for an emailed account code at once each sent one, and the panel's password change asked
+   the breached-password service before checking the current password. Left: commit when the user
+   asks, CI, deploy; then composing (not sending) from an email
+   link in GPEC's own mail program, with GPEC's staff.
+   **Third security audit** (2026-10-29): `SECURITY_AUDIT_THIRD.md`, git-ignored like the others;
    handled the same way. All three fixed 2026-10-29 (its "Remediation Status" table): S3-M01 (password
    and two-step changes saved only if the account is unchanged since the check, `409 ACCOUNT_CHANGED`;
    also covers turning two-step login off and new recovery codes, which the report did not list),

@@ -229,7 +229,8 @@ add a frontend gate, confirm the backend enforces the same condition.
   browser a new session token (a copied cookie stops working), and emails the admin that it was
   changed in the panel (worded apart from a reset link's email; 2026-10-29, third audit S3-L01). Wrong current
   passwords count toward the login rate limit. New passwords known from data breaches are refused
-  (`400 PASSWORD_BREACHED`), checked with Have I Been Pwned's free Pwned Passwords API
+  (`400 PASSWORD_BREACHED`; in the panel only once the current password is right, 2026-10-30, as for
+  reset links), checked with Have I Been Pwned's free Pwned Passwords API
   (`services/breachedPasswords.ts`; approved by the user 2026-10-22). Only the first 5 characters
   of the password's SHA-1 hash leave the server. If the service cannot be reached the change goes
   ahead and the skip is logged. Tests pass a stand-in (`noBreaches` in `tests/helpers.ts`) and
@@ -286,7 +287,10 @@ add a frontend gate, confirm the backend enforces the same condition.
   - A correct password for such an admin starts an `AdminLoginChallenge` (own httpOnly cookie
     `gpec_admin_login`, path `/api/admin/session`, 10 minutes), not a session. Five wrong codes end
     it; wrong codes also count toward the failed-login limit. An app code's time step is recorded in
-    the same conditional update that accepts it, so a code works once even if sent twice at once.
+    the same conditional update that accepts it, so a code works once even if sent twice at once; an
+    emailed account code (turning two-step login on or off, new recovery codes) is cleared by the
+    update that matches it, and a wrong one clears only the code it counted (2026-10-30, fourth audit
+    S4-M01); its one-a-minute rule is in the update that stores a new code, so requests at once email one.
   - **Limits per account** (2026-10-26, audit finding M-03), against someone who knows the password:
     a new login cancels the account's earlier one waiting for its code; at most 5 login codes are
     emailed per account per hour (past that none is sent and the last code carries over); after 10
@@ -419,6 +423,10 @@ Outside production it stays off, so a forged `X-Forwarded-For` header cannot dod
   become empty values. Every new validator must coerce fields to primitive types this way before
   they reach a query. (`express-mongo-sanitize` is not used — it is unmaintained and breaks on
   Express 5.)
+- **Email addresses** (`emailPattern`, `validation/fields.ts`) allow only a real domain after the @
+  (letters, digits, inner hyphens, dots), and links to them are built with `utils/mailto.ts`, which
+  encodes the address, so a customer's `?` or `&` cannot add recipients to staff's email (2026-10-30,
+  fourth audit S4-L01). A new `mailto:` link uses it.
 
 ### 4.9 Customer personal data
 
@@ -1254,6 +1262,22 @@ Permission for one instance does not carry over to the next unless the user says
 ### After a fix — the recheck pass
 Re-read every file you touched for leftover code from abandoned approaches, stale comments, unused
 values, and stale user-facing text (see Lessons Learned).
+
+### Attacker's pass — before a change touching logins, money, files, or customer data is done
+Four audits found what building and testing had missed (2026-10-30), so read the change as someone
+trying to misuse it, and test what you find:
+- **Twice at once:** what if this request arrives twice at the same moment, or crosses a password
+  reset? Check-then-write is a bug: put the condition in the write's filter and check `matchedCount`
+  (or use a transaction), and test with two requests held at the same point.
+- **Where input ends up:** customer or staff text placed in a link, email, header, file name, query, or
+  log must be encoded or narrowed for that place (`utils/mailto.ts`, `text()`), even when it was
+  validated on the way in: older records were validated by older rules.
+- **Who can reach it:** anonymous visitor, copied admin cookie, admin without the password. Every
+  route behind `requireAdmin`; changes of money or credentials behind `requirePassword`.
+- **What the browser decides:** nothing the server should (Section 4.2, 4.4).
+- **The whole class:** when a problem is found, search for every place with the same pattern and fix
+  them together, not just the one reported.
+- Then run `/security-review` on the change before committing.
 
 ### Reporting
 - State what was done, what was verified and how, what was not verified, and what failed.

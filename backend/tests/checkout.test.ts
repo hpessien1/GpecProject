@@ -173,6 +173,14 @@ describe('placing an order', () => {
     expect((await Order.findById(order?._id).lean())?.deliveryArea?.name).toBe('Port Harcourt')
   })
 
+  // Audit S4-L01: the email ends up in staff's "email the customer" link.
+  it('refuses an email that would add recipients to staff’s email link', async () => {
+    const res = await placeOrder({ ...pickupBasket, email: 'customer@example.invalid?bcc=audit-copy%40example.invalid&x=' })
+    expect(res.status).toBe(400)
+    expect(res.body.errors.email).toBe('email must be valid.')
+    expect(await Order.countDocuments()).toBe(0)
+  })
+
   it('uses random, unguessable payment references', async () => {
     const first = await placeOrder(pickupBasket)
     const second = await placeOrder(pickupBasket)

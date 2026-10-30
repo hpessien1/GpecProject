@@ -8,6 +8,7 @@ import { requestKindContent, requestStatusLabels } from '../../data/adminContent
 import { ApiError } from '../../services/apiClient'
 import { addRequestNote, getOlderRequestHistory, getOlderRequestNotes, getRequest, setRequestStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
+import { mailtoLink } from '../../utils/mailto'
 import type { AdminRequestKind, AdminRequestResponse, RequestStatus } from '../../types'
 
 interface AdminRequestDetailProps {
@@ -83,7 +84,7 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
           <dl>
             <dt>Name</dt><dd>{item.customer.fullName}</dd>
             {item.customer.company && <><dt>Company</dt><dd>{item.customer.company}</dd></>}
-            <dt>Email</dt><dd><a href={`mailto:${item.customer.email}?subject=${encodeURIComponent(`Your GPEC request ${item.reference}`)}`}>{item.customer.email}</a></dd>
+            <dt>Email</dt><dd><a href={mailtoLink(item.customer.email, `Your GPEC request ${item.reference}`)}>{item.customer.email}</a></dd>
             {item.customer.phone && <><dt>Phone</dt><dd><a href={`tel:${item.customer.phone.replace(/[^\d+]/g, '')}`}>{item.customer.phone}</a></dd></>}
           </dl>
           {item.subject && <><h2>Subject</h2><p>{item.subject}</p></>}
