@@ -1,7 +1,7 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
 import { DEFAULT_REPLY_TO, getCustomerEmailSettings } from './customerEmail.js'
-import { adminAccountCodeEmail, adminLoginCodeEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminRecoveryCodesReplacedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
+import { adminAccountCodeEmail, adminLoginCodeEmail, adminLoginPausedEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminRecoveryCodesReplacedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
 import type { AdminEmailData, ContactEmailData, OrderEmailData, OrderUpdate } from './emailTemplates.js'
 import { EmailBudget } from '../utils/emailBudget.js'
 
@@ -34,6 +34,8 @@ export interface Notifier {
   twoFactorChanged(admin: AdminEmailData, change: { on: true, method: 'app' | 'email' } | { on: false }): Promise<void>
   recoveryCodeUsed(admin: AdminEmailData, left: number): Promise<void>
   recoveryCodesReplaced(admin: AdminEmailData): Promise<void>
+  // Once, when wrong passwords pause the account's login until a time (audit S5-M01).
+  loginPaused(admin: AdminEmailData, tries: number, until: Date): Promise<void>
 }
 
 // Sends staff notifications and customer confirmations after a request is saved. Never throws: a
@@ -127,6 +129,10 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     async recoveryCodeUsed(admin, left) {
       if (!mailer || !settings) return
       await deliver('a recovery code login', [{ to: [admin.email], ...adminRecoveryCodeUsedEmail(admin, left, settings.siteUrl) }])
+    },
+    async loginPaused(admin, tries, until) {
+      if (!mailer || !settings) return
+      await deliver('a paused login', [{ to: [admin.email], ...adminLoginPausedEmail(admin, tries, until, settings.siteUrl) }])
     },
     async recoveryCodesReplaced(admin) {
       if (!mailer || !settings) return

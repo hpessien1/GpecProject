@@ -43,6 +43,8 @@ export const SAMPLE_CODE = '123456'
 export const SAMPLE_RECOVERY_CODES = Array.from({ length: 10 }, (_, index) => `abcd${index}-efgh${index}`)
 export const SAMPLE_APP_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
 const BREACHED_MESSAGE = 'This password has appeared in a data breach, so attackers try it early. Choose a different one.'
+export const PASSWORDS_PAUSED_MESSAGE = 'Too many wrong passwords have been entered for your account in the last hour, so logging in and changes that need your password are paused until 21 Oct 2026, 11:00 (UTC). To end the pause now, set a new password with “Forgot your password?” on the login page.'
+const passwordsPausedReply = (field = 'password'): Reply => [429, { message: PASSWORDS_PAUSED_MESSAGE, code: 'PASSWORD_PAUSED', errors: { [field]: PASSWORDS_PAUSED_MESSAGE } }]
 
 // Short sample versions of the staff-edited pages (the real starting text is in the backend's
 // data/siteContentDefaults.ts), with a placeholder, a bullet list, and a line break to render.
@@ -159,6 +161,9 @@ export interface ApiState {
   // 6-digit codes paused after too many wrong ones.
   loginEmailLimitReached: boolean
   codesPaused: boolean
+  // Too many wrong passwords for the account in an hour (backend services/adminAuth.ts): the password
+  // asked again in the panel is refused, the right one too.
+  passwordsPaused: boolean
   // The FAQ, refunds policy, and privacy notice, their change histories, and making them fail to load.
   siteContent: Record<SiteContentKey, SiteContentPage>
   siteContentHistory: Record<SiteContentKey, SiteContentHistoryEntry[]>
@@ -230,6 +235,7 @@ function initialState(): ApiState {
     pendingLogin: false,
     loginEmailLimitReached: false,
     codesPaused: false,
+    passwordsPaused: false,
     requests: [],
   }
 }
@@ -455,6 +461,7 @@ function reply(state: ApiState, request: Request): Reply {
   if (path === '/api/admin/account/two-factor/app') return [200, { secret: SAMPLE_APP_SECRET, uri: `otpauth://totp/GPEC%20Admin%3A${encodeURIComponent(ADMIN.email)}?secret=${SAMPLE_APP_SECRET}&issuer=GPEC+Admin&algorithm=SHA1&digits=6&period=30` }]
   if (path === '/api/admin/account/two-factor/email-code') return [202, { message: `A code is on its way to ${ADMIN.email}. It works for 10 minutes.` }]
   if (path === '/api/admin/account/two-factor/enable') {
+    if (state.passwordsPaused) return passwordsPausedReply()
     if (body.password !== ADMIN.password) return [400, { message: 'Your password is incorrect.', code: 'WRONG_PASSWORD', errors: { password: 'Your password is incorrect.' } }]
     if (body.code !== SAMPLE_CODE) return [400, { message: 'That code is not right, or has already been used.', code: 'WRONG_CODE', errors: { code: 'That code is not right, or has already been used.' } }]
     state.twoFactorMethod = body.method as TwoFactorMethod
@@ -462,6 +469,7 @@ function reply(state: ApiState, request: Request): Reply {
     return [200, { recoveryCodes: state.recoveryCodes, ...twoFactorStatus() }]
   }
   if (path === '/api/admin/account/two-factor/disable' || path === '/api/admin/account/two-factor/recovery-codes') {
+    if (state.passwordsPaused) return passwordsPausedReply()
     if (body.password !== ADMIN.password) return [400, { message: 'Your password is incorrect.', code: 'WRONG_PASSWORD', errors: { password: 'Your password is incorrect.' } }]
     if (!secondStepPasses()) return [400, { message: 'That code is not right, or has already been used.', code: 'WRONG_CODE', errors: { code: 'That code is not right, or has already been used.' } }]
     if (path.endsWith('/disable')) {
@@ -490,6 +498,7 @@ function reply(state: ApiState, request: Request): Reply {
   if (path === '/api/admin/session') return [200, session()]
   if (path === '/api/admin/session/password') {
     if (body.newPassword === BREACHED_PASSWORD) return [400, { message: BREACHED_MESSAGE, code: 'PASSWORD_BREACHED', errors: { newPassword: BREACHED_MESSAGE } }]
+    if (state.passwordsPaused) return passwordsPausedReply('currentPassword')
     if (body.currentPassword !== ADMIN.password) return [400, { message: 'Your current password is incorrect.', code: 'WRONG_PASSWORD', errors: { currentPassword: 'Your current password is incorrect.' } }]
     return [204, null]
   }
@@ -543,6 +552,7 @@ function reply(state: ApiState, request: Request): Reply {
   // Like the real API: these three changes need the admin's password too, which is never stored.
   const passwordRefusal = (): Reply | null => {
     if (typeof body.password !== 'string' || !body.password) return [400, { message: 'Check the details and try again.', code: 'VALIDATION_ERROR', errors: { password: 'Enter your password.' } }]
+    if (state.passwordsPaused) return passwordsPausedReply()
     if (body.password !== ADMIN.password) return [400, { message: 'Your password is incorrect.', code: 'WRONG_PASSWORD', errors: { password: 'Your password is incorrect.' } }]
     delete body.password
     return null

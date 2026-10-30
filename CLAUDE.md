@@ -276,6 +276,21 @@ add a frontend gate, confirm the backend enforces the same condition.
   well as the session (`middleware/requirePassword.ts`; one per-IP limit for wrong ones). A browser
   left logged in, or a copied cookie, cannot make them. A new change of this kind uses the same
   middleware.
+- **Wrong passwords per account** (2026-10-30, fifth audit S5-M01; the user chose the numbers): besides
+  the per-IP limit, at most 10 wrong passwords per account per hour at login, from every address
+  together, so someone with many addresses cannot keep guessing. Then the account's login is
+  **paused**, the right password included, until the hour is up or a new password is set (a reset
+  link, `admin:create --reset`): the answer stays `401 INVALID_CREDENTIALS`, so it does not show who is
+  an admin, and the admin is emailed once with the time and the reset link. A try is taken in a
+  conditional update **before** the password is checked (guesses at once cannot all slip past) and
+  given back for the right password; addresses that are not an admin's keep nothing. Logged as
+  `LOGIN_PAUSED_NOW` and `LOGIN_PAUSED` (`logIn`, `services/adminAuth.ts`). Anyone can pause an
+  account by guessing at it; the emailed reset link is the way back in. **The password asked again in
+  the panel counts the same way** (fifth audit sweep, the user's go-ahead): `requirePassword`, the
+  panel's password change, and two-step login on, off, and new recovery codes all use
+  `checkAdminPassword`; while paused they answer `429 PASSWORD_PAUSED` openly on the password field
+  (the session already names the account), logged as `PASSWORD_PAUSED_NOW` / `PASSWORD_PAUSED`. A new
+  password check in the panel uses it too.
 - Admins cannot demote, deactivate, or delete themselves.
 - **Two-step login** (built 2026-10-24, user's request; `services/twoFactor.ts`): **optional**, each
   admin turns it on or off for their own account at `#admin/security`. After the password, a 6-digit
@@ -363,7 +378,8 @@ per-IP budget (each public form route gets its own) — 10 requests per 15 minut
 production, 100 in development and test (set in `src/config.ts`). The production limit is the
 security boundary; the looser one exists so manual and automated checks do not lock the developer
 out. Keep that difference deliberate. Admin login has a stricter budget that counts **failed**
-attempts only: 5 per 15 minutes in production, 50 otherwise; setting a password from a reset link
+attempts only: 5 per 15 minutes in production, 50 otherwise (plus 10 wrong passwords per account per
+hour from all addresses, Section 4.5); setting a password from a reset link
 also has a budget counting every attempt (20, Section 4.5). Checkout has its own budgets
 (`orderRateLimit` 10, `checkoutReadRateLimit` 120 for quotes and payment checks), and the Paystack
 webhook its own (300). All visitors are anonymous, so key by IP. The in-memory store
@@ -500,7 +516,7 @@ name), and logs which database it found. The guard only works if production sets
   on accounts, sessions, and challenges stored before 2026-10-26, read as 0); two-step login: `twoFactorMethod` (`app` | `email` | null),
   `twoFactorSecret` (encrypted), `twoFactorEnabledAt`, `lastTotpStep`, `recoveryCodeHashes`, and a
   setup or emailed code in progress (`pendingTwoFactor*`, `accountCode*`), and the hourly login
-  limits (`loginEmail*`, `wrongCode*`, from 2026-10-26). Accounts created before
+  limits (`loginEmail*`, `wrongCode*`, from 2026-10-26; `wrongPassword*`, from 2026-10-30). Accounts created before
   2026-10-24 have none of these stored: code reading them with `.lean()` must allow for missing
   fields. **AdminSession** — `tokenHash`, `admin`, `credentialVersion`, `expiresAt` (TTL
   index deletes expired sessions), `twoFactorPromptDismissed`. **AdminLoginChallenge** — a login
@@ -925,6 +941,13 @@ to it in the admin panel) and sends the customer a plain-text confirmation with 
   and it never throws: a failed email is logged with the reference and error type only, and the
   customer's request stands. Spam-trapped or invalid submissions send nothing.
 - Plain text only; subjects contain only server-made references, never customer input.
+- **Customer emails greet no one by name** ("Hello,"; 2026-10-30, fifth audit S5-L01): anyone can
+  send the forms with a stranger's address, so a typed "name" must not put words or a link above GPEC's
+  own. Names, companies, and phone numbers are one line (`oneLineText`, `validation/fields.ts`: any line
+  break refused), and staff emails join any older stored ones onto one line. Messages, notes, and
+  addresses keep their lines, each starting with "> " in staff emails (`quoted`, fifth audit sweep), so
+  none can pass for one of GPEC's own, such as a fake admin-panel link. A new customer email uses the
+  same greeting, and new multi-line customer text in a staff email is quoted.
 - **Replies** (2026-10-24, the user's request): staff emails reply to the customer; customer emails
   (contact, paid order, bank-transfer order) reply to the address staff set at `#admin/emails`, read
   at send time (GPEC's published address if it cannot be read). The sender itself,

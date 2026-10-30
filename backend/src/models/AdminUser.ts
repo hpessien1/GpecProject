@@ -43,6 +43,10 @@ const adminUserSchema = new mongoose.Schema({
   loginEmailsInWindow: { type: Number, default: 0 },
   wrongCodeWindowStart: { type: Date, default: null },
   wrongCodesInWindow: { type: Number, default: 0 },
+  // Wrong passwords at login in the hour, from every address together (services/adminAuth.ts, audit
+  // S5-M01). Missing on accounts stored before 2026-10-30: read as none yet.
+  wrongPasswordWindowStart: { type: Date, default: null },
+  wrongPasswordsInWindow: { type: Number, default: 0 },
 }, { timestamps: true, strict: 'throw' })
 
 export default mongoose.model('AdminUser', adminUserSchema)

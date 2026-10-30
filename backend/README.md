@@ -192,7 +192,11 @@ All admin responses are sent with `Cache-Control: no-store`.
 - `POST /api/admin/session` with `{ email, password }` logs in and sets the `gpec_admin_session`
   cookie (httpOnly, SameSite=Strict, Secure in production, 8 hours). Wrong email and wrong password
   both return `401 INVALID_CREDENTIALS`. Failed attempts are limited per IP (5 per 15 minutes in
-  production). `GET` returns the logged-in admin, the configured currency (`{ code, minorUnitDigits }`
+  production), and wrong passwords per account (10 an hour from all addresses together): after that
+  the account's login is paused, also returning `401 INVALID_CREDENTIALS` for the right password,
+  until the hour is up or a reset link sets a new password; the admin is emailed once. The password
+  asked again in the panel (changes that need it, the password change, two-step login) counts toward
+  the same tries; while they are used up it answers `429 PASSWORD_PAUSED` on the password field. `GET` returns the logged-in admin, the configured currency (`{ code, minorUnitDigits }`
   or `null`), and `twoFactor: { enabled, prompt }`; `DELETE` logs out.
 - **Two-step login.** For an admin who has it on, the right password answers `{ twoFactorRequired:
   true, method: 'app' | 'email', emailHint, emailAvailable, emailCodeSent }` and sets the

@@ -215,7 +215,15 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
 
 ## Open items for the next session
 
-0. **Fourth security audit** (2026-10-29): `SECURITY_AUDIT_FOURTH.md`, git-ignored like the others;
+0. **Fifth security audit** (2026-10-30): `SECURITY_AUDIT_FIFTH.md`, git-ignored like the others;
+   handled the same way. Both fixed 2026-10-30 (its "Remediation Status" table), **not yet committed**:
+   S5-M01 (wrong passwords counted per account across all addresses: 10 an hour, then the account's
+   login pauses until the hour ends or a reset link sets a new password; the admin is emailed once),
+   S5-L01 (customer emails say "Hello," instead of the typed name; names, companies, and phone numbers
+   must be one line). A sweep found and fixed two more (user's go-ahead): the password asked again in
+   the panel counts toward the same hourly tries; customers' messages, notes, and addresses are quoted
+   ("> ") in staff emails. Next: `/security-review`, then commit when asked.
+   **Fourth security audit** (2026-10-29): `SECURITY_AUDIT_FOURTH.md`, git-ignored like the others;
    handled the same way. Both fixed 2026-10-30 (its "Remediation Status" table): S4-M01 (an emailed
    account code is used up by the same update that accepts it, so it approves one change), S4-L01
    (customer email addresses: only a real domain after the @, and staff's email links encode the

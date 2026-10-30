@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_ATTACHMENTS, SAMPLE_BANK, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi, openAdminMenu } from './support/sampleApi'
+import { ADMIN, AREA_ID, BREACHED_PASSWORD, CONTACT_REF, ORDER_REF, PASSWORDS_PAUSED_MESSAGE, RESET_REQUESTED_MESSAGE, RESET_TOKEN, SAMPLE_ATTACHMENTS, SAMPLE_BANK, SITE_SAMPLE_BANK, TRANSFER_ORDER_REF, UPLOADED_IMAGE, logInAsAdmin, mockApi, openAdminMenu } from './support/sampleApi'
 
 test.describe('admin login', () => {
   test('a wrong password shows a focused message; the right one opens the panel', async ({ page }) => {
@@ -1003,6 +1003,29 @@ test.describe('changing your own password', () => {
     await page.getByRole('button', { name: 'Change password' }).click()
     await expect(page.locator('.success-message')).toContainText('Your password has been changed.')
   })
+
+  // Fifth audit sweep: too many wrong passwords for the account pause the password asked in the panel.
+  test('says on the password field when password checks are paused, and keeps what was typed', async ({ page }) => {
+    const api = await mockApi(page)
+    api.passwordsPaused = true
+    await logInAsAdmin(page)
+    await page.goto('/#admin/password')
+    await page.getByLabel('Current password').fill(ADMIN.password)
+    await page.getByLabel('New password', { exact: true }).fill('a brand new long passphrase')
+    await page.getByLabel('New password again').fill('a brand new long passphrase')
+    await page.getByRole('button', { name: 'Change password' }).click()
+    await expect(page.locator('#currentPassword-error')).toHaveText(PASSWORDS_PAUSED_MESSAGE)
+    await expect(page.getByLabel('New password', { exact: true })).toHaveValue('a brand new long passphrase')
+
+    await page.goto('/#admin/bank-transfer')
+    await page.getByLabel('Account number').fill('9876543210')
+    const password = page.getByLabel('Password', { exact: true })
+    await password.fill(ADMIN.password)
+    await page.getByRole('button', { name: 'Save bank details' }).click()
+    await expect(password).toHaveAccessibleDescription(/paused until 21 Oct 2026, 11:00 \(UTC\)\. To end the pause now/)
+    await expect(page.getByLabel('Account number')).toHaveValue('9876543210')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0)
+  })
 })
 
 test.describe('forgot password', () => {
@@ -1116,6 +1139,22 @@ test.describe('security log', () => {
     await expect(entries.nth(0).locator('.admin-security-where')).toHaveText('From 45.155.205.3 · last seen a script, not a browser')
     await expect(entries.nth(1).locator('.admin-security-repeats')).toHaveText(/^37 more like this from many different addresses since 21 Oct 2026, \d\d:40, after the ones listed separately\.$/)
     await expect(entries.nth(1).locator('.admin-security-where')).toHaveText('From many different addresses · last seen a script, not a browser')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0)
+  })
+
+  // Audit S5-M01: wrong passwords from every address together pause an account's login.
+  test('says when an account’s login was paused after wrong passwords', async ({ page }) => {
+    const api = await mockApi(page)
+    const base = { action: 'login.password' as const, detail: null, account: { name: 'Test Admin', email: 'admin@example.test', role: 'admin' }, target: null, via: 'website' as const, ip: '45.155.205.3', userAgent: 'python-requests/2.31', outcome: 'failure' as const, repeats: null, repeatsSince: null }
+    api.securityLog = [
+      { ...base, reason: 'LOGIN_PAUSED', createdAt: '2026-10-21T09:15:00Z' },
+      { ...base, reason: 'LOGIN_PAUSED_NOW', createdAt: '2026-10-21T09:14:00Z' },
+    ]
+    await logInAsAdmin(page)
+    await page.goto('/#admin/security-log')
+    const entries = page.locator('.admin-security-log ol > li')
+    await expect(entries.nth(0).locator('.admin-security-what')).toHaveText('FailedLogin failed: the account’s login is paused after too many wrong passwords')
+    await expect(entries.nth(1).locator('.admin-security-what')).toHaveText('FailedLogin failed: wrong password; the account’s login is now paused for up to an hour')
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0)
   })
 

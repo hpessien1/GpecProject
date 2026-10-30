@@ -3,8 +3,8 @@ import mongoose from 'mongoose'
 import AdminLoginChallenge from '../models/AdminLoginChallenge.js'
 import AdminSession from '../models/AdminSession.js'
 import AdminUser from '../models/AdminUser.js'
-import { createSession, unchangedSince } from './adminAuth.js'
-import { verifyPassword } from './passwords.js'
+import { checkAdminPassword, createSession, unchangedSince } from './adminAuth.js'
+import type { PasswordPause } from './adminAuth.js'
 import { open, seal } from './secretBox.js'
 import { matchTotp, newTotpSecret, otpauthUri, toBase32 } from './totp.js'
 
@@ -274,7 +274,7 @@ async function useAccountEmailCode(adminId: unknown, code: string) {
   return false
 }
 
-export type EnableResult = { status: 'ok', recoveryCodes: string[], sessionToken: string } | { status: 'wrong' } | { status: 'wrong-password' } | { status: 'not-started' } | { status: 'already-on' } | { status: 'changed' }
+export type EnableResult = { status: 'ok', recoveryCodes: string[], sessionToken: string } | { status: 'wrong' } | { status: 'wrong-password' } | { status: 'paused', pause: PasswordPause } | { status: 'not-started' } | { status: 'already-on' } | { status: 'changed' }
 
 // Turns two-step login on once the admin proves it is them (the password: a session alone, such as a
 // browser left logged in, must not be able to put someone else's phone on the account and lock its
@@ -297,7 +297,8 @@ export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, 
     if (!key || !admin.pendingTwoFactorSecret || !admin.pendingTwoFactorExpiresAt || admin.pendingTwoFactorExpiresAt < new Date()) return { status: 'not-started' }
     const pending = open(admin.pendingTwoFactorSecret, key)
     if (!pending) return { status: 'not-started' }
-    if (!await verifyPassword(password, admin.passwordHash)) return { status: 'wrong-password' }
+    const check = await checkAdminPassword(admin._id, password)
+    if (check.status !== 'right') return check.status === 'paused' ? check : { status: 'wrong-password' }
     const step = matchTotp(pending, code, null)
     if (step === null) return { status: 'wrong' }
     secret = admin.pendingTwoFactorSecret
@@ -305,7 +306,8 @@ export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, 
   } else {
     if (!admin.accountCodeHash || !admin.accountCodeExpiresAt || admin.accountCodeExpiresAt < new Date()) return { status: 'not-started' }
     // Before the code, so a wrong password does not use up the emailed code's tries.
-    if (!await verifyPassword(password, admin.passwordHash)) return { status: 'wrong-password' }
+    const check = await checkAdminPassword(admin._id, password)
+    if (check.status !== 'right') return check.status === 'paused' ? check : { status: 'wrong-password' }
     if (!await useAccountEmailCode(admin._id, code)) return { status: 'wrong' }
   }
 
@@ -331,7 +333,7 @@ export async function enableTwoFactor(adminId: string, method: TwoFactorMethod, 
   return { status: 'ok', recoveryCodes: codes, sessionToken }
 }
 
-export type VerifiedResult = { status: 'ok' } | { status: 'wrong-password' } | { status: 'wrong-code' } | { status: 'off' } | { status: 'changed' }
+export type VerifiedResult = { status: 'ok' } | { status: 'wrong-password' } | { status: 'paused', pause: PasswordPause } | { status: 'wrong-code' } | { status: 'off' } | { status: 'changed' }
 
 // Turning two-step login off and making new recovery codes need the password and a current second
 // step (app code, emailed account code, or recovery code), so a browser left logged in is not enough.
@@ -340,7 +342,8 @@ export type VerifiedResult = { status: 'ok' } | { status: 'wrong-password' } | {
 async function verifyAdmin(adminId: string, password: string, step: SecondStep, key: Buffer | null): Promise<{ status: 'ok', expected: Record<string, unknown> } | Exclude<VerifiedResult, { status: 'ok' }>> {
   const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
   if (!admin?.twoFactorMethod) return { status: 'off' }
-  if (!await verifyPassword(password, admin.passwordHash)) return { status: 'wrong-password' }
+  const check = await checkAdminPassword(admin._id, password)
+  if (check.status !== 'right') return check.status === 'paused' ? check : { status: 'wrong-password' }
   let passed: boolean | 'unavailable' = false
   if ('recoveryCode' in step) passed = await useRecoveryCode(admin._id, step.recoveryCode)
   else if (admin.twoFactorMethod === 'app') passed = await useAppCode(admin._id, admin.twoFactorSecret, admin.lastTotpStep, step.code, key)

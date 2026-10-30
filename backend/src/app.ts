@@ -149,7 +149,7 @@ export default function createApp(
   app.use('/api/admin/product-images', requireAdmin(config.clientOrigins), adminProductImagesRouter(images))
   app.use('/api/admin/contact-requests', requireAdmin(config.clientOrigins), adminRequestsRouter('contactRequest', images))
   // The password again, for changes that decide where money or customers' replies go (one shared limit).
-  const confirmPassword = requirePassword(config.adminLoginRateLimit)
+  const confirmPassword = requirePassword(config.adminLoginRateLimit, notifier)
   app.use('/api/admin/security-log', requireAdmin(config.clientOrigins), adminSecurityLogRouter())
   app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier, confirmPassword, paystack))
   app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))

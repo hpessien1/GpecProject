@@ -1,6 +1,7 @@
 // Wording of every email the site sends. Plain text. Subjects contain only server-made references,
 // never customer input.
 import { formatMoney } from './currency.js'
+import { LINE_BREAK } from '../validation/fields.js'
 
 export interface ContactEmailData {
   reference: string
@@ -15,8 +16,19 @@ export interface ContactEmailData {
   files?: number
 }
 
-const received = (date: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(date)} (UTC)`
-const optional = (label: string, value: string) => value ? [`${label}: ${value}`] : []
+export const utcTime = (date: Date) => `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(date)} (UTC)`
+// A one-line detail the customer typed (name, company, phone), kept on its line in staff emails, also
+// for one saved before line breaks were refused there (audit S5-L01).
+const LINE_BREAKS = new RegExp(`\\s*${LINE_BREAK.source}+\\s*`, 'g')
+const oneLine = (value: string) => value.replace(LINE_BREAKS, ' ')
+const optional = (label: string, value: string) => value ? [`${label}: ${oneLine(value)}`] : []
+// What the customer wrote over several lines (a message, notes, an address), in staff emails: every
+// line starts with "> ", as quoted text does in email, so none can pass for one of GPEC's own, such as
+// a fake "Open it in the admin panel" link (fifth audit sweep).
+const quoted = (value: string) => value.split(new RegExp(`\r\n|${LINE_BREAK.source}`)).map((line) => line ? `> ${line}` : '>')
+// Customer emails greet no one by name: anyone can send the forms with a stranger's address, so a
+// "name" could put words or a link of its own above GPEC's (audit S5-L01).
+const CUSTOMER_GREETING = 'Hello,'
 const fileCount = (files: number) => files === 1 ? '1 file' : `${files} files`
 
 export function staffContactEmail(request: ContactEmailData, siteUrl: string) {
@@ -26,15 +38,15 @@ export function staffContactEmail(request: ContactEmailData, siteUrl: string) {
       'A new message has arrived through the GPEC website contact form.',
       '',
       `Reference: ${request.reference}`,
-      `Received: ${received(request.createdAt)}`,
-      `Name: ${request.fullName}`,
+      `Received: ${utcTime(request.createdAt)}`,
+      `Name: ${oneLine(request.fullName)}`,
       ...optional('Company', request.company),
       `Email: ${request.email}`,
       ...optional('Phone', request.phone),
       ...optional('Topic', request.subject),
       '',
       'Message:',
-      request.message,
+      ...quoted(request.message),
       '',
       ...(request.files ? [`Attached: ${fileCount(request.files)}. Open the request in the admin panel to see them.`, ''] : []),
       `Open it in the admin panel: ${siteUrl}/#admin/contact-requests/${request.reference}`,
@@ -161,6 +173,24 @@ export function adminRecoveryCodesReplacedEmail(admin: AdminEmailData, siteUrl: 
   }
 }
 
+// Sent once when wrong passwords pause the account's login (audit S5-M01). Never the passwords tried.
+export function adminLoginPausedEmail(admin: AdminEmailData, tries: number, until: Date, siteUrl: string) {
+  return {
+    subject: 'Login to your GPEC admin account is paused',
+    text: [
+      `Hello ${admin.name},`,
+      '',
+      `${tries} wrong passwords have been tried for your GPEC website admin account within an hour. To protect it, logging in to your account, and changes in the admin panel that need your password, are paused until ${utcTime(until)}, even with the right password.`,
+      '',
+      `To end the pause now, set a new password with a reset link: ${siteUrl}/#admin/forgot-password`,
+      '',
+      `If this was not you, someone may be trying to guess your password: set a new, long one with a reset link, turn on two-step login if it is off, and tell the site administrator. The security log shows the attempts: ${siteUrl}/#admin/security-log`,
+      '',
+      'GPEC website',
+    ].join('\n'),
+  }
+}
+
 export function adminRecoveryCodeUsedEmail(admin: AdminEmailData, left: number, siteUrl: string) {
   return {
     subject: 'A recovery code was used for your GPEC admin account',
@@ -180,7 +210,7 @@ export function customerContactEmail(request: ContactEmailData, siteUrl: string)
   return {
     subject: `We have your message (${request.reference})`,
     text: [
-      `Hello ${request.fullName},`,
+      CUSTOMER_GREETING,
       '',
       `Thank you for contacting GPEC. Your reference is ${request.reference}.`,
       ...(request.files ? [`We received the ${fileCount(request.files)} you attached.`] : []),
@@ -231,18 +261,18 @@ function orderLines(order: OrderEmailData, totalLabel = 'Total paid') {
   ]
 }
 
-const fulfilmentLine = (order: OrderEmailData) => order.fulfilmentMethod === 'delivery'
-  ? `Delivery to: ${order.deliveryAddress ?? ''}${order.deliveryArea ? ` (${order.deliveryArea.name})` : ''}`
-  : 'Pickup from GPEC'
+const fulfilmentLines = (order: OrderEmailData) => order.fulfilmentMethod === 'delivery'
+  ? [...(order.deliveryArea ? [`Delivery area: ${order.deliveryArea.name}`] : []), 'Delivery address:', ...quoted(order.deliveryAddress ?? '')]
+  : ['Pickup from GPEC']
 
 function customerLines(order: OrderEmailData) {
   return [
-    `Name: ${order.customer.fullName}`,
+    `Name: ${oneLine(order.customer.fullName)}`,
     ...optional('Company', order.customer.company ?? ''),
     `Email: ${order.customer.email}`,
-    `Phone: ${order.customer.phone}`,
-    fulfilmentLine(order),
-    ...(order.customerNotes ? ['', 'Customer notes:', order.customerNotes] : []),
+    `Phone: ${oneLine(order.customer.phone)}`,
+    ...fulfilmentLines(order),
+    ...(order.customerNotes ? ['', 'Customer notes:', ...quoted(order.customerNotes)] : []),
   ]
 }
 
@@ -265,7 +295,7 @@ export function customerTransferOrderEmail(order: OrderEmailData, siteUrl: strin
   return {
     subject: `Your GPEC order ${order.reference}: how to pay by bank transfer`,
     text: [
-      `Hello ${order.customer.fullName},`,
+      CUSTOMER_GREETING,
       '',
       `Thank you for your order. Your order reference is ${order.reference}. To complete it, transfer the amount below to GPEC within ${order.bankTransfer?.payWithinDays ?? ''} days, using your order reference as the description so GPEC can match your payment.`,
       '',
@@ -385,7 +415,7 @@ export function customerOrderUpdateEmail(order: OrderEmailData, update: OrderUpd
   const { subject, lines } = content[update]
   return {
     subject,
-    text: [`Hello ${order.customer.fullName},`, '', ...lines, '', ...itemList(order), '', ask, '', 'GPEC', siteUrl].join('\n'),
+    text: [CUSTOMER_GREETING, '', ...lines, '', ...itemList(order), '', ask, '', 'GPEC', siteUrl].join('\n'),
   }
 }
 
@@ -396,7 +426,7 @@ export function staffOrderEmail(order: OrderEmailData, siteUrl: string) {
       order.paymentMethod === 'bank_transfer' ? 'A bank transfer for an order on the GPEC website has been confirmed as received.' : 'A customer has paid for an order on the GPEC website. Paystack confirmed the payment.',
       '',
       `Order: ${order.reference}`,
-      ...(order.paidAt ? [`Paid: ${received(order.paidAt)}`] : []),
+      ...(order.paidAt ? [`Paid: ${utcTime(order.paidAt)}`] : []),
       ...customerLines(order),
       '',
       ...orderLines(order),
@@ -410,7 +440,7 @@ export function customerOrderEmail(order: OrderEmailData, siteUrl: string) {
   return {
     subject: `Your GPEC order ${order.reference} is paid`,
     text: [
-      `Hello ${order.customer.fullName},`,
+      CUSTOMER_GREETING,
       '',
       `Thank you for your order. Your payment has been received and your order reference is ${order.reference}.`,
       '',

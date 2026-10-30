@@ -1,4 +1,4 @@
-import { asFields, emailPattern, text } from './fields.js'
+import { asFields, emailPattern, oneLineText, text } from './fields.js'
 import type { ValidationErrors } from './fields.js'
 
 // Must match the options in the landing-page contact form (frontend/src/data/landingContent.ts): one
@@ -23,10 +23,10 @@ export function validateContactRequest(body: unknown) {
   const errors: ValidationErrors = {}
   const source = asFields(body)
   const value = {
-    fullName: text(source.fullName, 120, 'fullName', errors, true),
-    company: text(source.company, 120, 'company', errors),
+    fullName: oneLineText(source.fullName, 120, 'fullName', errors, true),
+    company: oneLineText(source.company, 120, 'company', errors),
     email: text(source.email, 254, 'email', errors, true).toLowerCase(),
-    phone: text(source.phone, 40, 'phone', errors),
+    phone: oneLineText(source.phone, 40, 'phone', errors),
     subject: text(source.subject, 60, 'subject', errors),
     message: text(source.message, 5000, 'message', errors, true),
   }

@@ -18,6 +18,12 @@ export const SESSION_DURATION_MS = 8 * 60 * 60 * 1000
 export const sessionCookieOptions = (isProduction: boolean): CookieOptions => ({ httpOnly: true, secure: isProduction, sameSite: 'strict', path: '/api/admin' })
 // How long a "forgot password" link works. Short, because the link is as good as a password.
 export const RESET_LINK_MINUTES = 30
+// Wrong passwords per account per hour, from every address together (audit S5-M01): the per-IP login
+// limit alone lets someone with many addresses keep guessing. Once they are used up, the account's
+// login is paused, the right password included, until the hour is up or a new password is set (a reset
+// link). The answer stays "incorrect", so the pause does not show which addresses are admins'.
+export const WRONG_PASSWORDS_PER_HOUR = 10
+const HOUR_MS = 60 * 60 * 1000
 
 export interface AdminIdentity {
   id: string
@@ -33,14 +39,70 @@ export type LoginResult =
   | { kind: 'session', token: string, admin: AdminIdentity }
   // Two-step login is on: the code is still needed (services/twoFactor.ts). emailCode: to send now.
   | { kind: 'challenge', token: string, method: TwoFactorMethod, emailCode: string | null, admin: AdminIdentity }
+  // Refused because the account's login is paused (WRONG_PASSWORDS_PER_HOUR).
+  | { kind: 'paused', pause: PasswordPause, admin: AdminIdentity }
+
+// Why a password was refused because of WRONG_PASSWORDS_PER_HOUR: the time the pause ends, and whether
+// this wrong password used the last try (only one request can), so the admin is told.
+export interface PasswordPause {
+  until: Date
+  pausedNow: boolean
+}
+
+// A password checked against the account's tries for the hour.
+export type PasswordCheck = { status: 'right' } | { status: 'wrong' } | { status: 'paused', pause: PasswordPause }
+
+type AccountFilter = { email: string } | { _id: unknown }
+
+// Uses one of the account's tries for this hour, before its password is checked, so guesses sent at
+// the same moment cannot all pass a check made before any of them counted. The count is part of the
+// update's condition. Returns the hour's start and the count, or null once they are used up. Matches
+// nothing, and keeps nothing, for an address that is not an admin's.
+async function takePasswordTry(account: AccountFilter) {
+  const hourAgo = new Date(Date.now() - HOUR_MS)
+  const fields = { wrongPasswordWindowStart: 1, wrongPasswordsInWindow: 1 }
+  const admin = await AdminUser.findOneAndUpdate({ ...account, $or: [{ wrongPasswordWindowStart: null }, { wrongPasswordWindowStart: { $lte: hourAgo } }] }, { wrongPasswordWindowStart: new Date(), wrongPasswordsInWindow: 1 }, { new: true, projection: fields }).lean()
+    ?? await AdminUser.findOneAndUpdate({ ...account, wrongPasswordWindowStart: { $gt: hourAgo }, wrongPasswordsInWindow: { $lt: WRONG_PASSWORDS_PER_HOUR } }, { $inc: { wrongPasswordsInWindow: 1 } }, { new: true, projection: fields }).lean()
+  return admin?.wrongPasswordWindowStart ? { start: admin.wrongPasswordWindowStart, count: admin.wrongPasswordsInWindow ?? 0 } : null
+}
+
+// What a password check means for the account's tries: a right password gives its try back (in the
+// same hour only); no try left, or the wrong password that used the last one, is a pause. windowStart:
+// the account's hour as read after the try was taken.
+async function settlePasswordTry(adminId: unknown, passwordTry: Awaited<ReturnType<typeof takePasswordTry>>, matches: boolean, windowStart: Date | null | undefined): Promise<PasswordCheck> {
+  if (!passwordTry) return { status: 'paused', pause: { until: new Date((windowStart?.getTime() ?? Date.now()) + HOUR_MS), pausedNow: false } }
+  if (!matches) {
+    if (passwordTry.count < WRONG_PASSWORDS_PER_HOUR) return { status: 'wrong' }
+    return { status: 'paused', pause: { until: new Date(passwordTry.start.getTime() + HOUR_MS), pausedNow: true } }
+  }
+  await AdminUser.updateOne({ _id: adminId, wrongPasswordWindowStart: passwordTry.start, wrongPasswordsInWindow: { $gt: 0 } }, { $inc: { wrongPasswordsInWindow: -1 } })
+  return { status: 'right' }
+}
+
+// The password of a logged-in admin, asked again in the panel (a change of money or credentials, two-step
+// login): counted toward the same hourly tries as login, and refused while they are used up, so someone
+// with a copied session cannot guess it from many addresses either (fifth audit sweep).
+export async function checkAdminPassword(adminId: unknown, password: string): Promise<PasswordCheck> {
+  const passwordTry = await takePasswordTry({ _id: adminId })
+  const admin = await AdminUser.findOne({ _id: adminId, isActive: true }, { passwordHash: 1, wrongPasswordWindowStart: 1 }).lean()
+  const matches = await verifyPassword(password, admin?.passwordHash ?? await getDecoyHash())
+  if (!admin) return { status: 'wrong' }
+  return settlePasswordTry(admin._id, passwordTry, matches, admin.wrongPasswordWindowStart)
+}
 
 // Starts a session for valid, active credentials, or for an admin with two-step login a challenge for
 // the code; null otherwise (never says which part was wrong).
 export async function logIn(email: string, password: string): Promise<LoginResult | null> {
-  const admin = await AdminUser.findOne({ email: email.toLowerCase() })
+  const address = email.toLowerCase()
+  const passwordTry = await takePasswordTry({ email: address })
+  const admin = await AdminUser.findOne({ email: address })
+  // Checked even while the account is paused, so the time taken does not show the pause either.
   const passwordMatches = await verifyPassword(password, admin?.passwordHash ?? await getDecoyHash())
-  if (!admin || !admin.isActive || !passwordMatches) return null
+  if (!admin || !admin.isActive) return null
   const identity = { id: admin.id, email: admin.email, name: admin.name }
+  const check = await settlePasswordTry(admin._id, passwordTry, passwordMatches, admin.wrongPasswordWindowStart)
+  if (check.status === 'paused') return { kind: 'paused', pause: check.pause, admin: identity }
+  if (check.status === 'wrong') return null
   if (admin.twoFactorMethod === 'app' || admin.twoFactorMethod === 'email') {
     const { token, emailCode } = await startLoginChallenge(admin)
     return { kind: 'challenge', token, method: admin.twoFactorMethod, emailCode, admin: identity }
@@ -116,6 +178,9 @@ async function replaceCredentials(session: ClientSession, adminId: unknown, pass
     pendingTwoFactorExpiresAt: null,
     accountCodeHash: null,
     accountCodeExpiresAt: null,
+    // Ends a pause after wrong passwords (audit S5-M01): guesses at the old password count for nothing.
+    wrongPasswordWindowStart: null,
+    wrongPasswordsInWindow: 0,
   }, { new: true, session }).lean()
   if (!admin) return null
   await AdminSession.deleteMany({ admin: admin._id }, { session })
@@ -131,19 +196,16 @@ export async function replacePassword(adminId: unknown, passwordHash: string) {
   return version !== null
 }
 
-// Whether this is the admin's current password (middleware/requirePassword.ts).
-export async function isCurrentPassword(adminId: string, password: string) {
-  const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
-  return verifyPassword(password, admin?.passwordHash ?? await getDecoyHash())
-}
-
 // Changes an admin's own password after checking the current one. Everything started under the old
 // password ends (replaceCredentials); this browser gets a new session token, so a copy of its old
 // cookie stops working too. Saved only if the account is still as it was when the current password was
 // checked ('changed' otherwise: nothing saved, no session; audit S3-M01).
-export async function changePassword(adminId: string, currentPassword: string, newPassword: string, breachCheck: BreachedPasswordCheck): Promise<{ status: 'ok', token: string, breachUnchecked: boolean } | { status: 'wrong-password' } | { status: 'breached' } | { status: 'changed' }> {
+export async function changePassword(adminId: string, currentPassword: string, newPassword: string, breachCheck: BreachedPasswordCheck): Promise<{ status: 'ok', token: string, breachUnchecked: boolean } | { status: 'wrong-password' } | { status: 'paused', pause: PasswordPause } | { status: 'breached' } | { status: 'changed' }> {
   const admin = await AdminUser.findOne({ _id: adminId, isActive: true }).lean()
-  if (!admin || !await verifyPassword(currentPassword, admin.passwordHash)) return { status: 'wrong-password' }
+  if (!admin) return { status: 'wrong-password' }
+  const check = await checkAdminPassword(admin._id, currentPassword)
+  if (check.status === 'paused') return check
+  if (check.status === 'wrong') return { status: 'wrong-password' }
   // After the current password, so a session alone (a copied cookie) never reaches the breached-password
   // service, as for reset links (audit S2-M03). null: the service could not be reached.
   const breached = await breachCheck.isBreached(newPassword)

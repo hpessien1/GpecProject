@@ -3,12 +3,13 @@ import type { CookieOptions, Request } from 'express'
 import { MemoryStore, ipKeyGenerator, rateLimit } from 'express-rate-limit'
 import { HttpError, ValidationError } from '../errors.js'
 import { requireAdmin, currentAdmin } from '../middleware/requireAdmin.js'
+import { passwordPausedError } from '../middleware/requirePassword.js'
 import { securityEvent } from '../middleware/securityEvent.js'
 import AdminUser from '../models/AdminUser.js'
 import { recordSecurityEvent } from '../services/securityLog.js'
 import { asFields } from '../validation/fields.js'
 import type { BreachedPasswordCheck } from '../services/breachedPasswords.js'
-import { ACCOUNT_CHANGED_MESSAGE, RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, changePassword, sessionCookieOptions, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, isUsableResetLink, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
+import { ACCOUNT_CHANGED_MESSAGE, RESET_LINK_MINUTES, SESSION_COOKIE, SESSION_DURATION_MS, WRONG_PASSWORDS_PER_HOUR, changePassword, sessionCookieOptions, createPasswordReset, dismissTwoFactorPrompt, isActiveAdminEmail, findSessionAdmin, isUsableResetLink, logIn, logOut, readCookie, resetPassword, sessionTwoFactor, startSession } from '../services/adminAuth.js'
 import type { AdminIdentity } from '../services/adminAuth.js'
 import { CHALLENGE_MINUTES, EMAIL_CODE_MINUTES, completeLoginChallenge, loginChallengeAdminId, maskEmail, resendLoginEmailCode } from '../services/twoFactor.js'
 import { currencyInfo } from '../services/currency.js'
@@ -101,9 +102,14 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
       const { errors, value } = validateLogin(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       const result = await logIn(value.email, value.password)
-      if (!result) {
-        // Same answer either way; the log tells a deactivated account apart.
-        if (await AdminUser.exists({ email: value.email, isActive: false })) res.locals.securityReason = 'ACCOUNT_INACTIVE'
+      if (!result || result.kind === 'paused') {
+        // Same answer, and the same work, either way; the log tells a deactivated or paused account apart.
+        const inactive = await AdminUser.exists({ email: value.email, isActive: false })
+        if (result) {
+          res.locals.securityReason = result.pause.pausedNow ? 'LOGIN_PAUSED_NOW' : 'LOGIN_PAUSED'
+          // Never throws (a failed email is logged).
+          if (result.pause.pausedNow) void notifier.loginPaused(result.admin, WRONG_PASSWORDS_PER_HOUR, result.pause.until)
+        } else if (inactive) res.locals.securityReason = 'ACCOUNT_INACTIVE'
         throw new HttpError(401, 'Email or password is incorrect.', 'INVALID_CREDENTIALS')
       }
       res.locals.securityAccountId = result.admin.id
@@ -214,6 +220,7 @@ export default function adminSessionRouter(config: AppConfig, breachCheck: Breac
         res.locals.wrongPassword = true
         throw new HttpError(400, 'Your current password is incorrect.', 'WRONG_PASSWORD', { currentPassword: 'Your current password is incorrect.' })
       }
+      if (result.status === 'paused') throw passwordPausedError(result.pause, admin, notifier, res, 'currentPassword')
       if (result.status === 'breached') throw new HttpError(400, BREACHED_MESSAGE, 'PASSWORD_BREACHED', { newPassword: BREACHED_MESSAGE })
       if (result.status === 'changed') throw new HttpError(409, ACCOUNT_CHANGED_MESSAGE, 'ACCOUNT_CHANGED')
       if (result.breachUnchecked) console.warn('Password change: the breached-password check could not be made; the change went ahead without it.')

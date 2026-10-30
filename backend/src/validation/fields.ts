@@ -20,6 +20,18 @@ export function text(value: unknown, maxLength: number, field: string, errors: V
   return normalized
 }
 
+// A line break of any kind: CR, LF, vertical tab, form feed, NEL, and Unicode's line and paragraph
+// separators.
+export const LINE_BREAK = /[\n\v\f\r\u0085\u2028\u2029]/
+
+// text() for a one-line detail (a name, a company, a phone number): a line break is refused, so it
+// cannot add lines of its own to the emails it appears in (audit S5-L01).
+export function oneLineText(value: unknown, maxLength: number, field: string, errors: ValidationErrors, required = false) {
+  const normalized = text(value, maxLength, field, errors, required)
+  if (LINE_BREAK.test(normalized)) errors[field] = `${field} must be on one line.`
+  return normalized
+}
+
 // ?page= on the admin lists: a whole number from 1, or 1 when absent.
 export function pageNumber(value: unknown, errors: ValidationErrors) {
   const page = value === undefined ? 1 : Number(value)

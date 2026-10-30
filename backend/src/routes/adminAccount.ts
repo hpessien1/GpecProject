@@ -3,6 +3,7 @@ import type { Response } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { HttpError, ValidationError } from '../errors.js'
 import { currentAdmin } from '../middleware/requireAdmin.js'
+import { passwordPausedError } from '../middleware/requirePassword.js'
 import { securityEvent } from '../middleware/securityEvent.js'
 import { ACCOUNT_CHANGED_MESSAGE, SESSION_COOKIE, SESSION_DURATION_MS, sessionCookieOptions } from '../services/adminAuth.js'
 import type { Notifier } from '../services/notifications.js'
@@ -36,6 +37,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
 
   // Turns a refused password or code into its answer, and marks it for the limiter.
   function refuse(result: Exclude<VerifiedResult, { status: 'ok' }>, res: Response): never {
+    if (result.status === 'paused') throw passwordPausedError(result.pause, currentAdmin(res), notifier, res)
     if (result.status === 'off') throw new HttpError(409, 'Two-step login is already off.', 'TWO_FACTOR_OFF')
     if (result.status === 'changed') throw new HttpError(409, ACCOUNT_CHANGED_MESSAGE, 'ACCOUNT_CHANGED')
     res.locals.wrongPassword = true
@@ -98,6 +100,7 @@ export default function adminAccountRouter(config: AppConfig, notifier: Notifier
         res.locals.wrongPassword = true
         throw new HttpError(400, WRONG_PASSWORD, 'WRONG_PASSWORD', { password: WRONG_PASSWORD })
       }
+      if (result.status === 'paused') throw passwordPausedError(result.pause, admin, notifier, res)
       if (result.status === 'wrong') {
         res.locals.wrongPassword = true
         throw new HttpError(400, WRONG_CODE, 'WRONG_CODE', { code: WRONG_CODE })

@@ -1,7 +1,7 @@
 import { FULFILMENT_METHODS, PAYMENT_METHODS } from '../models/Order.js'
 import { PRODUCT_ID_PATTERN } from './adminProduct.js'
 import { isDeliveryAreaId } from './deliveryArea.js'
-import { HONEYPOT_FIELD, asFields, emailPattern, text } from './fields.js'
+import { HONEYPOT_FIELD, asFields, emailPattern, oneLineText, text } from './fields.js'
 import type { ValidationErrors } from './fields.js'
 
 export const MAX_ORDER_LINES = 50
@@ -89,10 +89,10 @@ export function validateOrder(body: unknown) {
   rejectUnknownFields(source, ORDER_FIELDS, errors)
   const basket = readBasket(source, errors)
   const customer = {
-    fullName: text(source.fullName, 120, 'fullName', errors, true),
-    company: text(source.company, 120, 'company', errors),
+    fullName: oneLineText(source.fullName, 120, 'fullName', errors, true),
+    company: oneLineText(source.company, 120, 'company', errors),
     email: text(source.email, 254, 'email', errors, true).toLowerCase(),
-    phone: text(source.phone, 40, 'phone', errors, true),
+    phone: oneLineText(source.phone, 40, 'phone', errors, true),
   }
   if (customer.email && !emailPattern.test(customer.email)) errors.email = 'email must be valid.'
   if (customer.phone && !PHONE_PATTERN.test(customer.phone)) errors.phone = 'phone must be a phone number, e.g. +234 803 123 4567.'
