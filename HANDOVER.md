@@ -2,7 +2,9 @@
 
 Last updated: 2026-10-30 (the **fifth security audit**: both findings fixed, plus two more found by
 sweeping the code for every audit's types of finding; pushed, CI green, and deployed. The fourth audit
-was closed and deployed earlier that day).
+was closed and deployed earlier that day. RUNBOOK 1.2 items 7 and 8 done: API memory limit set, port
+5001 checked closed. Commits `22a319c` and `de52f28` (docs only) were not yet pushed at session end:
+check `git status` and ask the user to push).
 Start a new session with:
 
 ```text
@@ -222,7 +224,9 @@ Deferred (not code; the user's decision at close-out): **H-02** (the Atlas owner
    must be one line). A sweep found and fixed two more (user's go-ahead): the password asked again in
    the panel counts toward the same hourly tries; customers' messages, notes, and addresses are quoted
    ("> ") in staff emails. `/security-review` found nothing; committed (`a6f8530`), CI green, deployed
-   2026-10-30. Nothing left to do for it. Next: the user commissions another audit.
+   2026-10-30. Left, not code: on the live site, send a contact message to an address you can read
+   and check the confirmation starts with "Hello," (not the name), and that the staff email shows the
+   message with "> " before each line. Next: the user commissions another audit.
    **Fourth security audit** (2026-10-29): `SECURITY_AUDIT_FOURTH.md`, git-ignored like the others;
    handled the same way. Both fixed 2026-10-30 (its "Remediation Status" table): S4-M01 (an emailed
    account code is used up by the same update that accepts it, so it approves one change), S4-L01
