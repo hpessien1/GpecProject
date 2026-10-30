@@ -3,7 +3,7 @@
 The order of work from today to launch. Each step lists what it delivers and why it comes where it
 does. Update this file as steps are completed or the plan changes.
 
-- **Last updated:** 2026-10-28 (security audit closed, two non-code items deferred; close an abandoned Paystack order as not paid; admin header Menu button; security log date filter and pages; completed and cancelled orders final, cancelling returns stock; a confirmation dialog for steps that cannot be undone; 2026-10-27: security audit fixes: payment confirmations that survive a crash, upload limits, photo preview on the contact form, short-lived copies of public pages, a security log for staff; 2026-10-26: phone menu, tab icon, clearer bank-transfer actions for staff, Paystack payment methods explained for GPEC; 2026-10-25: FAQ in the menu, section labels match it; all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
+- **Last updated:** 2026-10-30 (fourth security audit fixed and deployed, with two more fixes from a sweep of all four audits; 2026-10-28: security audit closed, two non-code items deferred; close an abandoned Paystack order as not paid; admin header Menu button; security log date filter and pages; completed and cancelled orders final, cancelling returns stock; a confirmation dialog for steps that cannot be undone; 2026-10-27: security audit fixes: payment confirmations that survive a crash, upload limits, photo preview on the contact form, short-lived copies of public pages, a security log for staff; 2026-10-26: phone menu, tab icon, clearer bank-transfer actions for staff, Paystack payment methods explained for GPEC; 2026-10-25: FAQ in the menu, section labels match it; all small text raised to 0.8rem; product categories; order update emails; reply-to address for customer emails; files on the contact form; two-step login for admins, new label and code fonts; site content: FAQ, refunds policy, editable privacy notice; home page changes)
 - **Related documents:** [`README.md`](README.md) (company brief), [`ECOMMERCE_REQUIREMENTS.md`](ECOMMERCE_REQUIREMENTS.md)
   (shop and payment behaviour), [`CLAUDE.md`](CLAUDE.md) (engineering rules and known gaps)
 
@@ -271,6 +271,12 @@ These block launch, and several block steps 4 to 6. Ask early.
       with files keeps its upload place until its work has ended, and one stopped or abandoned is not
       saved; emails for a password changed in the panel and for new recovery codes. Fixed and
       deployed 2026-10-29.
+- [x] Fourth security audit (2026-10-29, detailed only in a local file): an emailed security code
+      approves one change only; customers' email addresses cannot add recipients to staff's email
+      links. A sweep of the code for every type of finding from all four audits found and fixed two
+      more (a security code emailed twice when asked for twice at once; the panel's password change
+      checked the breached-password service before the current password). Fixed and deployed
+      2026-10-30.
 - [x] Staff screens (2026-10-28, user's requests): the Security log filters by date, with numbered
       pages; completed and cancelled orders cannot be changed again, and cancelling puts back the
       stock the order took; a confirmation dialog in the panel's own style for completing or

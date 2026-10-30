@@ -1,7 +1,8 @@
 # Next-session handover
 
-Last updated: 2026-10-29 (the **third security audit**: all three findings fixed, pushed, CI green,
-and deployed; the second audit closed and deployed earlier that day; SES production access granted).
+Last updated: 2026-10-30 (the **fourth security audit**: both findings fixed, plus two more found by
+sweeping the code for every earlier audit's types of finding; pushed, CI green, and deployed; an
+"attacker's pass" checklist added to CLAUDE.md Section 12).
 Start a new session with:
 
 ```text
@@ -11,10 +12,10 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `354975a` (the third audit's fixes and a longer time limit for
-  one slow security-log test, which timed out on CI's first run) is pushed, CI green (run
-  40874475288, including the browser, contrast, and full-history secret-scan jobs), and deployed by
-  the user on 2026-10-29. Check runs with `gh run list -R hpessien1/GpecProject` (the `gh` login
+- **Git and CI:** everything up to `68c5856` (the fourth audit's fixes in `ced0e9a`, and a longer
+  time limit for one slow two-factor test, which timed out on CI's first run) is pushed, CI green
+  (run 40982550225, including the browser, contrast, and full-history secret-scan jobs), and deployed
+  by the user on 2026-10-30. Check runs with `gh run list -R hpessien1/GpecProject` (the `gh` login
   `v25-hub` can read this repository's runs; it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23). GPEC's team uses it to see how everything behaves. So: every feature comes with demo
@@ -25,9 +26,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `0c9b03a` (both `gpec-api` and `gpec-web`, 2026-10-28,
-  the user). The three second-audit fixes need a deploy of both (`gpec-web` for the security log's
-  counted entries) once pushed and CI is green.
+- **What is deployed:** everything up to `68c5856` (2026-10-30, the user).
 - **Two owner steps from this session, not confirmed done** (ask the user): RUNBOOK 1.2 item 7 (a
   1 GB memory limit on `gpec-api` in Coolify, audit M-04) and item 8 (check that port 5001 on the
   server's IP cannot be reached directly, audit M-08: the per-visitor limits trust the proxy's
@@ -222,9 +221,14 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
    (customer email addresses: only a real domain after the @, and staff's email links encode the
    address). A sweep of every earlier audit's types of finding (2026-10-30) found and fixed two more:
    requests for an emailed account code at once each sent one, and the panel's password change asked
-   the breached-password service before checking the current password. Left: commit when the user
-   asks, CI, deploy; then composing (not sending) from an email
-   link in GPEC's own mail program, with GPEC's staff.
+   the breached-password service before checking the current password. Committed (`ced0e9a`,
+   `68c5856`), CI green, deployed 2026-10-30. Left, not code: click a customer's email link on an
+   order or contact request in GPEC's own mail program and check it shows one recipient and GPEC's
+   subject (compose only, never send), with GPEC's staff.
+   **How audits are handled from now on** (the user, 2026-10-30): the user keeps commissioning audits
+   until one finds no Critical, High, or serious Medium issue. For each: explain every finding plainly
+   and wait for the go-ahead; tests that fail on the old code first; then sweep the whole code for
+   each type of finding across all audits so far, not only the one reported.
    **Third security audit** (2026-10-29): `SECURITY_AUDIT_THIRD.md`, git-ignored like the others;
    handled the same way. All three fixed 2026-10-29 (its "Remediation Status" table): S3-M01 (password
    and two-step changes saved only if the account is unchanged since the check, `409 ACCOUNT_CHANGED`;
