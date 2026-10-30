@@ -1,8 +1,8 @@
 # Next-session handover
 
-Last updated: 2026-10-30 (the **fourth security audit**: both findings fixed, plus two more found by
-sweeping the code for every earlier audit's types of finding; pushed, CI green, and deployed; an
-"attacker's pass" checklist added to CLAUDE.md Section 12).
+Last updated: 2026-10-30 (the **fifth security audit**: both findings fixed, plus two more found by
+sweeping the code for every audit's types of finding; pushed, CI green, and deployed. The fourth audit
+was closed and deployed earlier that day).
 Start a new session with:
 
 ```text
@@ -12,10 +12,9 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `68c5856` (the fourth audit's fixes in `ced0e9a`, and a longer
-  time limit for one slow two-factor test, which timed out on CI's first run) is pushed, CI green
-  (run 40982550225, including the browser, contrast, and full-history secret-scan jobs), and deployed
-  by the user on 2026-10-30. Check runs with `gh run list -R hpessien1/GpecProject` (the `gh` login
+- **Git and CI:** everything up to `a6f8530` (the fifth audit's fixes) is pushed, CI green (run
+  41027426966, including the browser, contrast, and full-history secret-scan jobs), and deployed by
+  the user on 2026-10-30. Check runs with `gh run list -R hpessien1/GpecProject` (the `gh` login
   `v25-hub` can read this repository's runs; it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23). GPEC's team uses it to see how everything behaves. So: every feature comes with demo
@@ -26,7 +25,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `68c5856` (2026-10-30, the user).
+- **What is deployed:** everything up to `a6f8530`, both `gpec-api` and `gpec-web` (2026-10-30, the
+  user).
 - **Two owner steps from this session, not confirmed done** (ask the user): RUNBOOK 1.2 item 7 (a
   1 GB memory limit on `gpec-api` in Coolify, audit M-04) and item 8 (check that port 5001 on the
   server's IP cannot be reached directly, audit M-08: the per-visitor limits trust the proxy's
@@ -216,13 +216,14 @@ confirmed done: RUNBOOK 1.2 items 7 and 8.
 ## Open items for the next session
 
 0. **Fifth security audit** (2026-10-30): `SECURITY_AUDIT_FIFTH.md`, git-ignored like the others;
-   handled the same way. Both fixed 2026-10-30 (its "Remediation Status" table), **not yet committed**:
+   handled the same way. Both fixed 2026-10-30 (its "Remediation Status" table):
    S5-M01 (wrong passwords counted per account across all addresses: 10 an hour, then the account's
    login pauses until the hour ends or a reset link sets a new password; the admin is emailed once),
    S5-L01 (customer emails say "Hello," instead of the typed name; names, companies, and phone numbers
    must be one line). A sweep found and fixed two more (user's go-ahead): the password asked again in
    the panel counts toward the same hourly tries; customers' messages, notes, and addresses are quoted
-   ("> ") in staff emails. Next: `/security-review`, then commit when asked.
+   ("> ") in staff emails. `/security-review` found nothing; committed (`a6f8530`), CI green, deployed
+   2026-10-30. Nothing left to do for it. Next: the user commissions another audit.
    **Fourth security audit** (2026-10-29): `SECURITY_AUDIT_FOURTH.md`, git-ignored like the others;
    handled the same way. Both fixed 2026-10-30 (its "Remediation Status" table): S4-M01 (an emailed
    account code is used up by the same update that accepts it, so it approves one change), S4-L01
