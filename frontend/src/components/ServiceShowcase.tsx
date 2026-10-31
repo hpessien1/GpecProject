@@ -3,24 +3,19 @@ import Arrow from './Arrow'
 import { services } from '../data/landingContent'
 
 interface ServiceShowcaseProps {
-  // Called by every "Learn more" link, which also goes to the contact form.
+  // Called by every enquiry link, which also goes to the contact form.
   onAskAbout: (topic: string) => void
 }
 
-// The twelve business areas: one featured in the large panel (photo above, text below), the other eleven as cards. Choosing a card
-// swaps it with the featured area, so the other cards never move. The card's title is the button
-// (stretched over the whole card); "Learn more" stays a separate link to the contact form.
+// One business area is featured in the large panel (photo above, text below); all twelve remain in
+// fixed card positions. Choosing a card updates the featured area without reordering cards.
 export default function ServiceShowcase({ onAskAbout }: ServiceShowcaseProps) {
   const [featured, setFeatured] = useState(0)
-  // Which area each of the eleven card positions shows.
-  const [slots, setSlots] = useState(() => services.map((_, index) => index).slice(1))
   const [announcement, setAnnouncement] = useState('')
   const panelRef = useRef<HTMLElement>(null)
   const area = services[featured]
 
-  function feature(slot: number) {
-    const chosen = slots[slot]
-    setSlots((current) => current.map((index, position) => position === slot ? featured : index))
+  function feature(chosen: number) {
     setFeatured(chosen)
     setAnnouncement(`Showing ${services[chosen].title}`)
     // On narrow screens the panel is above the cards; bring it into view if it has scrolled away.
@@ -47,19 +42,23 @@ export default function ServiceShowcase({ onAskAbout }: ServiceShowcaseProps) {
           <h3>{area.title}</h3>
           <span className="service-feature-rule" aria-hidden="true" />
           <p>{area.text}</p>
-          <a href="#contact" onClick={() => onAskAbout(area.topic)} aria-label={`Ask about ${area.title}`}>Learn more <Arrow /></a>
+          <div className="service-card-actions">
+            <a href="#contact" onClick={() => onAskAbout(area.topic)} aria-label={`Make an enquiry about ${area.title}`}>Make enquiry <Arrow /></a>
+            <a className="service-shop-link" href="#shop" aria-label={`Shop products related to ${area.title}`}>Shop <Arrow /></a>
+          </div>
         </div>
       </div>
     </article>
     <p className="visually-hidden" aria-live="polite">{announcement}</p>
-    <div className="service-support-grid">{slots.map((index, slot) => {
-      const service = services[index]
-      // Keyed by position, so a chosen card's button keeps keyboard focus after the swap.
-      return <article className="service-mini-card" key={slot}>
+    <div className="service-support-grid">{services.map((service, index) => {
+      return <article className="service-mini-card" key={service.title}>
         <div className="service-mini-top"><span>{service.number}</span><span>{service.tag}</span></div>
-        <h3><button type="button" className="service-select" aria-controls="service-feature" onClick={() => feature(slot)}><span className="visually-hidden">Show </span>{service.title}<span className="visually-hidden"> in the panel above</span></button></h3>
+        <h3><button type="button" className="service-select" aria-controls="service-feature" onClick={() => feature(index)}><span className="visually-hidden">Show </span>{service.title}<span className="visually-hidden"> in the panel above</span></button></h3>
         <span className="service-mini-rule" aria-hidden="true" />
-        <a href="#contact" onClick={() => onAskAbout(service.topic)} aria-label={`Ask about ${service.title}`}>Learn more <Arrow /></a>
+        <div className="service-card-actions">
+          <a href="#contact" onClick={() => onAskAbout(service.topic)} aria-label={`Make an enquiry about ${service.title}`}>Make enquiry <Arrow /></a>
+          <a className="service-shop-link" href="#shop" aria-label={`Shop products related to ${service.title}`}>Shop <Arrow /></a>
+        </div>
       </article>
     })}</div>
   </div>

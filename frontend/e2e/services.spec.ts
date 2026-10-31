@@ -3,14 +3,14 @@ import type { Page } from '@playwright/test'
 import { mockApi } from './support/sampleApi'
 
 // The Services showcase (components/ServiceShowcase.tsx): choosing a card features that business area
-// in the large panel and swaps places with the area that was there; "Learn more" opens the contact
-// form with that area's topic chosen.
+// in the large panel without changing card order; "Make enquiry" opens the contact form with that
+// area's topic chosen.
 
 const feature = (page: Page) => page.locator('#service-feature')
 const slotTitles = (page: Page) => page.locator('.service-select').evaluateAll((buttons) => buttons.map((b) => b.textContent?.replace(/^Show | in the panel above$/g, '')))
 
 test.describe('services showcase', () => {
-  test('choosing a card features it, swaps it with the featured area, and announces it', async ({ page }) => {
+  test('choosing a card features it without changing the card order, and announces it', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#services')
     await page.locator('.service-mini-card', { hasText: 'Solar accessories' }).click({ position: { x: 16, y: 16 } })
@@ -18,7 +18,7 @@ test.describe('services showcase', () => {
     await expect(feature(page)).toContainText('Mounting rails, connectors')
     await expect(feature(page).locator('.service-feature-photo')).toHaveAttribute('alt', /.+/)
     await expect(feature(page).locator('.service-image-note')).toHaveCount(0)
-    expect(await slotTitles(page)).toEqual(['Solar energy', 'Electrical sales', 'Solar sales', 'Electrical panels', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Installation & repairs', 'Generators & power', 'Security & smart home'])
+    expect(await slotTitles(page)).toEqual(['Solar sales', 'Solar Installation', 'Electrical accessories', 'Electrical panels', 'Electrical sales', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Generators & power', 'Installation & repairs', 'Security & smart home', 'Solar accessories'])
     await expect(page.locator('.service-showcase [aria-live]')).toHaveText('Showing Solar accessories')
   })
 
@@ -30,7 +30,7 @@ test.describe('services showcase', () => {
       await expect(image).toHaveAttribute('alt', /.+/)
       await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
       await expect(feature(page).locator('.service-image-note')).toHaveCount(0)
-      await page.locator('.service-select').nth(round % 11).click()
+      await page.locator('.service-select').nth(round % 12).click()
     }
   })
 
@@ -70,7 +70,7 @@ test.describe('services showcase', () => {
       expect(layout.backdrop).toEqual({ sameImage: true, alt: '', behind: true, covers: true, blur: expect.any(Number) })
       expect(layout.backdrop?.blur).toBeGreaterThanOrEqual(30)
       gaps.add(layout.gap)
-      await page.locator('.service-select').nth(round % 11).click()
+      await page.locator('.service-select').nth(round % 12).click()
     }
     expect([...gaps]).toHaveLength(1)
     expect([...gaps][0]).toBeGreaterThanOrEqual(16)
@@ -84,41 +84,47 @@ test.describe('services showcase', () => {
     await button.focus()
     await page.keyboard.press('Enter')
     await expect(feature(page).locator('h3')).toHaveText('Electronics')
-    // The slot now holds the previously featured area, and keeps focus.
-    await expect(page.getByRole('button', { name: 'Show Electrical panels in the panel above' })).toBeFocused()
+    // The card stays in its original position and keeps focus.
+    await expect(button).toBeFocused()
+    expect(await slotTitles(page)).toEqual(['Solar sales', 'Solar Installation', 'Electrical accessories', 'Electrical panels', 'Electrical sales', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Generators & power', 'Installation & repairs', 'Security & smart home', 'Solar accessories'])
   })
 
-  test('"Learn more" in the panel opens the contact form with that topic chosen', async ({ page }) => {
+  test('"Make enquiry" in the panel opens the contact form with that topic chosen', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#services')
     await page.getByRole('button', { name: 'Show Industrial sales in the panel above' }).click()
-    await feature(page).getByRole('link', { name: 'Ask about Industrial sales' }).click()
+    await feature(page).getByRole('link', { name: 'Make an enquiry about Industrial sales' }).click()
     await expect(page.locator('#contact')).toBeInViewport()
     await expect(page.locator('select[name="subject"]')).toHaveValue('Industrial products')
   })
 
-  test('"Learn more" on a card goes straight to the contact form without featuring it', async ({ page }) => {
+  test('"Make enquiry" on a card goes straight to the contact form without featuring it', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#services')
-    await page.locator('.service-mini-card', { hasText: 'Solar sales' }).getByRole('link', { name: 'Ask about Solar sales' }).click()
-    await expect(page.locator('select[name="subject"]')).toHaveValue('Solar products')
-    await expect(feature(page).locator('h3')).toHaveText('Electrical panels')
+    await page.locator('.service-mini-card', { hasText: 'Solar Installation' }).getByRole('link', { name: 'Make an enquiry about Solar Installation' }).click()
+    await expect(page.locator('select[name="subject"]')).toHaveValue('Solar energy')
+    await expect(feature(page).locator('h3')).toHaveText('Solar sales')
   })
 
-  test('the last of the eleven cards fills its row, and its "Learn more" chooses its own topic', async ({ page }, testInfo) => {
+  test('all twelve cards stay in order, and the last card enquiry chooses its own topic', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#services')
     const cards = page.locator('.service-mini-card')
-    await expect(cards).toHaveCount(11)
+    await expect(cards).toHaveCount(12)
     const last = cards.last()
-    await expect(last).toContainText('Security & smart home')
-    if (testInfo.project.name === 'desktop') {
-      const [grid, card] = await Promise.all([page.locator('.service-support-grid').boundingBox(), last.boundingBox()])
-      // A normal card is half the grid; the last one spans both columns.
-      expect(card?.width ?? 0).toBeGreaterThan((grid?.width ?? 0) * 0.9)
-    }
-    await last.getByRole('link', { name: 'Ask about Security & smart home' }).click()
-    await expect(page.locator('select[name="subject"]')).toHaveValue('Security and smart home')
+    await expect(last).toContainText('Solar accessories')
+    await last.getByRole('link', { name: 'Make an enquiry about Solar accessories' }).click()
+    await expect(page.locator('select[name="subject"]')).toHaveValue('Solar accessories')
+  })
+
+  test('Shop links on the featured area and cards go to the shop', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#services')
+    await feature(page).getByRole('link', { name: 'Shop products related to Solar sales' }).click()
+    await expect(page).toHaveURL(/#shop$/)
+    await page.goto('/#services')
+    await page.locator('.service-mini-card').first().getByRole('link', { name: 'Shop products related to Solar sales' }).click()
+    await expect(page).toHaveURL(/#shop$/)
   })
 
   test('on phones, the panel scrolls into view when a card further down is chosen', async ({ page }, testInfo) => {
@@ -164,7 +170,7 @@ test.describe('contact form topics', () => {
   test('a chosen topic is sent and cleared after sending', async ({ page }) => {
     const api = await mockApi(page)
     await page.goto('/#services')
-    await page.locator('.service-mini-card', { hasText: 'Electronics' }).getByRole('link').click()
+    await page.locator('.service-mini-card', { hasText: 'Electronics' }).getByRole('link', { name: 'Make an enquiry about Electronics' }).click()
     const form = page.locator('.quote-form')
     await form.getByLabel('Full name').fill('Ada Buyer')
     await form.getByLabel('Email address').fill('ada@example.com')

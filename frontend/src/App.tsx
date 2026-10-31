@@ -1,8 +1,9 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import LandingPage from './pages/LandingPage'
 import PolicyPage from './pages/PolicyPage'
+import PanelCapabilityPage from './pages/PanelCapabilityPage'
 import StorePage from './pages/StorePage'
-import { productGroups } from './data/landingContent'
+import { panelCapabilities, productGroups } from './data/landingContent'
 
 // Loaded only when someone opens #admin, so customers never download the admin screens.
 const AdminPage = lazy(() => import('./pages/AdminPage'))
@@ -20,7 +21,9 @@ export default function App() {
   // catalogue showing one product group (the home page's Products cards link there).
   const payment = /^#shop\/payment\/([0-9a-f]{24})$/.exec(route)
   const categoryRoute = /^#shop\/category\/([a-z]+)$/.exec(route)
+  const capabilityRoute = /^#panel-capability\/(\d{2})$/.exec(route)
   const category = productGroups.find((group) => group.category === categoryRoute?.[1])?.category ?? null
+  const capability = panelCapabilities.find(([number]) => number === capabilityRoute?.[1]) ?? null
   const isShopRoute = route === '#shop' || route === '#shop/order' || payment !== null || category !== null
   const shopMode = payment ? 'payment' : route === '#shop/order' ? 'order' : 'catalogue'
   const goHome = () => { window.location.hash = '#home' }
@@ -30,6 +33,8 @@ export default function App() {
   if (route === '#admin' || route.startsWith('#admin/')) {
     return <Suspense fallback={<p className="admin-loading" role="status">Loading…</p>}><AdminPage route={route} /></Suspense>
   }
+
+  if (capability) return <PanelCapabilityPage key={route} capability={capability} />
 
   if (route === '#privacy' || route === '#refunds') return <PolicyPage key={route} pageKey={route === '#privacy' ? 'privacy' : 'refunds'} />
 
