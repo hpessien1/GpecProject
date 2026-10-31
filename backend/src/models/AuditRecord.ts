@@ -1,7 +1,8 @@
 import mongoose from 'mongoose'
 
 // Who changed what, and when (CLAUDE.md Section 4.6). Written in the same transaction as the change
-// it describes, and never edited or deleted by the application.
+// it describes, and never edited by the application. Deleted only by the data clean-up, together with
+// the order or contact request it describes (services/dataRetention.ts).
 const changeSchema = new mongoose.Schema({
   field: { type: String, required: true },
   from: { type: mongoose.Schema.Types.Mixed, default: null },
@@ -22,7 +23,7 @@ const auditRecordSchema = new mongoose.Schema({
   // Paystack about a payment and Paystack's answer changed the order.
   // order.close: staff closed a Paystack order the customer left without paying (Paystack had no
   // completed payment for it).
-  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'product.restock', 'contactRequest.status', 'order.status', 'order.payment', 'order.close', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
+  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'product.restock', 'contactRequest.status', 'contactRequest.keep', 'order.status', 'order.payment', 'order.close', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
   targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer', 'siteContent', 'customerEmail'] },
   targetId: { type: String, required: true },
   // The admin who made the change, copied at the time, so the record still names the person if the

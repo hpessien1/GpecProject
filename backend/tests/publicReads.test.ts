@@ -176,6 +176,9 @@ class SlowStore implements ImageStore {
   async put(key: string, body: Buffer, contentType: string) {
     this.objects.set(key, { body: new Uint8Array(body), contentType })
   }
+  async remove(key: string) {
+    this.objects.delete(key)
+  }
   async get(key: string) {
     this.gets++
     this.active++

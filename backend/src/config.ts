@@ -87,6 +87,12 @@ export interface Config {
   // 32 bytes that encrypt each admin's authenticator-app secret in the database. null: admins cannot
   // set up an authenticator app (email codes still work, if email is on).
   twoFactorKey: Buffer | null
+  // GPEC's accounting year end as MM-DD, or null until GPEC confirms it (no default on purpose: paid
+  // orders' six years count from it).
+  accountingYearEnd: string | null
+  // true: the daily data clean-up deletes what its periods say (services/dataRetention.ts). Needs
+  // accountingYearEnd.
+  retentionCleanup: boolean
 }
 
 const EMAIL_PATTERN = /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/
@@ -132,7 +138,18 @@ const envSchema = z.object({
   PAYSTACK_FEE_CAP: minorUnits.refine((cap) => cap > 0, 'must be more than 0').optional(),
   // 32 random bytes, base64 (`openssl rand -base64 32`).
   TWO_FACTOR_ENCRYPTION_KEY: z.string().trim().refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value) && Buffer.from(value, 'base64').length === 32, 'must be 32 random bytes in base64, made with: openssl rand -base64 32').optional(),
+  // A real day of any year, so not 02-29.
+  RETENTION_ACCOUNTING_YEAR_END: z.string().trim().refine((value) => {
+    const match = /^(\d{2})-(\d{2})$/.exec(value)
+    if (!match) return false
+    const date = new Date(Date.UTC(2025, Number(match[1]) - 1, Number(match[2])))
+    return date.getUTCMonth() === Number(match[1]) - 1 && date.getUTCDate() === Number(match[2])
+  }, 'must be a month and day as MM-DD, such as 12-31 (not 02-29)').optional(),
+  RETENTION_CLEANUP: z.enum(['on', 'off']).optional(),
 }).superRefine((env, ctx) => {
+  if (env.RETENTION_CLEANUP === 'on' && !env.RETENTION_ACCOUNTING_YEAR_END) {
+    ctx.addIssue({ code: 'custom', path: ['RETENTION_ACCOUNTING_YEAR_END'], message: 'is required when RETENTION_CLEANUP is on' })
+  }
   // All or nothing, so a half-finished setup fails at startup instead of silently sending nothing.
   const setEmailSettings = EMAIL_SETTINGS.filter((name) => env[name] !== undefined)
   if (setEmailSettings.length > 0 && setEmailSettings.length < EMAIL_SETTINGS.length) {
@@ -238,5 +255,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         }
       : null,
     twoFactorKey: parsed.TWO_FACTOR_ENCRYPTION_KEY ? Buffer.from(parsed.TWO_FACTOR_ENCRYPTION_KEY, 'base64') : null,
+    accountingYearEnd: parsed.RETENTION_ACCOUNTING_YEAR_END ?? null,
+    retentionCleanup: parsed.RETENTION_CLEANUP === 'on',
   }
 }

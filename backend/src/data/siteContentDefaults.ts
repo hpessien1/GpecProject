@@ -70,7 +70,14 @@ This means your information is stored and processed outside Nigeria.`,
       },
       {
         heading: 'How long we keep it',
-        body: '[How long GPEC keeps contact messages and orders, and what happens after that, e.g. deleted after a set number of years (orders may need to be kept longer for tax and accounting)]',
+        body: `We keep your information only for as long as we need it, and then delete it:
+
+- Paid orders, with staff notes and their history: 6 years from the end of our accounting year in which you paid, for tax and accounting.
+- Orders that were not paid: 6 months after the order was last updated.
+- Contact messages and any files you attached, with staff notes: 6 months after we close the enquiry. We may keep one longer if we still need it, for example for a warranty, a dispute, or a large quote.
+- Security records of access to the website, which can include an internet (IP) address: 12 months.
+
+Deleted information can remain in our database backups until those backups are replaced on their regular schedule.`,
       },
       {
         heading: 'Your choices',

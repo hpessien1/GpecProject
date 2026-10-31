@@ -865,6 +865,23 @@ test.describe('contact requests', () => {
     await expect(page.locator('.admin-history li').first()).toContainText('New → In progress')
   })
 
+  test('keeps a request from the data clean-up, and stops keeping it, recorded in the history', async ({ page }) => {
+    const api = await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto(`/#admin/contact-requests/${CONTACT_REF}`)
+    const section = page.getByRole('region', { name: 'How long this is kept' })
+    await expect(section).toContainText('6 months after it is closed')
+    await section.getByRole('button', { name: 'Keep this request' }).click()
+    await expect(page.locator('.success-message')).toHaveText('This request will be kept.')
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ keep: true })
+    await expect(section).toContainText('Kept until staff turn this off')
+    await expect(page.locator('.admin-history li').first()).toContainText('Marked to be kept')
+    await section.getByRole('button', { name: 'Stop keeping this request' }).click()
+    await expect(page.locator('.success-message')).toHaveText('This request is no longer being kept.')
+    await expect(page.locator('.admin-history > ol > li').first()).toContainText('No longer marked to be kept')
+    await expect(section.getByRole('button', { name: 'Keep this request' })).toBeVisible()
+  })
+
   test('shows the files the customer attached: photos open in a new tab, PDFs download', async ({ page }) => {
     await mockApi(page)
     await logInAsAdmin(page)

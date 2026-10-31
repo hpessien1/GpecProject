@@ -147,6 +147,7 @@ The command refuses the production `gpec` database unless given `--production` (
 Section 8).
 
 ```bash
+cd backend && npm run retention:preview        # how many records the data clean-up would delete today; deletes nothing
 cd backend && npm run seed:demo                # adds the demo records that are missing (safe to repeat)
 cd backend && npm run seed:demo -- --remove    # removes exactly the demo records (history and notes too), demo areas and prices staff
                                                # have not changed, and switches bank transfer off unless real details were entered

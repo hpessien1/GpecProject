@@ -22,6 +22,8 @@ export const SECURITY_ACTIONS = [
   // A PDF sent with the contact form (no account): refused (not a PDF, or it needs a password), or
   // accepted with parts taken out (detail: scripts, actions, files, forms, media; audit M-05).
   'upload.pdf',
+  // A run of the data clean-up that deleted something (detail: how many of each; services/dataRetention.ts).
+  'retention.cleanup',
 ] as const
 export type SecurityAction = typeof SECURITY_ACTIONS[number]
 

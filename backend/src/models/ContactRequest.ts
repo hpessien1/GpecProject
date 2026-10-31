@@ -24,10 +24,15 @@ const contactRequestSchema = new mongoose.Schema({
   message: { type: String, required: true, trim: true, maxlength: 5000 },
   attachments: { type: [attachmentSchema], default: [] },
   status: { type: String, enum: REQUEST_STATUSES, default: 'new' },
+  // Staff's "Keep this request" switch: the data clean-up leaves it alone (services/dataRetention.ts).
+  // Missing on requests from before 2026-10-31.
+  keepRecord: { type: Boolean, default: false },
 }, { timestamps: true, strict: 'throw' })
 
 // The admin list filters by status and shows newest first.
 contactRequestSchema.index({ status: 1, createdAt: -1 })
 contactRequestSchema.index({ createdAt: -1 })
+// The data clean-up looks for requests closed long ago.
+contactRequestSchema.index({ status: 1, updatedAt: 1 })
 
 export default mongoose.model('ContactRequest', contactRequestSchema)

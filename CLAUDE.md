@@ -449,6 +449,33 @@ Outside production it stays off, so a forged `X-Forwarded-For` header cannot dod
 Orders and contact requests hold names, emails, phone numbers, and addresses. Collect only what is needed
 (Principle 5), never return it from public routes, and keep it out of logs.
 
+**How long it is kept** (GPEC agreed the periods, 2026-10-31; `services/dataRetention.ts`):
+
+| Data | Kept for | Counted from |
+|---|---|---|
+| Paid orders, with notes and change history | 6 years | The end of GPEC's accounting year of the payment (`RETENTION_ACCOUNTING_YEAR_END`) |
+| Unpaid orders, closed or abandoned, with notes and history | 6 months | The order's last change |
+| Contact requests, with notes, history, and attached files | 6 months | Being closed (the last change); never closed means never due |
+| Security log | 12 months | Each entry (TTL index) |
+| Database backups | The Atlas tier's own schedule | |
+
+- **Why these periods:** GAID 2025 Article 49 is reported to say delete within 6 months after the purpose
+  is met when no other law sets a period, and financial records are generally kept at least 6 years. GPEC's
+  legal adviser approved the periods, and GPEC's accounting year ends on 31 December (reported by the user,
+  2026-10-31). The privacy notice states these
+  periods; change the notice, this table, and the code together.
+- **Exceptions:** staff's "Keep this request" switch (`keepRecord`, AuditRecord `contactRequest.keep`) keeps a
+  request until it is turned off, for a warranty, dispute, or large quote; turning it off restarts the 6
+  months. The site cannot tell which requests led to a sale, so the period applies to all of them. A paid
+  order still being fulfilled, or with no payment date, is never due. Stock history on products stays: it
+  holds only an order's reference.
+- **Off until `RETENTION_CLEANUP=on`** (needs the year end; RUNBOOK 1.10): it deletes for good, so backups
+  and `retention:preview` come first. It runs a minute after the API starts, then daily, at most 500 records
+  of each kind a run, each in its own transaction whose filter repeats the rule, so a request kept or
+  reopened, or an order paid, a moment before is left alone. A request's files go on `PendingFileDeletion` in
+  that transaction and are removed from the bucket afterwards, retried until they succeed. Each run that
+  deleted anything writes counts, never references, to the security log (`retention.cleanup`).
+
 ---
 
 ## 5. Data Model Conventions
@@ -477,11 +504,13 @@ name), and logs which database it found. The guard only works if production sets
 - **Request status** (contact requests, `models/requestStatus.ts`; same list in the frontend's
   `RequestStatus`): `new` → `in_progress` → `closed`. Every request starts as `new` (never taken
   from the customer); admins may move it to any status, including reopening. Admins read, search,
-  and change the status of requests and add internal notes; they cannot edit or delete requests.
+  and change the status of requests and add internal notes; they cannot edit or delete requests (only
+  the data clean-up deletes them, Section 4.9).
 - **RequestNote** (`backend/src/models/RequestNote.ts`) — a staff note on a contact request:
   `targetType` (`contactRequest`), `targetId` (the request's `reference`),
   `text` (up to 2000 characters), `author { adminId, email, name }` (copied at the time),
-  `createdAt`. Admin-only; never edited or deleted, so each note is its own who/what/when record
+  `createdAt`. Admin-only; never edited or deleted by staff (only the data clean-up removes them, Section
+  4.9), so each note is its own who/what/when record
   and needs no separate AuditRecord.
 - **Product** (`backend/src/models/Product.ts`) — the single source of the catalogue. `_id` is the
   short internal key (e.g. `panel-001`, lowercase letters, digits, hyphens), used in carts and
@@ -526,7 +555,8 @@ name), and logs which database it found. The guard only works if production sets
   **AuditRecord** — `action`, `targetType`, `targetId`, `actor { adminId, email, name }`
   (copied at the time; `null` only for `product.sale`, which has `orderReference` instead;
   `product.restock` has both),
-  `changes [{ field, from, to }]`, `createdAt`; never edited or deleted.
+  `changes [{ field, from, to }]`, `createdAt`; never edited, and deleted only by the data clean-up, with its
+  order or contact request (Section 4.9).
 
 - **DeliveryArea** (`backend/src/models/DeliveryArea.ts`, 2026-10-23) — `name` (unique),
   `description`, `fee` (smallest unit, per order), `status` (`active` | `archived`), `sortOrder`,
@@ -618,7 +648,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord, SecurityEvent
 │       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, photos, pdfs, heavyWork, productImages, requestFiles, customerEmail
-│       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts
+│       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts, retentionPreview.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers; paging.ts: admin page size, cursors
 │       └── data/             # sampleProducts.ts (seed products); demoData.ts (demo orders and contact requests)
 └── frontend/                 # React + Vite SPA (TypeScript)
@@ -844,8 +874,9 @@ database outage the proxy may then stop sending traffic to the API, so the site'
   limit.
 - **The refunds policy, the FAQ, and the privacy notice approved** by GPEC (Site content: every
   [bracket] filled in, "Approved" ticked), the policies checked by its legal adviser.
-- **How long customer data is kept** decided by GPEC, and the matching clean-up built (Known Gaps,
-  open business decisions).
+- **The data clean-up switched on** (Section 4.9): `RETENTION_ACCOUNTING_YEAR_END=12-31` set in Coolify,
+  backups in place, demo data removed, the preview checked, and the S3 key allowed to delete
+  `request-files/*` (RUNBOOK 1.10).
 - Every GPEC admin has turned on two-step login (`TWO_FACTOR_ENCRYPTION_KEY` is set in Coolify,
   confirmed by the user 2026-10-25).
 - **Real bank details entered** in the admin panel (*Bank details*): the sample ones ("Sample Bank
@@ -1433,11 +1464,8 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   that passing the fee to customers is allowed under GPEC's Paystack terms. (Decided 2026-10-23: the
   currency is NGN, and customers pay the Paystack fee.)
 - Atlas cluster tier (must include backups before launch).
-- How long customer data is kept (deferred 2026-10-28, the user's choice): contact requests, their
-  attached files, staff notes, orders, and backups. Nothing is deleted automatically today, and the
-  S3 key cannot delete files. Once GPEC sets the periods (keeping financial records as long as the
-  law requires, with its legal adviser), build the clean-up to match and fill the privacy notice's
-  retention placeholder.
+- None for retention: the periods, the 31 December year end, and the adviser's approval are in (2026-10-31,
+  Section 4.9). The clean-up stays off until the launch checklist's steps are done.
 
 ---
 

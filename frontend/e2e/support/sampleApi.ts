@@ -183,9 +183,9 @@ function initialState(): ApiState {
       { action: 'product.update', actor: { name: ADMIN.name, email: ADMIN.email }, orderReference: null, changes: [{ field: 'price', from: 100000, to: 150050 }], createdAt: now },
     ] },
     contactRequests: [
-      { reference: CONTACT_REF, status: 'new', createdAt: now, updatedAt: now, customer, subject: 'Solar energy', message: 'Please call me about a solar system.\nMornings are best.', attachments: SAMPLE_ATTACHMENTS },
-      { reference: 'GPEC-C-2026-0000000B', status: 'in_progress', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Second Customer' }, subject: 'Electrical sales', message: 'Do you stock 63A breakers?', attachments: [] },
-      { reference: 'GPEC-C-2026-0000000C', status: 'closed', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Third Customer' }, subject: '', message: 'Thank you for the quick reply.', attachments: [] },
+      { reference: CONTACT_REF, status: 'new', createdAt: now, updatedAt: now, customer, subject: 'Solar energy', message: 'Please call me about a solar system.\nMornings are best.', attachments: SAMPLE_ATTACHMENTS, keepRecord: false },
+      { reference: 'GPEC-C-2026-0000000B', status: 'in_progress', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Second Customer' }, subject: 'Electrical sales', message: 'Do you stock 63A breakers?', attachments: [], keepRecord: false },
+      { reference: 'GPEC-C-2026-0000000C', status: 'closed', createdAt: now, updatedAt: now, customer: { ...customer, fullName: 'Third Customer' }, subject: '', message: 'Thank you for the quick reply.', attachments: [], keepRecord: false },
     ],
     requestHistory: {},
     requestNotes: { [CONTACT_REF]: [{ author: { name: ADMIN.name, email: ADMIN.email }, text: 'Called the customer.\nSending a quote today.', createdAt: now }] },
@@ -664,7 +664,7 @@ function reply(state: ApiState, request: Request): Reply {
     }
     return [orderMatch[2] ? 201 : 200, { order, emailOn: state.emailOn, paystackOn: state.paymentsOn, ...historyReply(state.orderHistory[order.reference] ?? []), ...notesReply(state.requestNotes[order.reference] ?? []) }]
   }
-  const requestMatch = /^\/api\/admin\/(contact-requests)(?:\/([^/]+))?(\/notes|\/history)?$/.exec(path)
+  const requestMatch = /^\/api\/admin\/(contact-requests)(?:\/([^/]+))?(\/notes|\/history|\/keep)?$/.exec(path)
   if (requestMatch) {
     const items = state.contactRequests
     if (!requestMatch[2]) return listRequests(items, url)
@@ -672,6 +672,12 @@ function reply(state: ApiState, request: Request): Reply {
     if (!item) return [404, { message: 'Request not found.', code: 'NOT_FOUND' }]
     if (requestMatch[3] === '/history') return [200, historyReply(state.requestHistory[item.reference] ?? [], url)]
     if (requestMatch[3] === '/notes' && method === 'GET') return [200, notesReply(state.requestNotes[item.reference] ?? [], url)]
+    if (requestMatch[3] === '/keep') {
+      const from = item.keepRecord
+      item.keepRecord = body.keep === true
+      if (from !== item.keepRecord) state.requestHistory[item.reference] = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'keepRecord', from, to: item.keepRecord }], createdAt: new Date().toISOString() }, ...(state.requestHistory[item.reference] ?? [])]
+      return [200, { item, ...historyReply(state.requestHistory[item.reference] ?? []), ...notesReply(state.requestNotes[item.reference] ?? []) }]
+    }
     if (requestMatch[3]) {
       if (state.notesFail) return [500, { message: 'Something went wrong on our side. Please try again.' }]
       state.requestNotes[item.reference] = [{ author: { name: ADMIN.name, email: ADMIN.email }, text: String(body.text).trim(), createdAt: new Date().toISOString() }, ...(state.requestNotes[item.reference] ?? [])]

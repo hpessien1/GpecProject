@@ -2,6 +2,8 @@ import 'dotenv/config'
 import mongoose from 'mongoose'
 import createApp from './app.js'
 import { loadConfig } from './config.js'
+import { startDailyCleanup } from './services/dataRetention.js'
+import { s3ImageStore } from './services/imageStore.js'
 import { RepeatedRefusals, writeRepeatedRefusals } from './services/securityLog.js'
 import type { Config } from './config.js'
 
@@ -33,6 +35,10 @@ try {
     process.exit(1)
   }
   const server = app.listen(config.port, () => console.log(`GPEC API listening on http://localhost:${config.port} (database: ${databaseName})`))
+  // Off until RETENTION_CLEANUP=on (docs/RUNBOOK.md, "Data clean-up"). The accounting year end is
+  // always there when it is on (config.ts).
+  if (config.retentionCleanup && config.accountingYearEnd) startDailyCleanup(config.accountingYearEnd, config.imageStorage ? s3ImageStore(config.imageStorage) : null)
+  else console.info('The data clean-up is off: nothing is deleted automatically (docs/RUNBOOK.md, "Data clean-up").')
   // Docker stops a container with SIGTERM. Node running as the container's main process ignores it
   // unless handled, so Docker would wait 10 seconds and kill the API mid-request on every redeploy.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {

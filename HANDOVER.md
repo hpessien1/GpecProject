@@ -216,6 +216,11 @@ Deferred (not code; the user's decision at close-out): **H-02** (the Atlas owner
 
 ## Open items for the next session
 
+00. **Data clean-up** (2026-10-31): built, off by default; periods and rules in CLAUDE.md Section 4.9,
+    switching on in RUNBOOK 1.10. GPEC's year end (31 December) and adviser approval are in; still needs backups, demo data removed,
+    the S3 permission, and the preview. A privacy notice
+    already saved in Site content does not change by itself: staff paste the new wording there.
+
 0. **Fifth security audit** (2026-10-30): `SECURITY_AUDIT_FIFTH.md`, git-ignored like the others;
    handled the same way. Both fixed 2026-10-30 (its "Remediation Status" table):
    S5-M01 (wrong passwords counted per account across all addresses: 10 an hour, then the account's

@@ -325,12 +325,13 @@ for an image already on the site, the contact form offers no attachments, and th
    ```
 
    It can only add, read, and list product photos and contact-form files in that one bucket; a
-   leaked key cannot delete anything or touch other AWS services. **The list permission is needed:**
+   leaked key cannot delete anything (until the data clean-up's one extra permission, Section 1.10, for
+   contact-form files only) or touch other AWS services. **The list permission is needed:**
    without it, S3 answers a request for a missing photo with `AccessDenied` instead of "not found",
    and the API returns 500 instead of 404 (found on the live site, 2026-10-23). The list only shows
    file names: product photos are public on the site anyway, and contact-form files are named by a
-   random code that says nothing about the file or the customer. Files are never deleted (the key
-   cannot), so removed demo data leaves its few sample files behind, unlisted.
+   random code that says nothing about the file or the customer. Product photos are never deleted (the key
+   cannot), and without Section 1.10's permission neither are contact-form files, so removed demo data leaves its few sample files behind, unlisted.
 4. **Coolify.** On the API resource, set all four (a partial set stops the API at startup with a
    list of what is missing), then redeploy the API:
 
@@ -416,6 +417,34 @@ header): a code from an authenticator app, or an emailed code (needs email, Sect
    phone), then in the `gpec-api` terminal run
    `node dist/scripts/createAdmin.js --production --email person@example.com --disable-2fa`. They log
    in with their password and turn it on again.
+
+### 1.10 Data clean-up (how long customer data is kept)
+
+The periods and rules are in `CLAUDE.md` Section 4.9. The clean-up deletes for good and is **off** until
+every step below is done. While it is off, nothing is deleted and the API log says so.
+
+1. GPEC's accounting year end (31 December) and its legal adviser's approval: received 2026-10-31.
+2. Make sure Atlas backups are on (Section 1.1).
+3. Allow the S3 key to delete customers' files, and nothing else. Add this statement to its policy
+   (Section 1.7). Without it, requests are still deleted, but their files stay, listed in
+   `PendingFileDeletion`, and the log shows an error at each run until this is fixed.
+
+   ```json
+   {
+     "Effect": "Allow",
+     "Action": "s3:DeleteObject",
+     "Resource": "arn:aws:s3:::gpec-product-images/request-files/*"
+   }
+   ```
+
+4. In Coolify, on `gpec-api`, set `RETENTION_ACCOUNTING_YEAR_END=12-31` and redeploy.
+5. In the `gpec-api` terminal, run `node dist/scripts/retentionPreview.js`. It reads only and says how many
+   records are due. **Demo records count too:** remove the demo data first if it is still there. If a
+   number looks wrong, stop and look into it.
+6. Set `RETENTION_CLEANUP=on` and redeploy. The first run is a minute after the start, then daily.
+7. Check the API log for `Data clean-up: deleted …`, and the admin panel's Security log.
+
+To stop it, set `RETENTION_CLEANUP=off` and redeploy. What it has deleted comes back only from a backup.
 
 ## 2. Deploying
 

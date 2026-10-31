@@ -1,7 +1,8 @@
 import mongoose from 'mongoose'
 
 // GPEC staff's internal notes on a contact request or an order; customers never see them.
-// Notes are only ever added, never edited or deleted, so each one is its own record of who wrote
+// Notes are only ever added, never edited or deleted by staff (the data clean-up deletes them with their
+// order or request, services/dataRetention.ts), so each one is its own record of who wrote
 // what and when (CLAUDE.md Section 4.6).
 const requestNoteSchema = new mongoose.Schema({
   targetType: { type: String, required: true, enum: ['contactRequest', 'order'] },

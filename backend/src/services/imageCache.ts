@@ -73,6 +73,8 @@ export function cachingImageStore(store: ImageStore, limits: ImageCacheLimits = 
       await store.put(key, body, contentType)
       if (key.startsWith(PRODUCT_IMAGES)) keep(key, { body: new Uint8Array(body), contentType })
     },
+    // Only customers' files are removed, and those are never kept here.
+    remove: (key) => store.remove(key),
     get(key) {
       if (!key.startsWith(PRODUCT_IMAGES)) return store.get(key)
       const image = kept.get(key)

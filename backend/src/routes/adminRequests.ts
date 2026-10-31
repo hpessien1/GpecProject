@@ -5,7 +5,7 @@ import { securityEvent } from '../middleware/securityEvent.js'
 import { adminRequests } from '../services/adminRequests.js'
 import type { ImageStore } from '../services/imageStore.js'
 import { REQUEST_FILE_ID_PATTERN, requestFileKey } from '../services/requestFiles.js'
-import { REFERENCE_PATTERNS, validateNote, validateRequestListQuery, validateStatusChange } from '../validation/adminRequest.js'
+import { REFERENCE_PATTERNS, validateKeepChange, validateNote, validateRequestListQuery, validateStatusChange } from '../validation/adminRequest.js'
 import { validateOlderPageQuery } from '../validation/olderPage.js'
 
 // Contact requests (/api/admin/contact-requests) for GPEC staff. Mounted behind requireAdmin in
@@ -87,6 +87,17 @@ export default function adminRequestsRouter(kind: keyof typeof adminRequests, st
       const { errors, value } = validateStatusChange(req.body)
       if (Object.keys(errors).length > 0) throw new ValidationError(errors)
       return res.json(await service.setStatus(currentAdmin(res), reference, value.status))
+    } catch (error) {
+      return next(error)
+    }
+  })
+
+  router.patch('/:reference/keep', async (req, res, next) => {
+    try {
+      const reference = referenceParam(req.params.reference)
+      const { errors, value } = validateKeepChange(req.body)
+      if (Object.keys(errors).length > 0) throw new ValidationError(errors)
+      return res.json(await service.setKeep(currentAdmin(res), reference, value.keep))
     } catch (error) {
       return next(error)
     }

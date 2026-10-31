@@ -87,5 +87,8 @@ const orderSchema = new mongoose.Schema({
 // The admin list filters by payment and fulfilment status and shows newest first.
 orderSchema.index({ paymentStatus: 1, fulfilmentStatus: 1, createdAt: -1 })
 orderSchema.index({ createdAt: -1 })
+// The data clean-up looks for unpaid orders unchanged for long, and for paid orders paid long ago.
+orderSchema.index({ paymentStatus: 1, updatedAt: 1 })
+orderSchema.index({ paymentStatus: 1, paidAt: 1 })
 
 export default mongoose.model('Order', orderSchema)

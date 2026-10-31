@@ -54,6 +54,8 @@ const contactRequestKind: RequestKind<mongoose.InferSchemaType<typeof ContactReq
     customer: { fullName: doc.fullName, company: doc.company, email: doc.email, phone: doc.phone },
     subject: doc.subject,
     message: doc.message,
+    // Missing on requests from before the switch existed.
+    keepRecord: doc.keepRecord === true,
   }),
   // Requests saved before attachments existed have no field stored.
   attachments: (doc) => (doc.attachments ?? []).map(({ id, name, contentType, size }) => ({ id, name, contentType, size })),
@@ -131,6 +133,26 @@ function makeService<Doc extends StoredRequest>(kind: RequestKind<Doc>) {
           targetId: reference,
           actor: { adminId: admin.id, email: admin.email, name: admin.name },
           changes: [{ field: 'status', from, to: status }],
+        }], { session })
+      })
+      return get(reference)
+    },
+
+    // Staff's "Keep this request" switch (services/dataRetention.ts), recorded like a status change.
+    // Setting what it already is changes nothing and records nothing, so the 6 months do not restart.
+    async setKeep(admin: AdminIdentity, reference: string, keep: boolean) {
+      await mongoose.connection.transaction(async (session) => {
+        const before = await ContactRequest.findOne({ reference }).session(session)
+        if (!before) throw new NotFoundError('Request not found.')
+        const from = before.keepRecord === true
+        if (from === keep) return
+        await ContactRequest.updateOne({ reference }, { $set: { keepRecord: keep } }, { session, runValidators: true })
+        await AuditRecord.create([{
+          action: 'contactRequest.keep',
+          targetType: 'contactRequest',
+          targetId: reference,
+          actor: { adminId: admin.id, email: admin.email, name: admin.name },
+          changes: [{ field: 'keepRecord', from, to: keep }],
         }], { session })
       })
       return get(reference)

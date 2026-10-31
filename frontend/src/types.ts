@@ -290,6 +290,8 @@ export interface AdminRequestDetail {
   subject: string
   message: string
   attachments: RequestAttachment[]
+  // Staff's "Keep this request" switch: the data clean-up leaves it alone.
+  keepRecord: boolean
 }
 
 // A photo (re-saved as WebP) or PDF the customer attached (backend services/requestFiles.ts).
@@ -302,7 +304,7 @@ export interface RequestAttachment {
 
 export interface RequestHistoryEntry {
   actor: { name: string, email: string }
-  changes: { field: 'status', from: RequestStatus, to: RequestStatus }[]
+  changes: ({ field: 'status', from: RequestStatus, to: RequestStatus } | { field: 'keepRecord', from: boolean, to: boolean })[]
   createdAt: string
 }
 
@@ -539,6 +541,7 @@ export type SecurityAction =
   | 'record.order' | 'record.contactRequest' | 'record.file'
   | 'command.create' | 'command.reset' | 'command.disableTwoFactor'
   | 'upload.pdf'
+  | 'retention.cleanup'
 
 export interface SecurityLogEntry {
   action: SecurityAction

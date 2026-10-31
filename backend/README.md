@@ -51,7 +51,7 @@ process (`utils/freshness.ts`). Product photos are kept in memory (`services/ima
   `GET`, `POST /api/admin/products`; `GET`, `PATCH /api/admin/products/:id`;
   `GET /api/admin/products/:id/history`; `GET /api/admin/contact-requests`, `GET`,
   `PATCH /api/admin/contact-requests/:reference`, `GET`, `POST /api/admin/contact-requests/:reference/notes`,
-  `GET /api/admin/contact-requests/:reference/history`, `GET /api/admin/contact-requests/:reference/files/:id`;
+  `PATCH /api/admin/contact-requests/:reference/keep` (`{ keep }`, staff's "Keep this request" switch), `GET /api/admin/contact-requests/:reference/history`, `GET /api/admin/contact-requests/:reference/files/:id`;
   `GET /api/admin/orders`, `GET`, `PATCH /api/admin/orders/:reference`,
   `GET`, `POST /api/admin/orders/:reference/notes`, `GET /api/admin/orders/:reference/history`;
   `GET`, `POST /api/admin/delivery-areas`; `GET`, `PATCH /api/admin/delivery-areas/:id`;

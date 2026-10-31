@@ -19,6 +19,10 @@ playwright-report/
 # kept locally, never committed.
 /SECURITY_AUDIT*.md
 
+# Launch checklist for meetings with GPEC. It names open security gaps and the repository is public:
+# kept locally, never committed.
+/LAUNCH_CHECKLIST.md
+
 # Environment files (secrets). The .env.example templates stay tracked.
 .env
 .env.*

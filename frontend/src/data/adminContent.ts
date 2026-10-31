@@ -101,6 +101,19 @@ export const requestStatusLabels: Record<RequestStatus, string> = {
   closed: 'Closed',
 }
 
+// How long a contact request is kept (backend services/dataRetention.ts).
+export const requestKeepContent = {
+  title: 'How long this is kept',
+  normal: 'Deleted with its notes, history, and files 6 months after it is closed. Keep it if GPEC still needs it, for example for a warranty, a dispute, or a large quote.',
+  kept: 'Kept until staff turn this off, because GPEC still needs it. Once turned off, a closed request is deleted 6 months later.',
+  keep: 'Keep this request',
+  stopKeeping: 'Stop keeping this request',
+  keptMessage: 'This request will be kept.',
+  stoppedMessage: 'This request is no longer being kept.',
+  historyOn: 'Marked to be kept',
+  historyOff: 'No longer marked to be kept',
+}
+
 export const requestKindContent: Record<AdminRequestKind, { title: string, eyebrow: string, empty: string }> = {
   'contact-requests': { title: 'Contact requests', eyebrow: 'From the contact form', empty: 'No contact requests here yet.' },
 }
@@ -337,6 +350,8 @@ export const securityLogContent = {
   empty: 'Nothing recorded yet.',
   emptyFiltered: 'No entries match these dates and account.',
   unknownAccount: 'No admin account (the address typed was not an admin’s, or the link was not valid)',
+  automatic: 'The website, automatically',
+  onServer: 'On the server',
   commandLine: 'On the server (the admin command)',
   failed: 'Failed',
   // An entry counting refusals of one kind instead of listing each (from many addresses when ip is empty).
@@ -362,6 +377,7 @@ export const securityLogContent = {
     'command.reset': 'Password reset on the server',
     'command.disableTwoFactor': 'Two-step login turned off on the server',
     'upload.pdf': 'A PDF sent with the contact form had parts taken out that could run when opened',
+    'retention.cleanup': 'Deleted records past their keeping period',
   } satisfies Record<SecurityAction, string>,
   // Entries made by a visitor to the site rather than an admin (no account).
   visitor: 'A visitor (the contact form)',

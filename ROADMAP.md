@@ -284,6 +284,9 @@ These block launch, and several block steps 4 to 6. Ask early.
       numbers must be one line. A sweep found two more: passwords typed again inside the admin panel
       count toward the same hourly limit, and what customers write is quoted in staff emails. Fixed
       and deployed 2026-10-30.
+- [x] How long customer data is kept (2026-10-31; periods agreed by GPEC, listed in `CLAUDE.md` Section 4.9):
+      an automatic clean-up, off until backups are in place and the steps in RUNBOOK 1.10 are done (GPEC's 31 December year
+      end and its adviser's approval received 2026-10-31); a "Keep this request" switch for staff; the privacy notice's starting text states the periods.
 - [x] Staff screens (2026-10-28, user's requests): the Security log filters by date, with numbered
       pages; completed and cancelled orders cannot be changed again, and cancelling puts back the
       stock the order took; a confirmation dialog in the panel's own style for completing or

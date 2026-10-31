@@ -43,3 +43,12 @@ export function validateStatusChange(body: unknown) {
   if (!status) errors.status = `status must be one of: ${REQUEST_STATUSES.join(', ')}.`
   return { errors, value: { status: status ?? 'new' } }
 }
+
+// { keep } and nothing else: staff's "Keep this request" switch.
+export function validateKeepChange(body: unknown) {
+  const errors: ValidationErrors = {}
+  const source = asFields(body)
+  for (const field of Object.keys(source)) if (field !== 'keep') errors[field] = `${field} cannot be changed.`
+  if (typeof source.keep !== 'boolean') errors.keep = 'keep must be true or false.'
+  return { errors, value: { keep: source.keep === true } }
+}

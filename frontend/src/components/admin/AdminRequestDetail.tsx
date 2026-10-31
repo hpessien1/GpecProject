@@ -4,9 +4,9 @@ import Arrow from '../Arrow'
 import AdminNotes from './AdminNotes'
 import AdminOlderEntries from './AdminOlderEntries'
 import AdminRequestFiles from './AdminRequestFiles'
-import { requestKindContent, requestStatusLabels } from '../../data/adminContent'
+import { requestKeepContent, requestKindContent, requestStatusLabels } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
-import { addRequestNote, getOlderRequestHistory, getOlderRequestNotes, getRequest, setRequestStatus } from '../../services/adminApi'
+import { addRequestNote, getOlderRequestHistory, getOlderRequestNotes, getRequest, setRequestKeep, setRequestStatus } from '../../services/adminApi'
 import { formatDateTime } from '../../utils/dates'
 import { mailtoLink } from '../../utils/mailto'
 import type { AdminRequestKind, AdminRequestResponse, RequestStatus } from '../../types'
@@ -68,6 +68,20 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
     }
   }
 
+  async function handleKeepChange(keep: boolean) {
+    setResult(null)
+    setIsSaving(true)
+    try {
+      setData(await setRequestKeep(kind, reference, keep))
+      setResult({ kind: 'success', message: keep ? requestKeepContent.keptMessage : requestKeepContent.stoppedMessage })
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return onSessionEnded()
+      setResult({ kind: 'error', message: error instanceof Error ? error.message : 'Unable to update this request.' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const item = data?.item
   return <section aria-labelledby="admin-request-title">
     <div className="admin-heading">
@@ -102,13 +116,18 @@ export default function AdminRequestDetail({ kind, reference, onSessionEnded }: 
             </div>
             <button className="button button-primary" type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : <>Update status <Arrow /></>}</button>
           </form>
+          <section className="admin-form admin-status-form" aria-labelledby="admin-request-keep-title">
+            <h2 id="admin-request-keep-title">{requestKeepContent.title}</h2>
+            <p>{item.keepRecord ? requestKeepContent.kept : requestKeepContent.normal}</p>
+            <button className="button button-outline" type="button" disabled={isSaving} onClick={() => void handleKeepChange(!item.keepRecord)}>{item.keepRecord ? requestKeepContent.stopKeeping : requestKeepContent.keep}</button>
+          </section>
           <section className="admin-history" aria-labelledby="admin-request-history-title">
             <h2 id="admin-request-history-title">Status history</h2>
             <AdminOlderEntries kind="history" newest={data.history} cursor={data.historyCursor} loadOlder={(before) => getOlderRequestHistory(kind, reference, before)} onSessionEnded={onSessionEnded}>
               {(history) => history.length === 0 ? <p>No changes yet. New requests start as “New”.</p>
                 : <ol>{history.map((entry, index) => <li key={`${entry.createdAt}-${index}`}>
                   <p className="admin-history-meta"><time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {entry.actor.name} ({entry.actor.email})</p>
-                  <ul>{entry.changes.map((change) => <li key={change.field}>{requestStatusLabels[change.from]} → {requestStatusLabels[change.to]}</li>)}</ul>
+                  <ul>{entry.changes.map((change) => <li key={change.field}>{change.field === 'keepRecord' ? (change.to ? requestKeepContent.historyOn : requestKeepContent.historyOff) : `${requestStatusLabels[change.from]} → ${requestStatusLabels[change.to]}`}</li>)}</ul>
                 </li>)}</ol>}
             </AdminOlderEntries>
           </section>

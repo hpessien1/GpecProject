@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import type { ImageStorageSettings } from '../config.js'
 
 export interface StoredImage {
@@ -13,6 +13,9 @@ export interface ImageStore {
   put(key: string, body: Buffer, contentType: string): Promise<void>
   // null when nothing is stored under the key.
   get(key: string): Promise<StoredImage | null>
+  // Used only by the data clean-up, for customers' files; the storage key may delete nothing else
+  // (RUNBOOK 1.7). Removing a key that is not there is not an error.
+  remove(key: string): Promise<void>
 }
 
 // The only code that talks to Amazon S3. The bucket is private: visitors never reach it directly;
@@ -26,6 +29,9 @@ export function s3ImageStore(settings: ImageStorageSettings): ImageStore {
   return {
     async put(key, body, contentType) {
       await client.send(new PutObjectCommand({ Bucket: settings.bucket, Key: key, Body: body, ContentType: contentType }))
+    },
+    async remove(key) {
+      await client.send(new DeleteObjectCommand({ Bucket: settings.bucket, Key: key }))
     },
     async get(key) {
       try {

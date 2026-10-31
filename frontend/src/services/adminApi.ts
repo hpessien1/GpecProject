@@ -163,6 +163,10 @@ export function setRequestStatus(kind: AdminRequestKind, reference: string, stat
   return requestJson<AdminRequestResponse>(`/admin/${kind}/${encodeURIComponent(reference)}`, 'Unable to update the status.', { ...admin, method: 'PATCH', payload: { status } })
 }
 
+export function setRequestKeep(kind: AdminRequestKind, reference: string, keep: boolean) {
+  return requestJson<AdminRequestResponse>(`/admin/${kind}/${encodeURIComponent(reference)}/keep`, 'Unable to update this request.', { ...admin, method: 'PATCH', payload: { keep } })
+}
+
 export function addRequestNote(kind: AdminRequestKind, reference: string, text: string) {
   return requestJson<AdminRequestResponse>(`/admin/${kind}/${encodeURIComponent(reference)}/notes`, 'Unable to save the note.', { ...admin, method: 'POST', payload: { text } })
 }

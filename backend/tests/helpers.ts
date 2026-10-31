@@ -107,6 +107,9 @@ export class MemoryImageStore implements ImageStore {
   async get(key: string) {
     return this.objects.get(key) ?? null
   }
+  async remove(key: string) {
+    this.objects.delete(key)
+  }
 }
 
 // Paystack settings for tests: a test key and Paystack's published local rate (1.5% + ₦100, the ₦100
