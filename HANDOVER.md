@@ -1,10 +1,8 @@
 # Next-session handover
 
-Last updated: 2026-10-30 (the **fifth security audit**: both findings fixed, plus two more found by
-sweeping the code for every audit's types of finding; pushed, CI green, and deployed. The fourth audit
-was closed and deployed earlier that day. RUNBOOK 1.2 items 7 and 8 done: API memory limit set, port
-5001 checked closed. Commits `22a319c` and `de52f28` (docs only) were not yet pushed at session end:
-check `git status` and ask the user to push).
+Last updated: 2026-10-31 (**data retention** built, with the clean-up off until RUNBOOK 1.10 is done;
+**payments that match no order** saved, emailed to staff, and listed on the Orders screen; the first
+project video muted; pushed, CI green, and deployed).
 Start a new session with:
 
 ```text
@@ -14,9 +12,8 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `a6f8530` (the fifth audit's fixes) is pushed, CI green (run
-  41027426966, including the browser, contrast, and full-history secret-scan jobs), and deployed by
-  the user on 2026-10-30. Check runs with `gh run list -R hpessien1/GpecProject` (the `gh` login
+- **Git and CI:** everything up to `4d22a40` is pushed, CI green (reported by the user), and deployed
+  by the user on 2026-10-31. Check runs with `gh run list -R hpessien1/GpecProject` (the `gh` login
   `v25-hub` can read this repository's runs; it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
   2026-10-23). GPEC's team uses it to see how everything behaves. So: every feature comes with demo
@@ -27,8 +24,12 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `a6f8530`, both `gpec-api` and `gpec-web` (2026-10-30, the
-  user).
+- **What is deployed:** everything up to `4d22a40`, both `gpec-api` and `gpec-web` (2026-10-31, the
+  user). Afterwards the API's health check answered ok, the new unmatched-payments route refused an
+  anonymous caller (401), and the home page loaded. The data clean-up is off. Not tried live: a real
+  unmatched payment or its email.
+- **Next, when the user gets Atlas access:** walk them through RUNBOOK 1.1 (they asked for this), then
+  update CLAUDE.md Known Gaps. The open launch list is in the git-ignored `LAUNCH_CHECKLIST.md`.
 - **RUNBOOK 1.2 items 7 and 8 done** (2026-10-30): `gpec-api` has a 1 GB memory limit in Coolify
   (set by the user, redeployed, health check answered), and port 5001 on the server's IP timed out
   from outside while `https://api.gpecengineering.com/api/health` answered.
