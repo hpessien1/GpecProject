@@ -807,7 +807,7 @@ deploys, or the developer with the owner's go-ahead; an AI assistant only guides
 |---|---|---|
 | Backend API | `https://api.gpecengineering.com`: Hetzner CX23 (Nuremberg), Docker, Coolify resource `gpec-api` | Exactly 1 replica |
 | Frontend | `https://gpecengineering.com`: same server, nginx serving the Vite build, `gpec-web` | Static files; `www.` redirects |
-| MongoDB | MongoDB Atlas (external) | Network access limited to the Hetzner server IP (not yet: Known Gaps) |
+| MongoDB | MongoDB Atlas (external) | Network access limited to the Hetzner server IP and the developer's (done 2026-10-31) |
 | DNS | Cloudflare (also the registrar) | A records **DNS only**, not proxied, so Coolify can get certificates |
 | HTTPS | Coolify's proxy (Traefik) with Let's Encrypt | Auto-renewing certificates |
 
@@ -1368,10 +1368,10 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 
 **Deployment** (live since 2026-10-22, not announced)
 - **The live site is public with sample products and demo orders and requests**. Do not share or announce the address until GPEC's real content is in.
-- **Atlas is not locked down.** Production uses the developer's existing login, which reaches both
-  `gpec` and `gpec_dev`, and the access list has not been checked (it may allow `0.0.0.0/0`). The
-  developer has no Atlas dashboard access; the Atlas owner must create `gpec-prod` and `gpec-dev`,
-  limit network access, and the `MONGODB_URI` in Coolify must then be replaced (RUNBOOK 1.1).
+- **Atlas lock-down mostly done** (2026-10-31; RUNBOOK 1.1): `gpec-prod` runs the live site and `gpec-dev` the
+  developer's laptop, each limited to its own database, and `0.0.0.0/0` is gone. The old all-powerful login
+  `hpessien_db_user` is deleted, and `95.90.209.226/32` on the access list is the owner's. The developer's address changes with their internet connection: if the
+  laptop is refused, add the new one in Atlas. The cluster is on the free tier with backups inactive.
 - The production `gpec` database held an empty `enquiries` collection (2 indexes) from the removed
   enquiry feature, found 2026-10-23; the developer was advised to drop it. Nothing reads it.
 - Every account (Hetzner, Cloudflare, AWS, Paystack, Atlas) is in the project owner's own name, not
@@ -1447,7 +1447,7 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   legal wording) and approve it. The legal name and contact email were filled in on 2026-10-23
   (GPEC's published email is used as the privacy contact; GPEC may name another). Hosting is filled in
   (2026-10-23: server in Nuremberg, Germany; email from Stockholm, Sweden) except the **Atlas
-  database region**, which only the Atlas owner can see. The starting text describes contact-form
+  database region**: AWS Frankfurt (eu-central-1), seen 2026-10-31, in the starting text; a copy already saved in Site content needs it added. The starting text describes contact-form
   attachments since 2026-10-24; a copy already saved in Site content (live site) does not change by
   itself, so staff add that wording there.
 

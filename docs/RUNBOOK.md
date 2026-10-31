@@ -63,11 +63,12 @@ Recorded so the server can be rebuilt the same way.
 
 ### 1.1 MongoDB Atlas
 
-**Status 2026-10-23: not done.** The developer has no access to the Atlas dashboard, only a
-connection string. Production temporarily uses that same login (it can reach both `gpec` and
-`gpec_dev`), and Atlas already lets the server in (the access list has not been checked; it may be
-`0.0.0.0/0`). The Atlas owner must do steps 1 and 2 before launch, then replace `MONGODB_URI` in
-Coolify with the `gpec-prod` string and redeploy the API.
+**Status 2026-10-31: steps 1 and 2 done** (the developer, as a project member): `gpec-prod` is in Coolify,
+`gpec-dev` in the developer's `backend/.env`, and the access list holds the server (`2.31.87.31/32`), the
+developer's current address, and `95.90.209.226/32` (the owner's). `0.0.0.0/0` and the old `hpessien_db_user` login
+are removed. Left: step 3.
+If the server's address ever changes, add the new one here first, or the site loses its database. To look
+at live data, use Atlas's Data Explorer, not a laptop.
 
 1. **Database users.** Create two users under *Database Access*:
    - `gpec-dev` — role `readWrite` on database `gpec_dev` only. Put this one in the developer's
@@ -525,7 +526,7 @@ who handles each kind of incident (leaked secret, payment problems, database res
 | Hetzner Cloud (server) | Project owner (individual account) | Project member; SSH key `gpec` |
 | Cloudflare (domain and DNS) | Project owner | Account member |
 | Coolify dashboard | — | Admin (the first account, created at install). Add the owner. |
-| MongoDB Atlas | Project owner | Connection string only, no dashboard access |
+| MongoDB Atlas | Project owner | Project member (2026-10-31) |
 | GitHub repository | Project owner (`hpessien1/GpecProject`, public) | Collaborator |
 | Amazon Web Services (SES, S3) | Project owner (AWS Settings project) | Invited member |
 | Paystack (test mode) | Project owner | Invited member |

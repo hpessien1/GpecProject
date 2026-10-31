@@ -13,7 +13,7 @@ does. Update this file as steps are completed or the plan changes.
 |---|---|
 | 1. Quick fixes | Done (2026-10-21) |
 | 2. Groundwork: CI, hardening, tests | Done (2026-10-21) |
-| 3. Deploy early on Coolify | Live (2026-10-22), not announced — Atlas users and access list still needed |
+| 3. Deploy early on Coolify | Live (2026-10-22), not announced — Atlas users and access list done 2026-10-31; backups still needed |
 | 4. Products in MongoDB | Done (2026-10-21) |
 | 5. Checkout and Paystack (test mode) | Built (2026-10-23), deployed in test mode (2026-10-24) — live keys need GPEC |
 | 6. Admin panel | Done for now (2026-10-21; orders and delivery areas 2026-10-22/23; pagination 2026-10-23) |
@@ -87,9 +87,8 @@ Prove the deployment path before payments. Paystack's webhook also needs a publi
       security headers, the site built with the right API address, CORS.
 - [x] **Coolify's `MONGODB_URI` uses `gpec`, not `gpec_dev`** (the health check passes, which the
       startup guard only allows on `gpec`).
-- [ ] Atlas: separate database users for `gpec_dev` and `gpec`; network access limited to the
-      Hetzner IP and the developer's IP; a cluster tier with backups before launch. **Needs the
-      Atlas owner**; production uses the developer's shared login until then.
+- [x] Atlas: separate database users for `gpec_dev` and `gpec`; network access limited to the server and
+      the developer (2026-10-31). The old login is deleted.
 - [ ] Remaining post-deploy checks (runbook Section 2): a `[TEST]` contact request on the live
       site, then deleted; first admin account (runbook 1.4).
 - [ ] Sample products and demo orders and contact requests on the live site for GPEC to try (owner's
@@ -203,7 +202,7 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [x] Whether the first project video's sound contains speech: it does not (2026-10-31), so it plays muted.
 - [ ] Privacy notice details and approval: registration number, registered address if different
       from the service location, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
-      Plus, from the Atlas owner, the database region (server and email regions are filled in).
+      The database region is filled in (AWS Frankfurt, 2026-10-31).
 - [ ] Paystack: the account exists in test mode with the developer invited (2026-10-22); still
       needed: business verification, and confirmation that passing the fee to customers is allowed
       under GPEC's Paystack terms. GPEC has no special rate (2026-10-31), so the standard one applies
@@ -220,7 +219,7 @@ These block launch, and several block steps 4 to 6. Ask early.
 - [x] Domain names: `gpecengineering.com` and `api.gpecengineering.com` (2026-10-22).
 - [ ] Named owners at GPEC for each account, and incident owners (runbook Section 5). For now every
       account is in the project owner's name, with the developer invited.
-- [ ] Atlas owner: create the `gpec-prod` and `gpec-dev` users and limit network access (runbook
+- [x] Create the `gpec-prod` and `gpec-dev` users and limit network access, done 2026-10-31 (runbook
       1.1).
 - [ ] Upgrade the AWS project from the free plan to a paid plan with a spend limit before launch.
 - [ ] Who receives order and contact-request notifications (`STAFF_NOTIFICATION_EMAILS`; the

@@ -60,7 +60,7 @@ GPEC staff who log in to manage the website use a login cookie. Visitors do not.
         heading: 'Who can see your information',
         body: `Your enquiries (with any files you attach) and orders can be read only by authorised GPEC staff, through a password-protected area of the website. Each staff member has their own account, and changes they make are recorded. Staff may add notes on how they followed up your enquiry; these are kept with it and seen only by staff.
 
-The information is stored in a database run for us by MongoDB Atlas ([database region, shown on the cluster’s page in MongoDB Atlas]). Files you attach are kept in private storage at Amazon Web Services (Amazon S3, Stockholm, Sweden), which only our website can read; staff open them through the password-protected area. The website runs on a server rented from Hetzner in Nuremberg, Germany. These companies store the data for us; they do not use it for their own purposes.
+The information is stored in a database run for us by MongoDB Atlas (Frankfurt, Germany). Files you attach are kept in private storage at Amazon Web Services (Amazon S3, Stockholm, Sweden), which only our website can read; staff open them through the password-protected area. The website runs on a server rented from Hetzner in Nuremberg, Germany. These companies store the data for us; they do not use it for their own purposes.
 
 Payments are handled by Paystack. To take your payment we send Paystack your email address, the amount, and your order reference. Paystack handles your payment details under its own privacy policy.
 

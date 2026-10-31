@@ -2,7 +2,10 @@
 
 Last updated: 2026-10-31 (**data retention** built, with the clean-up off until RUNBOOK 1.10 is done;
 **payments that match no order** saved, emailed to staff, and listed on the Orders screen; the first
-project video muted; pushed, CI green, and deployed).
+project video muted; the **home page redesign** from the `redesign` branch added by hand; **collection
+hours** editable under Delivery, all pushed, CI green, and deployed; the **Atlas lock-down** done in the
+dashboard. The last commit, docs and the privacy notice's database region, is not yet pushed or deployed:
+check `git status` and ask the user).
 Start a new session with:
 
 ```text
@@ -12,7 +15,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
 
 ## Where things stand
 
-- **Git and CI:** everything up to `4d22a40` is pushed, CI green (reported by the user), and deployed
+- **Git and CI:** everything up to `f971280` is pushed, CI green (reported by the user), and deployed
   by the user on 2026-10-31. Check runs with `gh run list -R hpessien1/GpecProject` (the `gh` login
   `v25-hub` can read this repository's runs; it cannot push).
 - **The live site is a test environment until the owner says it is production ready** (owner,
@@ -24,12 +27,19 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   CX23 in Nuremberg, Coolify, DNS on Cloudflare). Server, accounts, and exact Coolify settings:
   [`docs/RUNBOOK.md`](docs/RUNBOOK.md). The user deploys by pressing Deploy in Coolify; nothing
   deploys on push.
-- **What is deployed:** everything up to `4d22a40`, both `gpec-api` and `gpec-web` (2026-10-31, the
+- **What is deployed:** everything up to `f971280`, both `gpec-api` and `gpec-web` (2026-10-31, the
   user). Afterwards the API's health check answered ok, the new unmatched-payments route refused an
   anonymous caller (401), and the home page loaded. The data clean-up is off. Not tried live: a real
   unmatched payment or its email.
-- **Next, when the user gets Atlas access:** walk them through RUNBOOK 1.1 (they asked for this), then
-  update CLAUDE.md Known Gaps. The open launch list is in the git-ignored `LAUNCH_CHECKLIST.md`.
+- **Atlas lock-down done 2026-10-31** (RUNBOOK 1.1), except backups. `gpec-prod` runs the live site, `gpec-dev` the
+  laptop, `0.0.0.0/0` and the old admin login are gone. The open launch list is in the git-ignored
+  `LAUNCH_CHECKLIST.md`.
+- **Waiting on the GPEC owners: Atlas Free to Flex** (daily backups, up to $30/month on Atlas's screen; the
+  user is asking). When approved, guide it: Atlas preselects M10, so choose Flex by hand; keep AWS Frankfurt;
+  about 10 minutes of downtime; then check the site and laptop, read how long Flex keeps backups, and test one
+  restore without touching live data. The data clean-up stays off until then.
+- **Unresolved: GPEC's legal name.** The Paystack form says GPEC ENGINEERING CONCEPT LIMITED; the site says GPEC
+  Engineering Company Limited. The CAC certificate decides; correct whichever is wrong.
 - **RUNBOOK 1.2 items 7 and 8 done** (2026-10-30): `gpec-api` has a 1 GB memory limit in Coolify
   (set by the user, redeployed, health check answered), and port 5001 on the server's IP timed out
   from outside while `https://api.gpecengineering.com/api/health` answered.
@@ -37,7 +47,7 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   to add roles that can do some admin functions but not all. Design new admin features so they can be
   limited per role later (only `admin` exists now; the security log stays with full admins).
 - **Plan and progress:** [`ROADMAP.md`](ROADMAP.md). Steps 1, 2, 4, 5 (test mode), and 6 are done;
-  step 3 (deploy) is live with the Atlas lock-down still to do.
+  step 3 (deploy) is live, with Atlas backups still to do.
 - **Company facts:** [`README.md`](README.md) "Company Profile", from GPEC's PDF (git-ignored, 23 MB,
   public repository; never commit it).
 - **Rules:** [`CLAUDE.md`](CLAUDE.md): Paystack and bank transfer (4.1), admin access and two-step
@@ -46,7 +56,20 @@ Read CLAUDE.md, ROADMAP.md, and HANDOVER.md first.
   product catalogue checklist (11), known gaps (14), lessons learned (15). Every command:
   [`docs/COMMANDS.md`](docs/COMMANDS.md).
 
-## This session (2026-10-28, second half)
+## This session (2026-10-31)
+
+1. **Data retention** (`da2c437`) and **unmatched payments** (`9573397`), deployed.
+2. **Home page redesign** (`692a266`): added by hand from the owner's `redesign` branch (`32210d7`), which can be
+   deleted. Contact became Enquiry, services reordered with Shop links on all twelve cards, About cards, six
+   panel detail pages with draft text and no draft label (user's choice), Training; the shop keeps "Return to
+   site" in a strip below its header on small screens.
+3. **Collection hours** (`2f494c9`): staff edit them under Delivery; 9am to 5pm to start, days not given. The FAQ's
+   answer is separate text: staff should check a saved FAQ for the old bracket, and add the retention wording
+   and the Frankfurt region to a saved privacy notice.
+4. **Atlas lock-down:** done in the dashboard with the user (RUNBOOK 1.1).
+5. **Paystack verification form:** in progress with the user; Private Incorporated Company, needing CAC documents.
+
+## Earlier session (2026-10-28, second half)
 
 1. **Close as not paid** (`1d680dd`, user's choice of three options): on an unpaid Paystack order,
    "The customer did not pay" asks Paystack once more and, only if no payment is found, marks the
@@ -270,7 +293,8 @@ Deferred (not code; the user's decision at close-out): **H-02** (the Atlas owner
 1. **GPEC staff:** the live privacy notice's sentence about PDFs (Site content) should
    now say that PDF documents are rebuilt from their pages, which removes anything that could run
    when the file is opened, as well as hidden details such as its author.
-2. **Waiting on GPEC:** which Paystack payment methods to keep (card, bank, transfer, USSD). The user
+2. **Decided 2026-10-31:** Paystack keeps card and bank; the user switched off Transfer and USSD. Check the
+   live payment page when the account goes live. Earlier note: the user
    is asking them with the explanation in `ECOMMERCE_REQUIREMENTS.md` Section 6. When they answer:
    GPEC switches methods in its Paystack dashboard; update that section, ROADMAP, and CLAUDE.md's
    open decisions. Also confirm that Verve cards are accepted (not checked in Paystack's docs).
@@ -283,14 +307,12 @@ Deferred (not code; the user's decision at close-out): **H-02** (the Atlas owner
    `product-lineup.png`, and `electrical-panels-product.png`, whose source is unknown): kept while
    the sample products and the Services panel use them; remove when GPEC's real products and
    photos replace them.
-6. **Later (user, 2026-10-24) — finish the live setup:** Atlas lock-down (most important; needs the
-   Atlas owner: `gpec-prod`/`gpec-dev` users, network access, new `MONGODB_URI`, database region for
-   the privacy notice); an Atlas tier with backups; AWS paid plan before 2027-04-22; 2FA on the
+6. **Later (user, 2026-10-24) — finish the live setup:** an Atlas tier with backups (above); AWS paid plan before 2027-04-22; 2FA on the
    Paystack account (its dashboard shows a banner asking for it).
 7. **From GPEC** (ROADMAP "Needed from GPEC"): approval of the refunds policy, FAQ, and privacy
-   notice (every [bracket] filled in, including how long customer data and attached files are
-   kept, which the deferred clean-up then follows); real bank
-   details; the Paystack rate on its plan, for every payment method kept; real products with prices
+   notice (every [bracket] filled in); their edits to the panel detail pages' draft text, and confirming Training;
+   real bank details; delivery areas (staff enter them); whether Paystack's terms allow passing the fee to
+   customers (the standard rate applies; re-read it at go-live); real products with prices
    and categories; business hours and social links; registration number.
 8. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
    data removed, samples archived, every admin using two-step login, live Paystack keys only with
