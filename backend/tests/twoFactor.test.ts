@@ -628,6 +628,9 @@ describe('an emailed account code approves one change', () => {
 // reset the password, must save nothing and start no session.
 describe('changes checked before the owner reset the password', () => {
   const OWNER_PASSWORD = 'the owner’s rescue passphrase'
+  // Each change first checks a password, which is deliberately slow; on a busy CI runner that alone took
+  // over vi.waitFor's default one second (2026-10-31).
+  const CHECKED_PASSWORD_WAIT = { timeout: 30_000 }
 
   // Holds the first transaction (the change being saved) until released.
   function pauseTransaction() {
@@ -667,7 +670,7 @@ describe('changes checked before the owner reset the password', () => {
   it('a password change saves nothing and starts no session', async () => {
     const paused = pauseTransaction()
     const change = post(agent, `${LOGIN}/password`, { currentPassword: TEST_ADMIN.password, newPassword: NEW_PASSWORD }).then((res) => res)
-    await vi.waitFor(paused.reached)
+    await vi.waitFor(paused.reached, CHECKED_PASSWORD_WAIT)
     await ownerResets()
     paused.release()
     const res = await change
@@ -691,7 +694,7 @@ describe('changes checked before the owner reset the password', () => {
     }
     const paused = pauseTransaction()
     const enable = post(agent, `${ACCOUNT}/enable`, { method, password: TEST_ADMIN.password, code }).then((res) => res)
-    await vi.waitFor(paused.reached)
+    await vi.waitFor(paused.reached, CHECKED_PASSWORD_WAIT)
     await ownerResets()
     paused.release()
     const res = await enable
@@ -708,7 +711,7 @@ describe('changes checked before the owner reset the password', () => {
     const code = totpCode(await appSecret(), currentStep())
     const paused = pauseTransaction()
     const enable = post(agent, `${ACCOUNT}/enable`, { method: 'app', password: TEST_ADMIN.password, code }).then((res) => res)
-    await vi.waitFor(paused.reached)
+    await vi.waitFor(paused.reached, CHECKED_PASSWORD_WAIT)
     await AdminUser.updateOne({ email: TEST_ADMIN.email }, { pendingTwoFactorSecret: null, pendingTwoFactorExpiresAt: null })
     paused.release()
     expect((await enable).body.code).toBe('ACCOUNT_CHANGED')
@@ -719,7 +722,7 @@ describe('changes checked before the owner reset the password', () => {
     const [first] = await turnOnApp()
     const paused = pauseUpdate((update) => update.twoFactorMethod === null)
     const disable = post(agent, `${ACCOUNT}/disable`, { password: TEST_ADMIN.password, recoveryCode: first }).then((res) => res)
-    await vi.waitFor(paused.reached)
+    await vi.waitFor(paused.reached, CHECKED_PASSWORD_WAIT)
     await ownerResets()
     paused.release()
     const res = await disable
@@ -732,7 +735,7 @@ describe('changes checked before the owner reset the password', () => {
     const [first, second] = await turnOnApp()
     const paused = pauseUpdate((update) => Array.isArray(update.recoveryCodeHashes))
     const regenerate = post(agent, `${ACCOUNT}/recovery-codes`, { password: TEST_ADMIN.password, recoveryCode: first }).then((res) => res)
-    await vi.waitFor(paused.reached)
+    await vi.waitFor(paused.reached, CHECKED_PASSWORD_WAIT)
     await ownerResets()
     paused.release()
     const res = await regenerate
