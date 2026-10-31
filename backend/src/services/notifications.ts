@@ -1,5 +1,6 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
+import { DEFAULT_COLLECTION_HOURS, getCollectionHours } from './collectionHours.js'
 import { DEFAULT_REPLY_TO, getCustomerEmailSettings } from './customerEmail.js'
 import { adminAccountCodeEmail, adminLoginCodeEmail, adminLoginPausedEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminRecoveryCodesReplacedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail, staffUnmatchedPaymentEmail } from './emailTemplates.js'
 import type { AdminEmailData, ContactEmailData, OrderEmailData, OrderUpdate, UnmatchedPayment } from './emailTemplates.js'
@@ -46,7 +47,7 @@ export interface Notifier {
 // request stands. With no mailer (email not configured), it does nothing.
 // customerReplyTo: where customers' replies go (staff choose it, services/customerEmail.ts); staff
 // emails reply to the customer instead.
-export function createNotifier(mailer: Mailer | null, settings: EmailSettings | null, customerReplyTo: () => Promise<string> = async () => (await getCustomerEmailSettings()).replyTo): Notifier {
+export function createNotifier(mailer: Mailer | null, settings: EmailSettings | null, customerReplyTo: () => Promise<string> = async () => (await getCustomerEmailSettings()).replyTo, collectionHours: () => Promise<string> = getCollectionHours): Notifier {
   const confirmations = new EmailBudget(CONFIRMATIONS_PER_HOUR, HOUR)
   const mayConfirm = (address: string) => confirmations.take(address)
 
@@ -57,6 +58,16 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     } catch (error) {
       console.error(`Reply-to address for ${reference} could not be read, using GPEC's published one: ${error instanceof Error ? error.name : 'unknown error'}`)
       return DEFAULT_REPLY_TO
+    }
+  }
+
+  // Likewise the hours in customers' pickup emails.
+  async function hours(reference: string) {
+    try {
+      return await collectionHours()
+    } catch (error) {
+      console.error(`Collection hours for ${reference} could not be read, using GPEC's stated ones: ${error instanceof Error ? error.name : 'unknown error'}`)
+      return DEFAULT_COLLECTION_HOURS
     }
   }
 
@@ -82,7 +93,7 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
       if (!mailer || !settings) return
       await deliver(order.reference, [
         { to: settings.staffRecipients, replyTo: order.customer.email, ...staffOrderEmail(order, settings.siteUrl) },
-        { to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderEmail(order, settings.siteUrl) },
+        { to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderEmail(order, settings.siteUrl, await hours(order.reference)) },
       ])
     },
     async transferOrderPlaced(order) {
@@ -93,7 +104,7 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     },
     async orderUpdate(order, update) {
       if (!mailer || !settings) return
-      await deliver(order.reference, [{ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderUpdateEmail(order, update, settings.siteUrl) }])
+      await deliver(order.reference, [{ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderUpdateEmail(order, update, settings.siteUrl, await hours(order.reference)) }])
     },
     async transferReported(order) {
       if (!mailer || !settings) return

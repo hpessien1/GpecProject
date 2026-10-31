@@ -1,5 +1,5 @@
 import { apiBaseUrl, requestJson } from './apiClient'
-import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, PaymentCheckOutcome, SecurityLogResponse, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, UnmatchedPayment, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
+import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CollectionHoursHistoryEntry, CollectionHoursResponse, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, PaymentCheckOutcome, SecurityLogResponse, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, UnmatchedPayment, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -213,6 +213,18 @@ export function getOlderBankTransferHistory(before: string) {
 // password: the admin's current one, which these three changes need as well as the session.
 export function updateBankTransfer(changes: Partial<BankTransferSettings>, password: string) {
   return requestJson<BankTransferResponse>('/admin/bank-transfer', 'Unable to save the bank details.', { ...admin, method: 'PATCH', payload: { ...changes, password } })
+}
+
+export function getCollectionHours() {
+  return requestJson<CollectionHoursResponse>('/admin/collection-hours', 'Unable to load the collection hours.', admin)
+}
+
+export function getOlderCollectionHoursHistory(before: string) {
+  return historyPage<CollectionHoursHistoryEntry>('/admin/collection-hours/history', before)
+}
+
+export function updateCollectionHours(hours: string) {
+  return requestJson<CollectionHoursResponse>('/admin/collection-hours', 'Unable to save the collection hours.', { ...admin, method: 'PATCH', payload: { hours } })
 }
 
 export function getCustomerEmail() {

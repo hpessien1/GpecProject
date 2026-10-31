@@ -100,6 +100,17 @@
   overflow-wrap: anywhere;
 }
 /* A screen's explanation under its heading (delivery areas). */
+/* Collection hours, below the delivery areas on the same screen. */
+.admin-collection-hours {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+.admin-collection-hours > h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.4rem;
+  letter-spacing: -0.04em;
+}
 .admin-intro {
   max-width: 720px;
   margin: 0 0 1.5rem;

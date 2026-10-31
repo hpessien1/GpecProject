@@ -25,6 +25,7 @@ import { paystackClient } from './services/paystack.js'
 import type { PaystackClient } from './services/paystack.js'
 import adminAccountRouter from './routes/adminAccount.js'
 import adminBankTransferRouter from './routes/adminBankTransfer.js'
+import adminCollectionHoursRouter from './routes/adminCollectionHours.js'
 import adminCustomerEmailRouter from './routes/adminCustomerEmail.js'
 import adminDeliveryAreasRouter from './routes/adminDeliveryAreas.js'
 import adminOrdersRouter from './routes/adminOrders.js'
@@ -158,6 +159,7 @@ export default function createApp(
   app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier, confirmPassword, paystack))
   app.use('/api/admin/unmatched-payments', requireAdmin(config.clientOrigins), adminUnmatchedPaymentsRouter())
   app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))
+  app.use('/api/admin/collection-hours', requireAdmin(config.clientOrigins), adminCollectionHoursRouter())
   app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier, confirmPassword))
   app.use('/api/admin/customer-email', requireAdmin(config.clientOrigins), adminCustomerEmailRouter(notifier, confirmPassword))
   app.use(SITE_CONTENT_ADMIN_PATH, requireAdmin(config.clientOrigins), express.json({ limit: '256kb' }), adminSiteContentRouter())

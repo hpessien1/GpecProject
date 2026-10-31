@@ -189,7 +189,7 @@ GPEC never asks for your card details: card payments happen on Paystack’s page
       },
       {
         heading: 'Where can I collect my order?',
-        body: 'Pickup orders are collected from #19 King Slope Street, Woji, off Alcon Road, Port Harcourt, Rivers State. Once your order is ready, GPEC contacts you to agree a time. [Collection hours, to be confirmed by GPEC.]',
+        body: 'Pickup orders are collected from #19 King Slope Street, Woji, off Alcon Road, Port Harcourt, Rivers State. Collection hours are 9am to 5pm. GPEC contacts you once your order is ready.',
       },
       {
         heading: 'Do you deliver?',

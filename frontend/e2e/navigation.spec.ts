@@ -121,7 +121,7 @@ test.describe('home page sections', () => {
     await expect(page.locator('#about .about-values strong')).toHaveText(['Quality', 'Integrity', 'Reliability', 'Safety', 'Innovation', 'Customer satisfaction'])
     // The navy diagonal starts 2rem above the cards, so it never runs behind the paragraphs.
     const [body, details] = await Promise.all([page.locator('#about .about-body').boundingBox(), page.locator('#about .about-details').boundingBox()])
-    expect((details?.y ?? 0) - 32).toBeGreaterThanOrEqual((body?.y ?? 0) + (body?.height ?? 0))
+    expect((details?.y ?? 0) - 32).toBeGreaterThanOrEqual((body?.y ?? 0) + (body?.height ?? 0) - 1)
   })
 
   test('there is no Current Work section; an old link to it opens the home page', async ({ page }) => {

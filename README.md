@@ -226,7 +226,7 @@ Received with the company profile (2026-10-23): company name, logo, about text, 
 - Product prices.
 - The Paystack fee rate on GPEC's own plan.
 - Paystack business account (keys are held by GPEC and configured on the server, never shared in code).
-- The delivery areas and their fees (entered by staff in the admin panel), and collection hours for pickup (the location is the Woji address).
+- The delivery areas and their fees (entered by staff in the admin panel), and the collection hours for pickup (9am to 5pm to start, editable by staff; the location is the Woji address).
 - Approval (or rewording) of the refunds, cancellations, and returns policy and the FAQ, drafted for GPEC's review.
 - Staff who receive order notifications and who will manage prices in the admin panel.
 - Project descriptions, dates, and measurable outcomes for the photos already supplied, and customer names only where customers agree.

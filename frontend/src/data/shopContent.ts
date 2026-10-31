@@ -2,17 +2,16 @@ import { companyContact } from './landingContent'
 
 // Checkout and payment wording (components/shop/Checkout.tsx, PaymentResult.tsx).
 export const checkoutContent = {
-  // Confirmed by the project owner as the pickup point (2026-10-23). Collection hours are not known
-  // yet, so GPEC arranges a time with each customer.
+  // Confirmed by the project owner as the pickup point (2026-10-23). The hours are staff's own setting.
   pickupAddress: companyContact.address,
-  pickupNote: 'GPEC will contact you when your order is ready, to agree a collection time. Bring your order reference.',
+  pickupNote: (hours: string) => `Collection hours: ${hours}. GPEC will contact you when your order is ready. Bring your order reference.`,
   deliveryNote: 'GPEC will contact you to arrange the delivery.',
   noDeliveryAreas: 'GPEC has not listed its delivery areas yet, so orders can only be picked up for now. To ask about delivery, contact GPEC.',
   areaNotListed: 'Area not listed? Choose pickup, or contact GPEC to ask about delivery.',
   testMode: 'Test mode: this checkout uses Paystack’s test system. No real payment is taken.',
   privacy: 'GPEC uses these details only to fulfil and follow up your order. You pay on Paystack’s secure page: GPEC never sees your card details.',
-  paystackNote: 'You will go to Paystack’s secure page to pay by card, bank transfer, or another option Paystack offers, then come back here.',
-  paystackChoice: 'By card or another option Paystack offers, on Paystack’s secure page. Confirmed straight away. A payment processing fee is added.',
+  paystackNote: 'You will go to Paystack’s secure page to pay by card or from your bank account, then come back here.',
+  paystackChoice: 'By card or from your bank account, on Paystack’s secure page. Confirmed straight away. A payment processing fee is added.',
   transferChoice: 'Transfer the total to GPEC’s bank account from your banking app. No processing fee. GPEC prepares your order once the money arrives.',
   // Shown while GPEC's real bank account is not entered yet (the sample details, while the site is tested).
   sampleBank: 'Sample bank details for testing: do not send money. GPEC has not entered its real bank account yet.',

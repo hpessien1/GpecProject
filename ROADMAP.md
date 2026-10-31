@@ -208,10 +208,10 @@ These block launch, and several block steps 4 to 6. Ask early.
       needed: business verification, and confirmation that passing the fee to customers is allowed
       under GPEC's Paystack terms. GPEC has no special rate (2026-10-31), so the standard one applies
       (Paystack publishes 1.5% + ₦100, waived under ₦2,500, capped at ₦2,000).
-- [ ] Which payment methods Paystack's page offers (card, bank, transfer, USSD; all on today).
+- [x] Which payment methods Paystack's page offers: card and bank (2026-10-31). Transfer and USSD switched off in GPEC's Paystack dashboard the same day.
       Explained for GPEC in `ECOMMERCE_REQUIREMENTS.md` Section 6; the user is asking GPEC
       (2026-10-26). Switched in GPEC's Paystack dashboard, not in the website.
-- [ ] Delivery areas and their fees (staff enter them in the admin panel), and collection hours.
+- [x] Delivery areas and their fees: staff enter them in the admin panel (2026-10-31). Collection hours: 9am to 5pm, editable by staff under *Delivery*.
       Pickup location: the Woji address (confirmed by the owner, 2026-10-23).
 - [ ] Approve or rewrite the refunds, cancellations, and returns policy and the FAQ (drafts at `#refunds`
       and on the home page; staff edit them in Site content), with every [bracket] filled in.

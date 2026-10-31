@@ -80,6 +80,7 @@ export interface CheckoutInfo {
   // Shown at checkout while bank transfer is on.
   bankTransfer: OfferedBankTransfer | null
   deliveryAreas: DeliveryArea[]
+  collectionHours: string
 }
 
 export interface BasketPayload {
@@ -132,6 +133,8 @@ export interface PaymentResult extends OrderQuote {
   paymentStatus: PaymentStatus
   paidAt: string | null
   fulfilmentMethod: FulfilmentMethod
+  // Pickup orders only.
+  collectionHours: string | null
   // For bank transfers: the details the customer was given, the date to pay by, and when they said
   // they had paid.
   bankTransfer: (OfferedBankTransfer & { payBy: string, reportedAt: string | null }) | null
@@ -476,6 +479,19 @@ export interface BankTransferResponse {
   // Still the sample details staff started with: the live site will not offer them.
   isSample: boolean
   history: BankTransferHistoryEntry[]
+  historyCursor: string | null
+}
+
+// Collection hours for pickup orders (backend models/CollectionSettings.ts).
+export interface CollectionHoursHistoryEntry {
+  actor: { name: string, email: string }
+  changes: { field: 'hours', from: string, to: string }[]
+  createdAt: string
+}
+
+export interface CollectionHoursResponse {
+  hours: string
+  history: CollectionHoursHistoryEntry[]
   historyCursor: string | null
 }
 

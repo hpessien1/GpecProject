@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Arrow from '../Arrow'
 import Pagination from '../Pagination'
+import AdminCollectionHours from './AdminCollectionHours'
 import AdminDeliveryAreaForm from './AdminDeliveryAreaForm'
 import type { DeliveryAreaFormValues } from './AdminDeliveryAreaForm'
 import { deliveryAreasContent } from '../../data/adminContent'
@@ -108,5 +109,6 @@ export default function AdminDeliveryAreas({ currency, onSessionEnded }: AdminDe
           <AdminDeliveryAreaForm key={formVersion} area={null} currency={currency} isSaving={isSaving} serverErrors={serverErrors} onSubmit={handleAdd} />
         </section>}
       </div>}
+    <AdminCollectionHours onSessionEnded={onSessionEnded} />
   </section>
 }

@@ -569,6 +569,11 @@ name), and logs which database it found. The guard only works if production sets
 - **BankTransferSettings** (`backend/src/models/BankTransferSettings.ts`) — one record (`_id`
   `bank-transfer`): `enabled`, `bankName`, `accountName`, `accountNumber` (10 digits), `instructions`,
   `payWithinDays` (1–30). Managed at `#admin/bank-transfer`; AuditRecord `bankTransfer.update`.
+- **CollectionSettings** (`backend/src/models/CollectionSettings.ts`, 2026-10-31) — one record (`_id`
+  `collection`): `hours`, one line of text shown to customers at checkout, on the payment result page, and
+  in pickup emails. Created on the first save; until then GPEC's stated `9am to 5pm`
+  (`services/collectionHours.ts`). Managed at `#admin/delivery`; AuditRecord `collection.update`. The FAQ's
+  answer is separate text, so the screen reminds staff to change both.
 - **CustomerEmailSettings** (`backend/src/models/CustomerEmailSettings.ts`, 2026-10-24) — one record
   (`_id` `customer-email`): `replyTo`, where customers' replies to their emails go. Created on the
   first save; until then GPEC's published address (`DEFAULT_REPLY_TO`, `services/customerEmail.ts`).
@@ -1383,8 +1388,7 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 **Functionality**
 - Checkout is built and live in test mode (Paystack test keys in Coolify since 2026-10-24,
   RUNBOOK 1.8); bank transfer, demo delivery areas, and demo prices on the sample products come with
-  `seed:demo`. Collection hours are not known: the site says GPEC will contact the customer to agree
-  a time.
+  `seed:demo`. Collection hours are staff's own setting (below, Section 5).
 - Bank transfer shows the sample bank details until GPEC's staff enter real ones. Staff confirm each
   transfer by hand, so there is no automatic match with the bank statement, and stock is
   not held while a transfer is awaited. Unpaid transfer orders are closed by hand (owner's choice).
@@ -1456,11 +1460,11 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   design decision and a browser check, not a cleanup.
 
 **Open business decisions (needed from GPEC)**
-- The delivery areas and their fees (staff enter them at `#admin/delivery`). Do not invent any.
-- Which payment methods Paystack's page offers (card, bank, transfer, USSD: all on today, set in
-  GPEC's Paystack dashboard; explained in `ECOMMERCE_REQUIREMENTS.md` Section 6). The user is asking
-  GPEC (2026-10-26). The code handles every method; only the fee rule assumes one rate for all.
-- Collection hours for pickup (the location is the Woji address, confirmed by the owner 2026-10-23).
+- The delivery areas and their fees: GPEC's staff enter them at `#admin/delivery` (user, 2026-10-31). Do not invent any.
+- GPEC keeps card and bank on Paystack's page (user, 2026-10-31); the other methods are switched off in
+  GPEC's Paystack dashboard, not in code (`ECOMMERCE_REQUIREMENTS.md` Section 6): Transfer and USSD were
+  switched off by the user, 2026-10-31; check the live payment page shows only card and bank. The site's
+  own bank transfer (Section 4.1) is separate and stays. The fee rule assumes one rate for both methods.
 - Approval of the refunds, cancellations, and returns policy drafted on 2026-10-24 (`#refunds`).
 - Who receives order and contact-request notifications.
 - Whether Paystack's terms allow GPEC to pass its fee to customers: GPEC wants this and has no special

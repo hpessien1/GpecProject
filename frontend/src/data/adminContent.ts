@@ -49,6 +49,14 @@ export const deliveryAreasContent = {
   pastOrders: 'Changing a fee or name does not change orders already placed: each order keeps the area and fee it was charged.',
 }
 
+// Collection hours for pickup orders, on the delivery screen.
+export const collectionHoursContent = {
+  title: 'Pickup: collection hours',
+  intro: 'Customers who choose pickup see these hours at checkout, on their order page, and in their emails.',
+  label: 'Collection hours',
+  hint: 'Written as customers will read it, for example “9am to 5pm, Monday to Friday”. If you change these, also change the answer in the FAQ (Site content).',
+}
+
 export const paymentMethodLabels: Record<PaymentMethod, string> = {
   paystack: 'Paystack',
   bank_transfer: 'Bank transfer',
@@ -189,7 +197,7 @@ export const ordersContent = {
   // already told the customer, or are correcting a mistake.
   notifyLabel: 'Tell the customer by email',
   notifyHints: {
-    ready_for_pickup: 'They are told the order is ready to collect from GPEC in Woji, and asked to agree a collection time if they have not.',
+    ready_for_pickup: 'They are told the order is ready to collect from GPEC in Woji, with the collection hours, and asked to reply if they cannot come during those hours.',
     out_for_delivery: 'They are told the order is on its way to the address they gave.',
     cancelled: 'They are told the order is cancelled and that, if they paid, GPEC will contact them about a refund as the refunds policy says.',
     transfer_not_received: 'They are told the order is closed because the transfer did not arrive, and asked to reply with the details if they did send it.',

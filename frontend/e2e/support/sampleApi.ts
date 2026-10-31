@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentCheckOutcome, PaymentStatus, SecurityLogEntry, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod, UnmatchedPayment } from '../../src/types'
+import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CollectionHoursHistoryEntry, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentCheckOutcome, PaymentStatus, SecurityLogEntry, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod, UnmatchedPayment } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -133,6 +133,8 @@ export interface ApiState {
   // Where customers' replies go (the Emails screen), and its change history.
   customerReplyTo: string
   customerEmailHistory: CustomerEmailHistoryEntry[]
+  collectionHours: string
+  collectionHoursHistory: CollectionHoursHistoryEntry[]
   // Whether the customer has pressed "I have sent the transfer" for the sample transfer order.
   transferReported: boolean
   // Makes adding a note fail.
@@ -219,6 +221,9 @@ function initialState(): ApiState {
     // What the real server starts with (backend services/customerEmail.ts, DEFAULT_REPLY_TO).
     customerReplyTo: 'gpecengineeringcompanylimited@gmail.com',
     customerEmailHistory: [],
+    // What the real server starts with (backend services/collectionHours.ts).
+    collectionHours: '9am to 5pm',
+    collectionHoursHistory: [],
     transferReported: false,
     notesFail: false,
     imageUploads: true,
@@ -359,7 +364,7 @@ function checkout(state: ApiState, path: string, method: string, body: Record<st
   const { enabled, ...bank } = state.bankTransfer
   const methods: PaymentMethod[] = state.currency === null ? [] : [...(state.paymentsOn ? ['paystack' as const] : []), ...(enabled && state.currency.code === 'NGN' ? ['bank_transfer' as const] : [])]
   const available = methods.length > 0
-  if (path === '/api/checkout') return [200, { paymentsAvailable: available, paymentMethods: methods, testMode: state.paymentsOn && state.testMode, currency: state.currency, bankTransfer: methods.includes('bank_transfer') ? { ...bank, isSample: bank.accountNumber === '0000000000' } : null, deliveryAreas: available ? state.deliveryAreas.filter((area) => area.status === 'active').map(({ id, name, description, fee }) => ({ id, name, description, fee })) : [] }]
+  if (path === '/api/checkout') return [200, { collectionHours: state.collectionHours, paymentsAvailable: available, paymentMethods: methods, testMode: state.paymentsOn && state.testMode, currency: state.currency, bankTransfer: methods.includes('bank_transfer') ? { ...bank, isSample: bank.accountNumber === '0000000000' } : null, deliveryAreas: available ? state.deliveryAreas.filter((area) => area.status === 'active').map(({ id, name, description, fee }) => ({ id, name, description, fee })) : [] }]
   const isTransfer = body.paymentMethod === 'bank_transfer'
   if (!available) return [503, { message: 'Online payment is not available yet.', code: 'PAYMENT_CONFIG_ERROR' }]
   const products = state.products === 'error' ? [] : state.products
@@ -397,7 +402,7 @@ function checkout(state: ApiState, path: string, method: string, body: Record<st
     const items = [{ productId: 'panel-001', name: 'Custom control panel', reference: 'GPEC-CP-001', unitPrice: 150050, quantity: 2, lineTotal: 300100 }]
     const paystackFee = transfer ? 0 : 14502
     return [200, {
-      reference: NEW_ORDER_REF, paymentMethod: transfer ? 'bank_transfer' : 'paystack', paymentStatus: state.paymentResult, paidAt: state.paymentResult === 'paid' ? now : null, fulfilmentMethod: 'pickup', deliveryAreaName: null, items, currency: state.currency, subtotal: 300100, deliveryFee: 0, paystackFee, total: 300100 + paystackFee,
+      reference: NEW_ORDER_REF, paymentMethod: transfer ? 'bank_transfer' : 'paystack', paymentStatus: state.paymentResult, paidAt: state.paymentResult === 'paid' ? now : null, fulfilmentMethod: 'pickup', deliveryAreaName: null, collectionHours: state.collectionHours, items, currency: state.currency, subtotal: 300100, deliveryFee: 0, paystackFee, total: 300100 + paystackFee,
       bankTransfer: transfer ? { ...SAMPLE_BANK, isSample: false, payBy: '2026-10-24T10:00:00.000Z', reportedAt: state.transferReported ? now : null } : null,
     }]
   }
@@ -568,6 +573,18 @@ function reply(state: ApiState, request: Request): Reply {
       state.bankTransferHistory = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: changes as BankTransferHistoryEntry['changes'], createdAt: new Date().toISOString() }, ...state.bankTransferHistory]
     }
     return [200, { settings: state.bankTransfer, isSample: state.bankTransfer.accountNumber === '0000000000', ...historyReply(state.bankTransferHistory) }]
+  }
+  if (path === '/api/admin/collection-hours/history') return [200, historyReply(state.collectionHoursHistory, url)]
+  if (path === '/api/admin/collection-hours') {
+    if (method === 'PATCH') {
+      const hours = String(body.hours ?? '').trim()
+      if (!hours) return [400, { message: 'Please check the form.', errors: { hours: 'hours is required.' } }]
+      if (hours !== state.collectionHours) {
+        state.collectionHoursHistory = [{ actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'hours', from: state.collectionHours, to: hours }], createdAt: new Date().toISOString() }, ...state.collectionHoursHistory]
+        state.collectionHours = hours
+      }
+    }
+    return [200, { hours: state.collectionHours, ...historyReply(state.collectionHoursHistory) }]
   }
   if (path === '/api/admin/customer-email/history') return [200, historyReply(state.customerEmailHistory, url)]
   if (path === '/api/admin/security-log') {

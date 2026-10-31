@@ -57,7 +57,7 @@ process (`utils/freshness.ts`). Product photos are kept in memory (`services/ima
   `GET`, `POST /api/admin/delivery-areas`; `GET`, `PATCH /api/admin/delivery-areas/:id`;
   `GET /api/admin/delivery-areas/:id/history`; `GET`, `PATCH /api/admin/bank-transfer`,
   `GET /api/admin/bank-transfer/history`; `GET`, `PATCH /api/admin/customer-email`,
-  `GET /api/admin/customer-email/history`; `GET /api/admin/security-log`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
+  `GET /api/admin/customer-email/history`; `GET`, `PATCH /api/admin/collection-hours` (`{ hours }`, recorded), `GET /api/admin/collection-hours/history`; `GET /api/admin/security-log`; `GET /api/admin/content`, `GET`, `PATCH /api/admin/content/:page`,
   `GET /api/admin/content/:page/history`;
   `POST /api/admin/orders/:reference/transfer-received`, `POST /api/admin/orders/:reference/transfer-not-received`,
   `POST /api/admin/orders/:reference/check-payment`, `POST /api/admin/orders/:reference/close-payment`;

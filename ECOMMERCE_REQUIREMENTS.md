@@ -116,7 +116,7 @@ Collect only information required to fulfil the order:
 - Delivery address, **required only when Delivery is selected**; hidden and not collected for Pickup
 - Additional requirements or notes, optional
 
-Pickup orders have no delivery fee and are collected from GPEC at #19 King Slope Street, Woji, off Alcon Road, Port Harcourt, Rivers State (confirmed by the project owner, 2026-10-23); GPEC contacts the customer to agree a collection time.
+Pickup orders have no delivery fee and are collected from GPEC at #19 King Slope Street, Woji, off Alcon Road, Port Harcourt, Rivers State (confirmed by the project owner, 2026-10-23), during the collection hours staff set in the admin panel (*Delivery*; 9am to 5pm to start). GPEC contacts the customer when the order is ready.
 
 #### Delivery areas and fees
 
@@ -148,7 +148,9 @@ The customer chooses how to pay when both are open: **Paystack** (Section 6 belo
 - The same payment must never be applied twice, even if Paystack sends a notification more than once.
 - While Paystack test keys are in use, the site must show a visible "Test mode" notice.
 
-#### Payment methods on Paystack's page (decision pending with GPEC)
+#### Payment methods on Paystack's page
+
+GPEC's decision (2026-10-31): **card and bank**. The other methods are switched off in GPEC's Paystack dashboard, not in the site's code (Transfer and USSD switched off 2026-10-31). The site's own bank transfer (6a) is separate and stays. The table below explains each method.
 
 Paystack's page currently offers four ways to pay. The website does not choose them: Paystack shows
 every method switched on in GPEC's Paystack dashboard, so GPEC can turn any of them off there,
@@ -194,7 +196,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 ### 7. Confirmation
 
 - After verified payment, show a confirmation with the order reference, items, amount paid, and fulfilment method. (For a bank transfer, the page first shows how to pay; it shows the confirmation once staff have confirmed the money arrived.)
-- For pickup orders, explain where to collect the order (the Woji address) and that GPEC will contact the customer to agree a time (collection hours not yet supplied).
+- For pickup orders, explain where to collect the order (the Woji address) and the collection hours (9am to 5pm to start; staff change them in the admin panel, *Delivery*).
 - For delivery orders, explain that GPEC will contact the customer about delivery.
 - Clear the cart only after payment is verified.
 - Send a confirmation email to the customer and notify GPEC staff (built; staff recipients to be confirmed by GPEC).
@@ -230,8 +232,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 
 - The delivery areas and their fees (staff enter them in the admin panel).
 - Confirmation from Paystack that passing its fee to customers is allowed under GPEC's terms. GPEC wants this and has no special rate (2026-10-31), so Paystack's standard rate applies: it publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000 (checked 2026-10-23; re-read when switching to live keys).
-- Which payment methods Paystack's page offers: card, bank, transfer, USSD, or fewer (Section 6, "Payment methods on Paystack's page"; GPEC switches them in its Paystack dashboard). The user is asking GPEC (2026-10-26).
-- Collection hours for pickup (the location is the Woji address).
+- Payment methods on Paystack's page: card and bank (GPEC, 2026-10-31; Section 6, "Payment methods on Paystack's page"; GPEC switches off the others in its Paystack dashboard). The user is asking GPEC (2026-10-26).
 - Approval of the refunds, cancellations, and returns policy (a draft for GPEC's review is at `#refunds` since 2026-10-24; staff edit it in the admin panel, Site content).
 - Recipients for order notifications.
 

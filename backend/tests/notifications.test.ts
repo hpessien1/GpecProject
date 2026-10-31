@@ -130,8 +130,8 @@ describe('customer text in emails (audit S5-L01)', () => {
     const emails = [
       customerContactEmail(request_, SITE),
       customerTransferOrderEmail(order, SITE, `${SITE}/#shop/payment/x`),
-      customerOrderEmail(order, SITE),
-      ...(['ready_for_pickup', 'out_for_delivery', 'cancelled', 'transfer_not_received'] as const).map((update) => customerOrderUpdateEmail(order, update, SITE)),
+      customerOrderEmail(order, SITE, '9am to 5pm'),
+      ...(['ready_for_pickup', 'out_for_delivery', 'cancelled', 'transfer_not_received'] as const).map((update) => customerOrderUpdateEmail(order, update, SITE, '9am to 5pm')),
     ]
     for (const email of emails) {
       expect(email.text).toMatch(/^Hello,\n\n/)

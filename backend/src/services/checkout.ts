@@ -12,6 +12,7 @@ import type { BasketInput, OrderInput } from '../validation/checkout.js'
 import { currencyInfo } from './currency.js'
 import type { AdminIdentity } from './adminAuth.js'
 import type { BankTransferDetails } from './bankTransfer.js'
+import { getCollectionHours } from './collectionHours.js'
 import { emailWaitingUnmatchedPayments, recordUnmatchedPayment } from './unmatchedPayments.js'
 import type { Notifier } from './notifications.js'
 import { PaystackError } from './paystack.js'
@@ -366,7 +367,7 @@ const DAY = 24 * 60 * 60 * 1000
 // What the payment result page shows: no names, email, phone, or address, because the link (with
 // the payment reference) is all it takes to open it. GPEC's bank details are not private: checkout
 // shows them to anyone.
-function toPaymentResult(order: StoredOrder) {
+async function toPaymentResult(order: StoredOrder) {
   const transfer = order.paymentMethod === 'bank_transfer' && order.bankTransfer
     ? { ...order.bankTransfer, payBy: new Date(order.createdAt.getTime() + order.bankTransfer.payWithinDays * DAY), reportedAt: order.transferReportedAt ?? null }
     : null
@@ -377,6 +378,7 @@ function toPaymentResult(order: StoredOrder) {
     paidAt: order.paidAt,
     fulfilmentMethod: order.fulfilmentMethod,
     deliveryAreaName: order.deliveryArea?.name ?? null,
+    collectionHours: order.fulfilmentMethod === 'pickup' ? await getCollectionHours() : null,
     items: order.items.map(({ productId, name, reference, unitPrice, quantity, lineTotal }) => ({ productId, name, reference, unitPrice, quantity, lineTotal })),
     currency: currencyInfo(order.currency),
     subtotal: order.subtotal,

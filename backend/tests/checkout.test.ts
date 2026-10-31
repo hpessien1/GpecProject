@@ -51,6 +51,7 @@ describe('GET /api/checkout', () => {
     const res = await request(app).get('/api/checkout')
     expect(res.status).toBe(200)
     expect(res.body).toEqual({
+      collectionHours: '9am to 5pm',
       paymentsAvailable: true,
       paymentMethods: ['paystack'],
       testMode: true,

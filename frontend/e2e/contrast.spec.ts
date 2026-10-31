@@ -359,6 +359,7 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await page.getByText('No entries match these dates and account.').waitFor()
     await audit.page(page, `${label} admin security log, no matches`)
     await open('#admin/delivery', '.admin-area-list')
+    await page.locator('.admin-collection-hours form').waitFor()
     await audit.page(page, `${label} admin delivery areas`)
     if (hovering) await audit.hover(page, `${label} admin delivery areas`)
     await page.getByLabel('Area name').fill('Sample')

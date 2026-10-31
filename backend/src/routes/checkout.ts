@@ -6,6 +6,7 @@ import { HttpError, NotFoundError, ValidationError } from '../errors.js'
 import { BANK_TRANSFER_CURRENCY, activeBankTransfer } from '../services/bankTransfer.js'
 import { checkPayment, placeTransferOrder, priceBasket, reportTransferSent, startPaystackOrder, toQuote } from '../services/checkout.js'
 import { currencyInfo } from '../services/currency.js'
+import { getCollectionHours } from '../services/collectionHours.js'
 import { listActiveDeliveryAreas } from '../services/deliveryAreas.js'
 import type { Notifier } from '../services/notifications.js'
 import type { PaystackClient } from '../services/paystack.js'
@@ -52,8 +53,8 @@ export default function checkoutRouter(config: AppConfig, paystack: PaystackClie
     return { currency, feeRule: null, bank: open.bank }
   }
 
-  // Which ways to pay are open (Paystack in test mode?), GPEC's bank details for transfers, and the
-  // delivery areas with their fees.
+  // Which ways to pay are open (Paystack in test mode?), GPEC's bank details for transfers, the
+  // delivery areas with their fees, and the collection hours.
   router.get('/', limit.read, async (_req, res, next) => {
     try {
       const open = await methods()
@@ -66,6 +67,7 @@ export default function checkoutRouter(config: AppConfig, paystack: PaystackClie
         currency: currencyInfo(currency),
         bankTransfer: open.bank,
         deliveryAreas: paymentsAvailable ? await listActiveDeliveryAreas() : [],
+        collectionHours: await getCollectionHours(),
       })
     } catch (error) {
       return next(error)

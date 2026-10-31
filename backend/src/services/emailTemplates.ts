@@ -252,7 +252,7 @@ export interface OrderEmailData {
 }
 
 // GPEC's service location (README "Company Profile"), confirmed by the owner as the pickup point
-// (2026-10-23). Collection hours are not known yet, so GPEC arranges the time with each customer.
+// (2026-10-23). The collection hours are staff's own setting (services/collectionHours.ts).
 export const PICKUP_LOCATION = '#19 King Slope Street, Woji, off Alcon Road, Port Harcourt, Rivers State'
 
 function orderLines(order: OrderEmailData, totalLabel = 'Total paid') {
@@ -417,14 +417,14 @@ const itemList = (order: OrderEmailData) => order.items.map((item) => `${item.qu
 // Order updates staff choose to send (a checkbox, ticked by default, in the admin panel).
 export type OrderUpdate = 'ready_for_pickup' | 'out_for_delivery' | 'cancelled' | 'transfer_not_received'
 
-export function customerOrderUpdateEmail(order: OrderEmailData, update: OrderUpdate, siteUrl: string) {
+export function customerOrderUpdateEmail(order: OrderEmailData, update: OrderUpdate, siteUrl: string, collectionHours: string) {
   const ask = `If you have a question, reply to this email, or contact GPEC through ${siteUrl}/#contact and give your order reference.`
   const content: Record<OrderUpdate, { subject: string, lines: string[] }> = {
     ready_for_pickup: {
       subject: `Your GPEC order ${order.reference} is ready for pickup`,
       lines: [
-        `Your order ${order.reference} is ready to collect from GPEC at ${PICKUP_LOCATION}.`,
-        'Please bring your order reference. If you have not yet agreed a collection time with GPEC, reply to this email to arrange one.',
+        `Your order ${order.reference} is ready to collect from GPEC at ${PICKUP_LOCATION}. Collection hours: ${collectionHours}.`,
+        'Please bring your order reference. If you cannot come during those hours, reply to this email to arrange another time.',
       ],
     },
     out_for_delivery: {
@@ -471,7 +471,7 @@ export function staffOrderEmail(order: OrderEmailData, siteUrl: string) {
   }
 }
 
-export function customerOrderEmail(order: OrderEmailData, siteUrl: string) {
+export function customerOrderEmail(order: OrderEmailData, siteUrl: string, collectionHours: string) {
   return {
     subject: `Your GPEC order ${order.reference} is paid`,
     text: [
@@ -483,7 +483,7 @@ export function customerOrderEmail(order: OrderEmailData, siteUrl: string) {
       '',
       order.fulfilmentMethod === 'delivery'
         ? `GPEC will contact you to arrange delivery to the address you gave${order.deliveryArea ? ` (${order.deliveryArea.name})` : ''}.`
-        : `Your order is for pickup from GPEC at ${PICKUP_LOCATION}. GPEC will contact you when it is ready and to agree a collection time. Please bring your order reference.`,
+        : `Your order is for pickup from GPEC at ${PICKUP_LOCATION}. Collection hours: ${collectionHours}. GPEC will contact you when it is ready. Please bring your order reference.`,
       '',
       `If you have a question about your order, reply to this email, or contact GPEC through ${siteUrl}/#contact and give your order reference.`,
       '',

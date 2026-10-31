@@ -173,7 +173,7 @@ export default function Checkout({ cartItems, currency, itemCount, onGoToCatalog
             {!deliveryPossible && <p className="shop-field-note" id="checkout-delivery-unavailable">{areas.length === 0 ? checkoutContent.noDeliveryAreas : `GPEC does not deliver ${pickupOnly.map(({ product }) => product.name).join(', ')}, so this order can only be picked up. To have the rest delivered, remove ${pickupOnly.length === 1 ? 'it' : 'them'} from your cart.`}</p>}
           </fieldset>
 
-          {chosenFulfilment === 'pickup' && <p className="shop-field-note">{checkoutContent.pickupNote}</p>}
+          {chosenFulfilment === 'pickup' && <p className="shop-field-note">{checkoutContent.pickupNote(info.collectionHours)}</p>}
           {chosenFulfilment === 'delivery' && <>
             <div className="shop-field">
               <label htmlFor="checkout-area">Delivery area <span aria-hidden="true">*</span></label>
