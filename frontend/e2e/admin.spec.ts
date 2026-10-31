@@ -865,6 +865,34 @@ test.describe('contact requests', () => {
     await expect(page.locator('.admin-history li').first()).toContainText('New → In progress')
   })
 
+  test('lists Paystack payments no order matches on the Orders screen until staff mark them dealt with', async ({ page }) => {
+    const reference = 'a'.repeat(24)
+    const api = await mockApi(page, { unmatchedPayments: [{ reference, reason: 'no_order', amount: 2700000, currency: 'NGN', createdAt: '2026-10-21T10:00:00Z' }, { reference: 'b'.repeat(24), reason: 'mismatch', amount: 500, currency: 'NOTREAL', createdAt: '2026-10-21T11:00:00Z' }] })
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders')
+    const section = page.getByRole('region', { name: 'Payments that need action' })
+    await expect(section.getByRole('listitem')).toHaveCount(2)
+    await expect(section).toContainText('₦27,000.00')
+    await expect(section).toContainText(reference)
+    await expect(section).toContainText('No order matches this payment')
+    // A currency the browser does not know is shown as Paystack sent it.
+    await expect(section).toContainText('500 (smallest unit) NOTREAL')
+    await section.getByRole('button', { name: 'Mark as dealt with' }).first().click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('button', { name: 'Keep on the list' })).toBeFocused()
+    await dialog.getByRole('button', { name: 'Mark as dealt with' }).click()
+    await expect(section.getByRole('listitem')).toHaveCount(1)
+    expect(api.requests.some((r) => r.method === 'POST' && r.path === `/api/admin/unmatched-payments/${reference}/resolve`)).toBe(true)
+  })
+
+  test('shows no such section when no payment needs action', async ({ page }) => {
+    await mockApi(page)
+    await logInAsAdmin(page)
+    await page.goto('/#admin/orders')
+    await expect(page.locator('.admin-order-list')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Payments that need action' })).toHaveCount(0)
+  })
+
   test('keeps a request from the data clean-up, and stops keeping it, recorded in the history', async ({ page }) => {
     const api = await mockApi(page)
     await logInAsAdmin(page)

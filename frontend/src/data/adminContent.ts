@@ -118,6 +118,23 @@ export const requestKindContent: Record<AdminRequestKind, { title: string, eyebr
   'contact-requests': { title: 'Contact requests', eyebrow: 'From the contact form', empty: 'No contact requests here yet.' },
 }
 
+// Completed Paystack payments the website could not match to an order.
+export const unmatchedPaymentsContent = {
+  title: 'Payments that need action',
+  intro: 'Paystack took these payments, but the website could not match them to an order, so none is recorded as paid. Find each reference in GPEC’s Paystack dashboard to see who paid, then contact them, and refund the payment or fill the order.',
+  reasons: {
+    no_order: 'No order matches this payment. Orders unpaid for over 6 months are deleted, so it may have been one of those.',
+    mismatch: 'The amount or currency differs from the order, so the order was not marked paid.',
+  },
+  reference: 'Paystack reference:',
+  resolve: 'Mark as dealt with',
+  cancel: 'Keep on the list',
+  confirmTitle: 'Mark this payment as dealt with?',
+  confirmText: 'It leaves this list and cannot be put back. The website does not refund it or change any order: do that first in Paystack and with the customer.',
+  loadFailed: 'Payments that need action could not be loaded. Reload the page to try again.',
+  saveFailed: 'This could not be saved. Please try again.',
+}
+
 // Orders from the shop's checkout. Unpaid ones are customers who did not finish paying on Paystack.
 export const ordersContent = {
   eyebrow: 'From the shop',

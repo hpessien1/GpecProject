@@ -367,8 +367,10 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     if (hovering) await audit.hover(page, `${label} admin delivery area edit`)
   }],
   ['admin orders and contact requests', async ({ page, api, audit, label, hovering, open }) => {
+    api.unmatchedPayments = [{ reference: 'a'.repeat(24), reason: 'no_order', amount: 2700000, currency: 'NGN', createdAt: '2026-10-21T10:00:00Z' }]
     await logInAsAdmin(page)
     await open('#admin/orders', '.admin-order-list')
+    await page.locator('.admin-unmatched').waitFor()
     await audit.page(page, `${label} admin orders`)
     if (hovering) await audit.hover(page, `${label} admin orders`)
     // Every stage badge: the sample orders cover four; the rest are switched in place.

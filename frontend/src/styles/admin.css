@@ -70,6 +70,35 @@
   background: var(--sand);
   font-weight: 700;
 }
+/* Payments that need action, at the top of the Orders screen. */
+.admin-unmatched {
+  margin: 0 0 2rem;
+  padding: 1.2rem;
+  border-left: 6px solid var(--lime);
+  background: var(--sand);
+  color: var(--ink);
+}
+.admin-unmatched h2 {
+  margin: 0 0 0.5rem;
+}
+.admin-unmatched ul {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-unmatched li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.admin-unmatched li p {
+  margin: 0 0 0.25rem;
+  overflow-wrap: anywhere;
+}
 /* A screen's explanation under its heading (delivery areas). */
 .admin-intro {
   max-width: 720px;

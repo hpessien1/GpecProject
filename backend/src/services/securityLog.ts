@@ -17,6 +17,8 @@ export interface SecurityEventInput {
   adminId?: string | null
   email?: string | null
   target?: { type: typeof TARGET_TYPES[number], id: string } | null
+  // Set for what the server does by itself; otherwise worked out from whether there is a request.
+  via?: 'automatic'
 }
 
 async function findAccount({ adminId, email }: SecurityEventInput) {
@@ -164,7 +166,7 @@ export async function recordSecurityEvent(request: Request | null, input: Securi
       detail: input.detail ?? null,
       account: await findAccount(input),
       target: input.target ?? null,
-      via: request ? 'website' : 'command line',
+      via: input.via ?? (request ? 'website' : 'command line'),
       ip: (request?.ip ?? '').slice(0, 60),
       userAgent: (request?.get('user-agent') ?? '').slice(0, 300),
     })

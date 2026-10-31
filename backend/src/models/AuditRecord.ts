@@ -23,8 +23,8 @@ const auditRecordSchema = new mongoose.Schema({
   // Paystack about a payment and Paystack's answer changed the order.
   // order.close: staff closed a Paystack order the customer left without paying (Paystack had no
   // completed payment for it).
-  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'product.restock', 'contactRequest.status', 'contactRequest.keep', 'order.status', 'order.payment', 'order.close', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update'] },
-  targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer', 'siteContent', 'customerEmail'] },
+  action: { type: String, required: true, enum: ['product.create', 'product.update', 'product.sale', 'product.restock', 'contactRequest.status', 'contactRequest.keep', 'order.status', 'order.payment', 'order.close', 'deliveryArea.create', 'deliveryArea.update', 'bankTransfer.update', 'siteContent.update', 'customerEmail.update', 'payment.resolve'] },
+  targetType: { type: String, required: true, enum: ['product', 'contactRequest', 'order', 'deliveryArea', 'bankTransfer', 'siteContent', 'customerEmail', 'unmatchedPayment'] },
   targetId: { type: String, required: true },
   // The admin who made the change, copied at the time, so the record still names the person if the
   // account changes later. Absent only for product.sale, which names the order instead.

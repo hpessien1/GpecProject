@@ -291,7 +291,7 @@ Deferred (not code; the user's decision at close-out): **H-02** (the Atlas owner
    kept, which the deferred clean-up then follows); real bank
    details; delivery areas and fees; collection hours (the "ready for pickup" email could then state
    them); the Paystack rate on its plan, for every payment method kept; real products with prices
-   and categories; business hours and social links; registration number; the first video's sound.
+   and categories; business hours and social links; registration number.
 8. **Before launch** (CLAUDE.md Section 7 checklist): the policies approved, real bank details, demo
    data removed, samples archived, every admin using two-step login, live Paystack keys only with
    GPEC's approval.

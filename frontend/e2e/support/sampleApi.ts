@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, Request } from '@playwright/test'
-import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentCheckOutcome, PaymentStatus, SecurityLogEntry, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod } from '../../src/types'
+import type { AdminDeliveryArea, AdminOrderDetail, BankTransferHistoryEntry, BankTransferSettings, CustomerEmailHistoryEntry, ProductCategory, PaymentMethod, DeliveryAreaHistoryEntry, FulfilmentStatus, OrderHistoryEntry, OrderStage, AdminProduct, AdminRequestDetail, AdminSessionInfo, CurrencyInfo, PaymentCheckOutcome, PaymentStatus, SecurityLogEntry, Product, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, SiteContentHistoryEntry, SiteContentKey, SiteContentPage, TwoFactorMethod, UnmatchedPayment } from '../../src/types'
 
 // A stand-in for the GPEC API, answered inside the browser: tests need no backend or database, and
 // can make the "server" fail on purpose. It follows the real API's routes and response shapes
@@ -115,6 +115,7 @@ export interface ApiState {
   requestNotes: Record<string, RequestNote[]>
   orders: AdminOrderDetail[]
   orderHistory: Record<string, OrderHistoryEntry[]>
+  unmatchedPayments: UnmatchedPayment[]
   // Checkout: whether Paystack is set up (and in test mode), and the delivery areas.
   paymentsOn: boolean
   testMode: boolean
@@ -197,6 +198,7 @@ function initialState(): ApiState {
       sampleOrder(TRANSFER_ORDER_REF, 'Fifth Customer', 'pickup', 'pending_payment', 'new', [['terminal-001', 'Terminal block set', 'GPEC-TB-074', 4500000, 1]], 'bank_transfer'),
     ],
     orderHistory: {},
+    unmatchedPayments: [],
     paymentsOn: true,
     testMode: true,
     deliveryAreas: [
@@ -608,6 +610,12 @@ function reply(state: ApiState, request: Request): Reply {
       }
     }
     return [200, { page: state.siteContent[key], ...historyReply(state.siteContentHistory[key]) }]
+  }
+  if (path === '/api/admin/unmatched-payments') return [200, { items: state.unmatchedPayments }]
+  const resolved = /^\/api\/admin\/unmatched-payments\/([^/]+)\/resolve$/.exec(path)
+  if (resolved) {
+    state.unmatchedPayments = state.unmatchedPayments.filter((payment) => payment.reference !== resolved[1])
+    return [200, { items: state.unmatchedPayments }]
   }
   if (path === '/api/admin/orders') return listOrders(state.orders, url)
   const orderMatch = /^\/api\/admin\/orders\/([^/]+)(\/notes|\/history|\/transfer-received|\/transfer-not-received|\/check-payment|\/close-payment)?$/.exec(path)

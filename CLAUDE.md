@@ -472,7 +472,10 @@ Orders and contact requests hold names, emails, phone numbers, and addresses. Co
 - **Off until `RETENTION_CLEANUP=on`** (needs the year end; RUNBOOK 1.10): it deletes for good, so backups
   and `retention:preview` come first. It runs a minute after the API starts, then daily, at most 500 records
   of each kind a run, each in its own transaction whose filter repeats the rule, so a request kept or
-  reopened, or an order paid, a moment before is left alone. A request's files go on `PendingFileDeletion` in
+  reopened, or an order paid, a moment before is left alone. A completed Paystack payment whose order no
+  longer exists, or whose amount or currency differs, is saved (`UnmatchedPayment`), emailed to staff
+  with retries every 15 minutes until sent, and listed at the top of the admin Orders screen until staff
+  mark it dealt with (`services/unmatchedPayments.ts`; AuditRecord `payment.resolve`). A request's files go on `PendingFileDeletion` in
   that transaction and are removed from the bucket afterwards, retried until they succeed. Each run that
   deleted anything writes counts, never references, to the security log (`retention.cleanup`).
 
@@ -583,7 +586,7 @@ name), and logs which database it found. The guard only works if production sets
 - **SecurityEvent** (`backend/src/models/SecurityEvent.ts`, 2026-10-27) — `action`, `outcome`
   (`success` | `failure`), `reason` (the API error code), `detail`, `account { adminId, email, name,
   role }` (copied; null when no admin account could be named), `target { type, id }` (order, contact
-  request, or file reference), `via` (`website` | `command line`), `ip`, `userAgent`, `repeats` and
+  request, or file reference), `via` (`website` | `command line` | `automatic`), `ip`, `userAgent`, `repeats` and
   `repeatsSince` (on an entry counting repeated refusals, Section 4.6; missing on older entries),
   `createdAt` (TTL: deleted after 12 months). Never edited or deleted by the application (Section 4.6).
 - **WebhookEvent** (`backend/src/models/WebhookEvent.ts`) — `eventId` (unique), `event`,
@@ -1375,9 +1378,6 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - The 14 products are samples with invented references and specs (e.g. "415 V", "IP54
   enclosure"). The shop labels each one "Sample listing · details to be confirmed by GPEC" until
   GPEC's real product list replaces them. No prices exist yet.
-- The first project video (`portfolio-electrical-components.mp4`) has a sound track and no captions.
-  GPEC must confirm whether it contains speech; if so, add captions (a `<track>`), otherwise mute it
-  or remove the track. Marked in `LandingPage.tsx` with an `oxlint-disable` comment.
 - No business hours or social media links yet (not in GPEC's profile); the footer shows none.
 
 **Functionality**

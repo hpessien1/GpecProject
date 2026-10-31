@@ -150,6 +150,7 @@ export async function runCleanup(cutoffs: RetentionCutoffs, store: ImageStore | 
   if (Object.values(counts).some((count) => count > 0)) {
     await recordSecurityEvent(null, {
       action: 'retention.cleanup',
+      via: 'automatic',
       outcome: 'success',
       detail: `${counts.contactRequests} contact requests, ${counts.unpaidOrders} unpaid orders, ${counts.paidOrders} paid orders, ${counts.files} files`,
     })

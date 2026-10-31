@@ -226,6 +226,7 @@ describe('the record of a run', () => {
     await runCleanup(cutoffs, null)
     const entry = await SecurityEvent.findOne({ action: 'retention.cleanup' }).lean()
     expect(entry?.detail).toBe('1 contact requests, 0 unpaid orders, 0 paid orders, 0 files')
+    expect(entry?.via).toBe('automatic')
     expect(JSON.stringify(entry)).not.toContain(reference)
     expect(JSON.stringify(entry)).not.toContain('ada@example.com')
   })

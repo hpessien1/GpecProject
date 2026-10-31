@@ -1,5 +1,5 @@
 import { apiBaseUrl, requestJson } from './apiClient'
-import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, PaymentCheckOutcome, SecurityLogResponse, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
+import type { AdminDeliveryArea, AdminDeliveryAreasPage, BankTransferHistoryEntry, BankTransferResponse, BankTransferSettings, CustomerEmailHistoryEntry, CustomerEmailResponse, CustomerEmailSettings, AdminOrderResponse, AdminOrdersPage, DeliveryAreaHistoryEntry, EditableDeliveryAreaFields, FulfilmentStatus, OlderPage, OrderHistoryEntry, OrderStage, PaymentCheckOutcome, SecurityLogResponse, AdminProduct, AdminProductsPage, AdminRequestKind, AdminRequestResponse, AdminRequestsPage, AdminSessionInfo, EditableProductFields, ProductHistoryEntry, RequestHistoryEntry, RequestNote, RequestStatus, EditableSiteContentFields, SiteContentHistoryEntry, SiteContentKey, SiteContentResponse, SiteContentSummary, UnmatchedPayment, LoginChallenge, SecondStep, TwoFactorMethod, TwoFactorStatus } from '../types'
 
 const admin = { withCredentials: true }
 
@@ -161,6 +161,14 @@ export function getOlderRequestNotes(kind: AdminRequestKind, reference: string, 
 
 export function setRequestStatus(kind: AdminRequestKind, reference: string, status: RequestStatus) {
   return requestJson<AdminRequestResponse>(`/admin/${kind}/${encodeURIComponent(reference)}`, 'Unable to update the status.', { ...admin, method: 'PATCH', payload: { status } })
+}
+
+export function listUnmatchedPayments() {
+  return requestJson<{ items: UnmatchedPayment[] }>('/admin/unmatched-payments', 'Unable to load payments.', admin)
+}
+
+export function resolveUnmatchedPayment(reference: string) {
+  return requestJson<{ items: UnmatchedPayment[] }>(`/admin/unmatched-payments/${encodeURIComponent(reference)}/resolve`, 'Unable to save this.', { ...admin, method: 'POST' })
 }
 
 export function setRequestKeep(kind: AdminRequestKind, reference: string, keep: boolean) {

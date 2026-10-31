@@ -54,7 +54,7 @@ const securityEventSchema = new mongoose.Schema({
     type: new mongoose.Schema({ type: { type: String, required: true, enum: TARGET_TYPES }, id: { type: String, required: true, maxlength: 120 } }, { _id: false }),
     default: null,
   },
-  via: { type: String, required: true, enum: ['website', 'command line'] },
+  via: { type: String, required: true, enum: ['website', 'command line', 'automatic'] },
   // The visitor's internet address and browser, from the request; empty for the command.
   ip: { type: String, default: '', maxlength: 60 },
   userAgent: { type: String, default: '', maxlength: 300 },

@@ -12,6 +12,7 @@ import type { BasketInput, OrderInput } from '../validation/checkout.js'
 import { currencyInfo } from './currency.js'
 import type { AdminIdentity } from './adminAuth.js'
 import type { BankTransferDetails } from './bankTransfer.js'
+import { emailWaitingUnmatchedPayments, recordUnmatchedPayment } from './unmatchedPayments.js'
 import type { Notifier } from './notifications.js'
 import { PaystackError } from './paystack.js'
 import type { PaystackClient, TransactionResult } from './paystack.js'
@@ -197,6 +198,13 @@ async function settleOrder(order: StoredOrder, notifier: Notifier, from: string[
   return true
 }
 
+// Paystack took a payment and nothing was marked paid: only staff can put it right, so it is saved
+// (a failure here answers 500, and Paystack's webhook retries) and emailed.
+async function reportUnmatched(result: TransactionResult, reason: 'no_order' | 'mismatch', notifier: Notifier) {
+  await recordUnmatchedPayment({ reference: result.reference, amount: result.amount, currency: result.currency, reason })
+  void emailWaitingUnmatchedPayments(notifier).catch((error: unknown) => console.error(`Unmatched payment emails failed: ${error instanceof Error ? error.name : 'unknown error'}`))
+}
+
 type PaidOutcome = 'paid' | 'already_paid' | 'not_successful' | 'mismatch' | 'unknown_order'
 
 // The one function that marks a Paystack order paid, used by the webhook, the return-page check, and
@@ -206,12 +214,19 @@ export async function markOrderPaid(result: TransactionResult, notifier: Notifie
   if (!mongoose.isObjectIdOrHexString(result.reference)) return 'unknown_order'
   const order = await findOrder(result.reference)
   // A bank-transfer order never had a Paystack transaction: a charge naming it is not its payment.
-  if (!order || order.paymentMethod === 'bank_transfer') return 'unknown_order'
+  if (!order || order.paymentMethod === 'bank_transfer') {
+    if (result.status === 'success') {
+      console.error(`Paystack reports a completed payment with no matching order (reference ${result.reference}).`)
+      await reportUnmatched(result, 'no_order', notifier)
+    }
+    return 'unknown_order'
+  }
   if (order.paymentStatus === 'paid') return 'already_paid'
   if (result.status !== 'success') return 'not_successful'
   if (result.amount !== order.total || result.currency !== order.currency) {
-    // Logged as a server error for staff to look into: someone may have tampered with the payment.
+    // Staff must look into it: someone may have tampered with the payment.
     console.error(`Payment for ${order.reference} does not match the order (amount or currency differ); it was not marked paid.`)
+    await reportUnmatched(result, 'mismatch', notifier)
     return 'mismatch'
   }
   return await settleOrder(order, notifier, ['pending_payment', 'failed'], record) ? 'paid' : 'already_paid'

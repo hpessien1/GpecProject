@@ -1,8 +1,8 @@
 import type { EmailSettings } from '../config.js'
 import type { EmailMessage, Mailer } from './email.js'
 import { DEFAULT_REPLY_TO, getCustomerEmailSettings } from './customerEmail.js'
-import { adminAccountCodeEmail, adminLoginCodeEmail, adminLoginPausedEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminRecoveryCodesReplacedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail } from './emailTemplates.js'
-import type { AdminEmailData, ContactEmailData, OrderEmailData, OrderUpdate } from './emailTemplates.js'
+import { adminAccountCodeEmail, adminLoginCodeEmail, adminLoginPausedEmail, adminPasswordChangedEmail, adminPasswordResetEmail, adminRecoveryCodeUsedEmail, adminRecoveryCodesReplacedEmail, adminTwoFactorChangedEmail, bankDetailsChangedEmail, customerContactEmail, customerOrderEmail, customerOrderUpdateEmail, customerTransferOrderEmail, replyToChangedEmail, staffContactEmail, staffOrderEmail, staffTransferOrderEmail, staffTransferReportedEmail, staffUnmatchedPaymentEmail } from './emailTemplates.js'
+import type { AdminEmailData, ContactEmailData, OrderEmailData, OrderUpdate, UnmatchedPayment } from './emailTemplates.js'
 import { EmailBudget } from '../utils/emailBudget.js'
 
 const HOUR = 60 * 60 * 1000
@@ -20,6 +20,9 @@ export interface Notifier {
   // (capped per address, like contact confirmations: anyone can place an order with any email).
   transferOrderPlaced(order: OrderEmailData & { _id: unknown }): Promise<void>
   transferReported(order: OrderEmailData): Promise<void>
+  // Paystack took a payment the website could not match to an order: only staff can put it right.
+  // True once sent, so a failed one can be tried again (services/unmatchedPayments.ts).
+  paymentUnmatched(payment: UnmatchedPayment): Promise<boolean>
   // Staff moved an order on and chose to tell the customer. Not capped: staff send these, one per change.
   orderUpdate(order: OrderEmailData, update: OrderUpdate): Promise<void>
   bankDetailsChanged(adminEmails: string[], changedBy: AdminEmailData, fields: string[], details: { enabled: boolean, bankName: string, accountName: string, accountNumber: string }): Promise<void>
@@ -95,6 +98,16 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     async transferReported(order) {
       if (!mailer || !settings) return
       await deliver(order.reference, [{ to: settings.staffRecipients, ...staffTransferReportedEmail(order, settings.siteUrl) }])
+    },
+    async paymentUnmatched(payment) {
+      if (!mailer || !settings) return false
+      try {
+        await mailer.send({ to: settings.staffRecipients, ...staffUnmatchedPaymentEmail(payment, settings.siteUrl) })
+        return true
+      } catch (error) {
+        console.error(`Email for ${payment.reference} could not be sent: ${error instanceof Error ? error.name : 'unknown error'}`)
+        return false
+      }
     },
     async bankDetailsChanged(adminEmails, changedBy, fields, details) {
       if (!mailer || !settings || adminEmails.length === 0) return

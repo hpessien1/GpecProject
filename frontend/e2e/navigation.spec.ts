@@ -157,6 +157,14 @@ test.describe('home page sections', () => {
     await expect(page.locator('#projects').getByText(/illustrative/i)).toHaveCount(0)
   })
 
+  test('every project clip starts muted', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#projects')
+    const clips = page.locator('.work-video-gallery video')
+    await expect(clips).toHaveCount(3)
+    expect(await clips.evaluateAll((videos) => videos.map((video) => (video as HTMLVideoElement).muted))).toEqual([true, true, true])
+  })
+
   test('the project clips keep clear space below and beside them, also after scrolling on phones', async ({ page }, testInfo) => {
     await mockApi(page)
     await page.goto('/#projects')

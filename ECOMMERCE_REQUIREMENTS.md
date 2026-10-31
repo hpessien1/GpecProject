@@ -8,6 +8,8 @@ Prices are fixed and set by GPEC through the admin panel. Payment happens on Pay
 
 The shop is for buying: there are no "order enquiries" about price or availability. Customers either buy in the shop or ask GPEC through the contact form, which also handles general service requests and quotes (for example, a custom panel design or a solar site assessment). Contact requests are not paid online.
 
+> **Payments no order matches (2026-10-31):** a completed Paystack payment with no matching order, or with a different amount or currency, is never marked paid. It is saved, emailed to staff (`STAFF_NOTIFICATION_EMAILS`), and listed on the admin Orders screen until staff mark it dealt with. Refunds and contact happen in Paystack and with the customer.
+
 > **Status (2026-10-23):** Built: catalogue (from MongoDB), cart, stock, and checkout with Paystack (test mode) or bank transfer to GPEC's account (confirmed by staff): pickup or delivery, delivery areas and fees managed by staff, a server-worked order summary with the payment processing fee, the redirect to Paystack, server verification (return page and signed webhook), confirmation, emails, and stock reduced on payment. Online payment switches on once GPEC's Paystack settings are added on the server (`docs/RUNBOOK.md` 1.8); until then checkout shows the order and says online payment is not available yet. The products are labelled samples until GPEC supplies its real list. Live keys need GPEC's approval.
 
 ## Scope

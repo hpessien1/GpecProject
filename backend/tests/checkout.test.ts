@@ -274,7 +274,9 @@ describe('after paying: the return page check and markOrderPaid', () => {
       const res = await request(app).get(`/api/checkout/orders/${reference}`)
       expect(res.body.paymentStatus).toBe('pending_payment')
     }
-    expect(mailer.sent).toHaveLength(0)
+    // Staff are told about the mismatch, once; the customer gets no confirmation.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(mailer.sent.map((message) => message.to)).toEqual([TEST_EMAIL_SETTINGS.staffRecipients])
   })
 
   it('records a failed payment, and a later success on the same reference still counts', async () => {

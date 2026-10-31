@@ -253,7 +253,7 @@ simply off**: everything else works, and the API log says `Email notifications a
    | `SES_REGION` | The region from step 2 |
    | `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | The key from step 5 (secret; Coolify only) |
    | `EMAIL_FROM` | `GPEC <notifications@gpecengineering.com>` |
-   | `STAFF_NOTIFICATION_EMAILS` | Staff addresses, comma-separated |
+   | `STAFF_NOTIFICATION_EMAILS` | Staff addresses, comma-separated. They receive new orders, contact requests, and payments that need action (customers' details included), so use addresses GPEC's staff really read. |
    | `FRONTEND_URL` | `https://gpecengineering.com` |
 
 7. **Test.** The API log no longer says email is off. Send the contact form with `[TEST]` in the

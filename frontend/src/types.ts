@@ -323,6 +323,16 @@ export interface AdminRequestResponse {
   notesCursor: string | null
 }
 
+// A completed Paystack payment the website could not match to an order (backend models/UnmatchedPayment.ts).
+export interface UnmatchedPayment {
+  reference: string
+  reason: 'no_order' | 'mismatch'
+  // In the currency's smallest unit, as Paystack sent it.
+  amount: number
+  currency: string
+  createdAt: string
+}
+
 // Orders (backend models/Order.ts). The stage is where an order stands: unpaid orders by payment
 // status, paid ones by the fulfilment status staff move along.
 export type FulfilmentStatus = 'new' | 'processing' | 'ready_for_pickup' | 'out_for_delivery' | 'completed' | 'cancelled'
@@ -554,7 +564,7 @@ export interface SecurityLogEntry {
   // null when no admin account could be named.
   account: { name: string, email: string, role: string } | null
   target: { type: 'order' | 'contactRequest' | 'file', id: string } | null
-  via: 'website' | 'command line'
+  via: 'website' | 'command line' | 'automatic'
   ip: string
   userAgent: string
   // On an entry that counts repeated refusals (backend RepeatedRefusals): how many more like it came

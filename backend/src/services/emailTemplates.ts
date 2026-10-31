@@ -60,6 +60,13 @@ export interface AdminEmailData {
   email: string
 }
 
+export interface UnmatchedPayment {
+  reference: string
+  amount: number
+  currency: string
+  reason: 'no_order' | 'mismatch'
+}
+
 export function adminPasswordResetEmail(admin: AdminEmailData, link: string, minutes: number) {
   return {
     subject: 'Reset your GPEC admin password',
@@ -341,6 +348,34 @@ export function staffTransferReportedEmail(order: OrderEmailData, siteUrl: strin
 
 // Sent to every active admin: bank details decide where customers' money goes, so a change nobody
 // expected must be noticed at once.
+// Paystack took a payment the website could not match to an order. Nothing was marked paid, so only
+// staff can put it right. Subject: fixed text. Reference, amount, and currency: from Paystack's signed message.
+export function staffUnmatchedPaymentEmail(payment: UnmatchedPayment, siteUrl: string) {
+  const why = payment.reason === 'no_order'
+    ? 'No order matches it. Orders unpaid for over 6 months are deleted, so the order may have been one of those.'
+    : 'Its amount or currency differs from the order, so the order was not marked paid.'
+  let amount = `${payment.amount} (smallest unit) ${payment.currency}`
+  try {
+    amount = formatMoney(payment.amount, payment.currency)
+  } catch {
+    // An unknown currency code: shown as Paystack sent it.
+  }
+  return {
+    subject: 'Action needed: a Paystack payment could not be matched to an order',
+    text: `Paystack reports a completed payment, and the website could not match it.
+
+${why}
+
+Paystack reference: ${payment.reference}
+Amount: ${amount}
+
+What to do: find this reference in GPEC's Paystack dashboard to see who paid, then contact them, and refund the payment or fill the order. The website has not recorded this payment.
+
+Admin panel: ${siteUrl}/#admin/orders
+`,
+  }
+}
+
 export function bankDetailsChangedEmail(changedBy: AdminEmailData, fields: string[], details: { enabled: boolean, bankName: string, accountName: string, accountNumber: string }, siteUrl: string) {
   return {
     subject: 'GPEC bank transfer details were changed',

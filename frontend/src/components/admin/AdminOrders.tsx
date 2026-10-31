@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import Arrow from '../Arrow'
 import Pagination from '../Pagination'
+import AdminUnmatchedPayments from './AdminUnmatchedPayments'
 import { fulfilmentMethodLabels, orderStageLabels, ordersContent, requestSearchContent } from '../../data/adminContent'
 import { ApiError } from '../../services/apiClient'
 import { listOrders } from '../../services/adminApi'
@@ -76,6 +77,7 @@ export default function AdminOrders({ onSessionEnded }: AdminOrdersProps) {
     <div className="admin-heading">
       <div><p className="eyebrow"><span /> {ordersContent.eyebrow}</p><h1 id="admin-orders-title" tabIndex={-1}>{ordersContent.title}</h1></div>
     </div>
+    <AdminUnmatchedPayments onSessionEnded={onSessionEnded} />
     <form className="admin-form admin-search" role="search" onSubmit={handleSearchSubmit}>
       <div className="admin-field">
         <label htmlFor="order-search">{requestSearchContent.label}</label>

@@ -15,6 +15,8 @@ import { pwnedPasswordsCheck } from './services/breachedPasswords.js'
 import type { BreachedPasswordCheck } from './services/breachedPasswords.js'
 import { cachingImageStore } from './services/imageCache.js'
 import { s3ImageStore } from './services/imageStore.js'
+import { EMAIL_RETRY_MS, emailWaitingUnmatchedPayments } from './services/unmatchedPayments.js'
+import adminUnmatchedPaymentsRouter from './routes/adminUnmatchedPayments.js'
 import type { ImageStore } from './services/imageStore.js'
 import { createNotifier } from './services/notifications.js'
 import { requireAdmin } from './middleware/requireAdmin.js'
@@ -116,6 +118,8 @@ export default function createApp(
   const repeatedRefusals = new RepeatedRefusals(config.securityLogRepeats ?? REPEAT_SETTINGS)
   app.locals.repeatedRefusals = repeatedRefusals
   setInterval(() => void writeRepeatedRefusals(repeatedRefusals), 60_000).unref()
+  // Emails about unmatched payments that failed, or that were saved while the email service was down.
+  setInterval(() => void emailWaitingUnmatchedPayments(notifier).catch((error: unknown) => console.error(`Unmatched payment emails failed: ${error instanceof Error ? error.name : 'unknown error'}`)), EMAIL_RETRY_MS).unref()
   // In production the API sits behind Coolify's proxy; trust one hop so req.ip (and so the rate
   // limit) is the visitor's address. Without it, every visitor shares the proxy's single budget.
   if (config.isProduction) app.set('trust proxy', 1)
@@ -152,6 +156,7 @@ export default function createApp(
   const confirmPassword = requirePassword(config.adminLoginRateLimit, notifier)
   app.use('/api/admin/security-log', requireAdmin(config.clientOrigins), adminSecurityLogRouter())
   app.use('/api/admin/orders', requireAdmin(config.clientOrigins), adminOrdersRouter(notifier, confirmPassword, paystack))
+  app.use('/api/admin/unmatched-payments', requireAdmin(config.clientOrigins), adminUnmatchedPaymentsRouter())
   app.use('/api/admin/delivery-areas', requireAdmin(config.clientOrigins), adminDeliveryAreasRouter(config))
   app.use('/api/admin/bank-transfer', requireAdmin(config.clientOrigins), adminBankTransferRouter(notifier, confirmPassword))
   app.use('/api/admin/customer-email', requireAdmin(config.clientOrigins), adminCustomerEmailRouter(notifier, confirmPassword))

@@ -6,6 +6,9 @@ import BankTransferSettings from '../src/models/BankTransferSettings.js'
 import Order from '../src/models/Order.js'
 import Product from '../src/models/Product.js'
 import WebhookEvent from '../src/models/WebhookEvent.js'
+import UnmatchedPayment from '../src/models/UnmatchedPayment.js'
+import { EMAIL_RETRY_MS, emailWaitingUnmatchedPayments } from '../src/services/unmatchedPayments.js'
+import { createNotifier } from '../src/services/notifications.js'
 import { seedSampleProducts } from '../src/services/products.js'
 import { FakePaystack, RecordingMailer, TEST_ADMIN, TEST_EMAIL_SETTINGS, TEST_PAYMENTS, createTestAdmin, loggedInAgent, testApp, useTestDatabase } from './helpers.js'
 
@@ -57,6 +60,149 @@ async function paymentStatus() {
 }
 
 describe('Paystack webhook', () => {
+  it('logs a completed payment whose order no longer exists, by reference only, and answers 200', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await Order.deleteOne({ _id: reference })
+    expect((await deliver(charge('charge.success'))).status).toBe(200)
+    expect(logged).toHaveBeenCalledTimes(1)
+    expect(logged.mock.calls[0]?.[0]).toContain(`no matching order (reference ${reference})`)
+    logged.mockRestore()
+  })
+
+  it('emails staff about a completed payment whose order no longer exists, without customer details', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await Order.deleteOne({ _id: reference })
+    await deliver(charge('charge.success', { customer: { email: 'payer@example.com' } }))
+    await settle()
+    expect(mailer.sent).toHaveLength(1)
+    expect(mailer.sent[0]?.to).toEqual(TEST_EMAIL_SETTINGS.staffRecipients)
+    expect(mailer.sent[0]?.subject).toBe('Action needed: a Paystack payment could not be matched to an order')
+    expect(mailer.sent[0]?.text).toContain(reference)
+    expect(mailer.sent[0]?.text).toContain('No order matches it')
+    expect(mailer.sent[0]?.text).not.toContain('payer@example.com')
+    logged.mockRestore()
+  })
+
+  it('emails staff about a payment with the wrong amount, and does not mark the order paid', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await deliver(charge('charge.success', { amount: total + 1 }))
+    await settle()
+    expect((await Order.findById(reference).lean())?.paymentStatus).toBe('pending_payment')
+    expect(mailer.sent).toHaveLength(1)
+    expect(mailer.sent[0]?.text).toContain('differs from the order')
+    logged.mockRestore()
+  })
+
+  it('emails staff about a payment in an unknown currency, showing it as Paystack sent it', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await Order.deleteOne({ _id: reference })
+    await deliver(charge('charge.success', { currency: 'NOTREAL', amount: 500 }))
+    await settle()
+    expect(mailer.sent).toHaveLength(1)
+    expect(mailer.sent[0]?.text).toContain('Amount: 500 (smallest unit) NOTREAL')
+    logged.mockRestore()
+  })
+
+  it('emails staff once when Paystack repeats the delivery', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await Order.deleteOne({ _id: reference })
+    await deliver(charge('charge.success'))
+    await deliver(charge('charge.success'))
+    await settle()
+    expect(mailer.sent).toHaveLength(1)
+    logged.mockRestore()
+  })
+
+  describe('saved so it cannot be lost', () => {
+    const ORIGIN = 'http://localhost:5173'
+    const LIST = '/api/admin/unmatched-payments'
+    let logged: ReturnType<typeof vi.spyOn>
+    beforeEach(async () => {
+      logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+      await Order.deleteOne({ _id: reference })
+    })
+
+    it('tries again when the email fails, and sends one once it works', async () => {
+      mailer.failWith = new Error('SES down')
+      await deliver(charge('charge.success'))
+      await settle()
+      expect(await UnmatchedPayment.findOne({ reference }).lean()).toMatchObject({ reason: 'no_order', amount: total, currency: 'NGN', emailedAt: null })
+      expect(mailer.sent).toHaveLength(0)
+
+      mailer.failWith = null
+      const notifier = createNotifier(mailer, TEST_EMAIL_SETTINGS, async () => 'reply@example.com')
+      // Too soon: left for the next run.
+      await emailWaitingUnmatchedPayments(notifier)
+      expect(mailer.sent).toHaveLength(0)
+      const later = new Date(Date.now() + EMAIL_RETRY_MS + 1000)
+      await emailWaitingUnmatchedPayments(notifier, later)
+      expect(mailer.sent).toHaveLength(1)
+      await emailWaitingUnmatchedPayments(notifier, new Date(later.getTime() + EMAIL_RETRY_MS + 1000))
+      expect(mailer.sent).toHaveLength(1)
+      expect((await UnmatchedPayment.findOne({ reference }).lean())?.emailedAt).not.toBeNull()
+    })
+
+    it('sends one email when two runs happen at once', async () => {
+      mailer.failWith = new Error('SES down')
+      await deliver(charge('charge.success'))
+      await settle()
+      mailer.failWith = null
+      const notifier = createNotifier(mailer, TEST_EMAIL_SETTINGS, async () => 'reply@example.com')
+      const later = new Date(Date.now() + EMAIL_RETRY_MS + 1000)
+      await Promise.all([emailWaitingUnmatchedPayments(notifier, later), emailWaitingUnmatchedPayments(notifier, later)])
+      expect(mailer.sent).toHaveLength(1)
+    })
+
+    it('is listed for staff, even with email off, and refused to anonymous visitors', async () => {
+      const noEmail = testApp({ payments: TEST_PAYMENTS }, null, undefined, null, paystack)
+      const body = JSON.stringify(charge('charge.success'))
+      await request(noEmail).post(WEBHOOK).set('Content-Type', 'application/json').set('x-paystack-signature', sign(body)).send(body)
+      expect((await request(noEmail).get(LIST)).status).toBe(401)
+      expect((await request(noEmail).post(`${LIST}/${reference}/resolve`).set('Origin', ORIGIN)).status).toBe(401)
+      await createTestAdmin()
+      const agent = await loggedInAgent(noEmail)
+      const res = await agent.get(LIST)
+      expect(res.body.items).toEqual([expect.objectContaining({ reference, reason: 'no_order', amount: total, currency: 'NGN' })])
+    })
+
+    it('leaves the list once staff mark it dealt with, recorded, and only once', async () => {
+      await deliver(charge('charge.success'))
+      await settle()
+      await createTestAdmin()
+      const agent = await loggedInAgent(app)
+      const res = await agent.post(`${LIST}/${reference}/resolve`).set('Origin', ORIGIN)
+      expect(res.status).toBe(200)
+      expect(res.body.items).toEqual([])
+      expect(await AuditRecord.findOne({ action: 'payment.resolve', targetId: reference }).lean()).toMatchObject({ actor: { email: TEST_ADMIN.email } })
+      expect((await agent.post(`${LIST}/${reference}/resolve`).set('Origin', ORIGIN)).status).toBe(404)
+      expect(await AuditRecord.countDocuments({ action: 'payment.resolve' })).toBe(1)
+      expect((await agent.post(`${LIST}/not-a-reference/resolve`).set('Origin', ORIGIN)).status).toBe(404)
+    })
+
+    it('is saved once when Paystack repeats the delivery', async () => {
+      await WebhookEvent.create({ eventId: 'charge.success:4099260516', event: 'charge.success', reference, outcome: 'received' })
+      await deliver(charge('charge.success'))
+      await deliver(charge('charge.success', { id: 5 }))
+      expect(await UnmatchedPayment.countDocuments()).toBe(1)
+      logged.mockRestore()
+    })
+  })
+
+  it('emails nobody about a failed payment whose order no longer exists', async () => {
+    await Order.deleteOne({ _id: reference })
+    await deliver(charge('charge.failed'))
+    await settle()
+    expect(mailer.sent).toHaveLength(0)
+  })
+
+  it('logs nothing for a failed payment whose order no longer exists', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await Order.deleteOne({ _id: reference })
+    expect((await deliver(charge('charge.failed'))).status).toBe(200)
+    expect(logged).not.toHaveBeenCalled()
+    logged.mockRestore()
+  })
+
   it('marks the order paid on a signed charge.success with the right amount and currency, and emails', async () => {
     const res = await deliver(charge('charge.success'))
     expect(res.status).toBe(200)

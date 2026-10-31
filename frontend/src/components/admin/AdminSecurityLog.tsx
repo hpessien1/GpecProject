@@ -55,7 +55,7 @@ function Entry({ entry }: EntryProps) {
   const who = counted ? securityLogContent.repeatedAccount
     : entry.account ? `${entry.account.name} (${entry.account.email})`
     : entry.action === 'upload.pdf' ? securityLogContent.visitor
-    : entry.action === 'retention.cleanup' ? securityLogContent.automatic : securityLogContent.unknownAccount
+    : entry.via === 'automatic' ? securityLogContent.automatic : securityLogContent.unknownAccount
   return <li className={failed ? 'admin-security-failed' : undefined}>
     <p className="admin-history-meta">
       <time dateTime={entry.createdAt}>{formatDateTime(entry.createdAt)}</time> · {who}
@@ -66,7 +66,7 @@ function Entry({ entry }: EntryProps) {
     </p>
     {counted && <p className="admin-security-repeats">{securityLogContent.repeats(entry.repeats ?? 0, formatDateTime(entry.repeatsSince ?? entry.createdAt), !entry.ip)}</p>}
     <p className="admin-security-where">
-      {entry.action === 'retention.cleanup' ? securityLogContent.onServer
+      {entry.via === 'automatic' ? securityLogContent.onServer
         : entry.via === 'command line' ? securityLogContent.commandLine
         : counted && !entry.ip ? <>From {securityLogContent.manyAddresses} · last seen <span title={entry.userAgent}>{describeBrowser(entry.userAgent)}</span></>
         : <>From <span className="admin-mono">{entry.ip || 'an unknown address'}</span> · {counted && 'last seen '}<span title={entry.userAgent}>{describeBrowser(entry.userAgent)}</span></>}

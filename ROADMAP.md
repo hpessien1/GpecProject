@@ -197,10 +197,10 @@ These block launch, and several block steps 4 to 6. Ask early.
       details, and photos of GPEC's work, now on the home page and merged into `README.md`.
 - [x] Currency: NGN, and customers pay the Paystack fee (2026-10-23). Set `CURRENCY=NGN` on the API
       in Coolify so staff can enter prices.
-- [ ] Names and emails of the GPEC staff who need admin accounts.
+- [x] Names and emails of the GPEC staff who need admin accounts: they all have access (2026-10-31).
 - [x] ~~Approved current-work updates with dates~~: no longer needed; the Current Work section and
       its mock content were removed from the home page (2026-10-24).
-- [ ] Whether the first project video's sound contains speech (captions needed if so).
+- [x] Whether the first project video's sound contains speech: it does not (2026-10-31), so it plays muted.
 - [ ] Privacy notice details and approval: registration number, registered address if different
       from the service location, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
       Plus, from the Atlas owner, the database region (server and email regions are filled in).
