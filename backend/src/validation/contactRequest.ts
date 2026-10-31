@@ -2,7 +2,7 @@ import { asFields, emailPattern, oneLineText, text } from './fields.js'
 import type { ValidationErrors } from './fields.js'
 
 // Must match the options in the landing-page contact form (frontend/src/data/landingContent.ts): one
-// per business area, plus "Other inquiry". Requests saved under an older topic keep it.
+// per business area, plus "Other enquiry". Requests saved under an older topic keep it.
 export const contactSubjects = [
   'Electrical panels',
   'Solar energy',
@@ -16,7 +16,7 @@ export const contactSubjects = [
   'Installation and repairs',
   'Generators and power systems',
   'Security and smart home',
-  'Other inquiry',
+  'Other enquiry',
 ]
 
 export function validateContactRequest(body: unknown) {

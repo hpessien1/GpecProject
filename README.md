@@ -164,7 +164,7 @@ GPEC supplies and installs solar-powered and mains-powered CCTV for homes, offic
 | **Refunds, cancellations, and returns** and **Privacy notice** | GPEC's policies, linked from every page's footer and from checkout. GPEC's staff edit them, and the FAQ, in the admin panel. |
 | **Contact / Request a Quote** | Phone, email, business address, map if useful, business hours, contact form, and document-upload option. |
 
-Use a simple navigation menu: **Home · About · Services · Products · Projects · FAQ · Contact**.
+Use a simple navigation menu: **Home · About · Services · Products · Projects · FAQ · Enquiry**.
 Each home page section the menu leads to carries the menu's word as its small label above the
 heading. Visitors should reach a quote or contact action from every major page.
 

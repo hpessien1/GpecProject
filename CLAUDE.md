@@ -664,9 +664,9 @@ name), and logs which database it found. The guard only works if production sets
     ├── public/assets/        # Images and videos served at /assets/...
     └── src/
         ├── main.tsx          # Entry point
-        ├── App.tsx           # Hash router: #shop, #shop/category/<category>, #shop/order, #shop/payment/<ref>, #privacy, #refunds, #admin… (lazy-loaded), else landing
+        ├── App.tsx           # Hash router: #shop, #shop/category/<category>, #shop/order, #shop/payment/<ref>, #panel-capability/<number>, #privacy, #refunds, #admin… (lazy-loaded), else landing
         ├── types.ts          # Shared shapes: Product, CartEntry, CartLine, StoreMode, contact and admin API
-        ├── pages/            # LandingPage.tsx, StorePage.tsx, PolicyPage.tsx (#privacy, #refunds), AdminPage.tsx
+        ├── pages/            # LandingPage.tsx, StorePage.tsx, PanelCapabilityPage.tsx, PolicyPage.tsx (#privacy, #refunds), AdminPage.tsx
         ├── components/       # Header, Footer, ServiceShowcase, SpamTrapField, PlaceholderText, …; shop/, admin/
         ├── data/             # Site copy (landingContent.ts, siteContentCopy.ts, adminContent.ts); the policies' and FAQ's own text is in the database (staff edit it)
         ├── services/         # apiClient.ts (all HTTP), *Api.ts per resource, cartStorage.ts
@@ -1131,7 +1131,7 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
   files (root `.prettierignore`); the TypeScript keeps the project's own style (single quotes, no
   semicolons).
 - Brand colours and fonts are CSS custom properties on `:root` in `base.css` (`--ink`, `--forest`,
-  `--deep`, `--ink-light`, `--lime`, `--lime-soft`, `--lime-bright`, `--cream`, `--sand`, `--muted`, `--placeholder`, `--line`,
+  `--deep`, `--ink-light`, `--lime`, `--lime-soft`, `--lime-bright`, `--cream`, `--cream-light`, `--sand`, `--muted`, `--placeholder`, `--line`,
   `--mono`, `--label`, `--sans`, `--serif`). **New code uses these variables**, not new hex values.
   Existing hex values are white and one-off shades in gradients (see Known Gaps).
 - **Fonts** (user's choice, 2026-10-24; all self-hosted from `src/fonts/` with their licences, no
@@ -1172,7 +1172,7 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
 - **Navigation:** the menu items live in `data/landingContent.ts` (`navigationLinks`), in the brief's
   order, with Shop as the highlighted button. Above 1100px the full menu sits in the header; at
   1100px and below it collapses into the hamburger ("Menu") button, because the eight items no
-  longer fit (Current Work was removed 2026-10-24; FAQ added 2026-10-25). The open menu fills the
+  longer fit (Current Work was removed 2026-10-24; FAQ added 2026-10-25; Contact renamed Enquiry 2026-10-31, because people testing the site found it confusing, while the section's address stays `#contact`). The open menu fills the
   screen below the header and scrolls on its own, the page behind it stays still, and Escape or
   tabbing out of the header closes it (2026-10-25). The admin header (`components/admin/AdminHeader.tsx`)
   does the same at 1100px and below (2026-10-28, the user's request), with "Logged in as" at the top of
@@ -1429,6 +1429,10 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
   files still work. Files are not scanned for viruses; PDFs are rebuilt without the parts that can run
   (see Section 8). The live site's privacy notice, if saved in Site content before 2026-10-28, still
   says PDFs are kept as sent: staff update that sentence there (the starting text has the new wording).
+- **The six panel capability detail pages (`#panel-capability/<number>`) and the Training card were drafted by
+  the developer** at the user's request (2026-10-31), for GPEC to edit: general wording in
+  `data/landingContent.ts`, with no claims about standards, results, or past projects, and shown without a
+  draft label (the user's choice). GPEC confirms that it offers training and edits the text before launch.
 - **The refunds policy (`#refunds`) and the FAQ (home page) were written by the developer** at the
   user's request (2026-10-24) as proposals for GPEC to review: every rule in the policy (time limits,
   what can be returned, fees refunded, warranty) is GPEC's decision, with its legal adviser. Both show

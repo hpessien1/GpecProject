@@ -28,7 +28,7 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await open('', '.hero')
     await audit.page(page, `${label} home`)
     if (hovering) await audit.hover(page, `${label} home`)
-    // A photo-backed service in the featured panel, and the full-width last card.
+    // A photo-backed service in the featured panel, and a service.
     await page.getByRole('button', { name: 'Show Solar sales in the panel above' }).click()
     await audit.page(page, `${label} services with Solar sales featured`)
     await page.getByRole('button', { name: 'Show Security & smart home in the panel above' }).click()
@@ -49,13 +49,17 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     await contact.locator('.quote-files-problems').waitFor()
     await audit.page(page, `${label} contact form with attached files`)
     if (hovering) await audit.hover(page, `${label} contact form with attached files`)
-    await contact.getByRole('button', { name: 'Send inquiry' }).click()
+    await contact.getByRole('button', { name: 'Send enquiry' }).click()
     await contact.locator('.form-error').waitFor()
     await audit.page(page, `${label} contact form error`)
     api.formsFail = false
-    await contact.getByRole('button', { name: 'Send inquiry' }).click()
+    await contact.getByRole('button', { name: 'Send enquiry' }).click()
     await contact.locator('.success-message').waitFor()
     await audit.page(page, `${label} contact form sent`)
+    // A panel capability's detail page.
+    await open('#panel-capability/06', '.panel-capability-detail-body')
+    await audit.page(page, `${label} panel capability detail`)
+    if (hovering) await audit.hover(page, `${label} panel capability detail`)
   }],
   ['shop, cart, empty and error states, privacy notice', async ({ page, api, audit, label, hovering, open }) => {
     // One product out of stock, so its label and disabled button are checked too.

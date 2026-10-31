@@ -81,6 +81,23 @@ test.describe('shop catalogue', () => {
     await expect(page.locator('.hero')).toBeVisible()
   })
 
+  test('"Return to site" is on the shop at every width, beside the other links, and goes to the home page', async ({ page }) => {
+    await mockApi(page)
+    for (const width of [1440, 651, 650, 390, 320]) {
+      await page.setViewportSize({ width, height: 800 })
+      for (const hash of ['#shop', '#shop/order']) {
+        await page.goto(`/${hash}`)
+        const link = page.getByRole('navigation', { name: 'Store navigation' }).getByRole('link', { name: 'Return to site' })
+        await expect(link, `${hash} at ${width}px`).toBeInViewport({ ratio: 1 })
+        await expect(page.getByRole('button', { name: /^Cart/ }), `${hash} at ${width}px`).toBeInViewport({ ratio: 1 })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `${hash} at ${width}px`).toBe(0)
+      }
+      await page.goto('/#shop')
+      await page.getByRole('link', { name: 'Return to site' }).click()
+      await expect(page.locator('.hero')).toBeInViewport()
+    }
+  })
+
   test('the header logo loads a small copy, not the 1.1 MB original', async ({ page }) => {
     await mockApi(page)
     const logoRequests: string[] = []

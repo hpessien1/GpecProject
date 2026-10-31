@@ -1,7 +1,7 @@
 import { getJson, postJson, requestJson } from './apiClient'
 import type { ContactRequestOptions, ContactRequestPayload, ContactRequestResponse } from '../types'
 
-const SEND_FAILED = 'Unable to send your inquiry. Please try again.'
+const SEND_FAILED = 'Unable to send your enquiry. Please try again.'
 
 // Whether the form can take attached files (they need GPEC's file storage to be set up).
 export function fetchContactRequestOptions() {

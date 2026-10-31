@@ -126,6 +126,8 @@
   /* Lighter navy where --ink gradients end (dark panels on the home page). */
   --ink-light: #0a225f;
   --cream: #f4dfcc;
+  /* Paler cream for cards that sit over both cream and navy (the About section). */
+  --cream-light: #fff0e3;
   --sand: #eac7a8;
   /* Secondary text. Darkened from #566789 (4.4:1 on cream, failing WCAG AA) to pass on every
      background it sits on, including the orange-tinted panels (5:1 or better). */

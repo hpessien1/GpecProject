@@ -14,10 +14,10 @@ test.describe('contact form', () => {
     return form
   }
 
-  test('sends the inquiry with the spam trap empty and shows the reference', async ({ page }) => {
+  test('sends the enquiry with the spam trap empty and shows the reference', async ({ page }) => {
     const api = await mockApi(page)
     const form = await fillContactForm(page)
-    await form.getByRole('button', { name: 'Send inquiry' }).click()
+    await form.getByRole('button', { name: 'Send enquiry' }).click()
     const success = form.locator('.success-message')
     await expect(success).toContainText('GPEC-C-2026-AAAAAAAA')
     await expect(success).toBeFocused()
@@ -29,7 +29,7 @@ test.describe('contact form', () => {
   test('keeps what was typed and focuses the error when sending fails', async ({ page }) => {
     await mockApi(page, { formsFail: true })
     const form = await fillContactForm(page)
-    await form.getByRole('button', { name: 'Send inquiry' }).click()
+    await form.getByRole('button', { name: 'Send enquiry' }).click()
     await expect(form.locator('.form-error')).toBeFocused()
     await expect(form.getByLabel('Full name')).toHaveValue('Ada Buyer')
   })
@@ -61,7 +61,7 @@ test.describe('contact form', () => {
     await expect(list.getByRole('listitem')).toHaveText([/nameplate\.jpg/, /site\.jpg/])
     await expect(form.getByLabel('Add more files')).toBeFocused()
 
-    await form.getByRole('button', { name: 'Send inquiry' }).click()
+    await form.getByRole('button', { name: 'Send enquiry' }).click()
     await expect(form.locator('.success-message')).toContainText('GPEC-C-2026-AAAAAAAA')
     expect(api.requests.find((r) => r.path === '/api/contact-requests')?.body).toEqual({
       fields: { fullName: 'Ada Buyer', company: '', email: 'ada@example.com', phone: '', subject: 'Solar energy', message: 'A solar system for my shop.', website: '' },
@@ -135,12 +135,12 @@ test.describe('contact form', () => {
     const api = await mockApi(page, { uploadsBusy: true })
     const form = await fillContactForm(page)
     await form.getByLabel('Attach photos or PDFs').setInputFiles([photo('nameplate.jpg')])
-    await form.getByRole('button', { name: 'Send inquiry' }).click()
+    await form.getByRole('button', { name: 'Send enquiry' }).click()
     await expect(form.locator('.form-error')).toHaveText('Many people are sending files right now. Please try again in a minute: your message and files are still in the form.')
     await expect(form.getByLabel('Your requirement')).toHaveValue('A solar system for my shop.')
     await expect(form.getByRole('list', { name: 'Attached files' })).toContainText('nameplate.jpg')
     api.uploadsBusy = false
-    await form.getByRole('button', { name: 'Send inquiry' }).click()
+    await form.getByRole('button', { name: 'Send enquiry' }).click()
     await expect(form.locator('.success-message')).toContainText('GPEC-C-2026-AAAAAAAA')
   })
 
@@ -148,7 +148,7 @@ test.describe('contact form', () => {
     await mockApi(page, { formsFail: true })
     const form = await fillContactForm(page)
     await form.getByLabel('Attach photos or PDFs').setInputFiles([photo('nameplate.jpg')])
-    await form.getByRole('button', { name: 'Send inquiry' }).click()
+    await form.getByRole('button', { name: 'Send enquiry' }).click()
     await expect(form.locator('.form-error')).toBeFocused()
     await expect(form.getByRole('list', { name: 'Attached files' })).toContainText('nameplate.jpg')
   })
@@ -164,7 +164,7 @@ test.describe('contact form', () => {
 
     await mockApi(page, { imageUploads: false })
     await page.reload()
-    await expect(page.locator('.quote-form').getByRole('button', { name: 'Send inquiry' })).toBeVisible()
+    await expect(page.locator('.quote-form').getByRole('button', { name: 'Send enquiry' })).toBeVisible()
     await expect(page.locator('.quote-form').getByText('Photos or drawings')).toHaveCount(0)
   })
 

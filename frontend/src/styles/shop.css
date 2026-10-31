@@ -53,6 +53,15 @@
   cursor: pointer;
   font: inherit;
 }
+.shop-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+/* Only in the small-screen strip below. */
+.shop-back-arrow {
+  display: none;
+}
 .shop-cart-trigger {
   display: inline-flex;
   align-items: center;
@@ -90,6 +99,39 @@
   }
   .shop-navigation {
     gap: 0.7rem;
+  }
+  /* The logo and cart keep the header's row; the shop's links get a slim strip of their own beneath it,
+     so "Return to site" stays on small screens. (The admin header has its own Menu button.) */
+  .shop-store-topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 0.8rem;
+    padding-top: 0.6rem;
+  }
+  .shop-header-actions {
+    display: contents;
+  }
+  .shop-store-topbar .shop-navigation {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: space-between;
+    margin: 0.6rem -1.1rem 0;
+    padding: 0 1.1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .shop-store-topbar .shop-navigation > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.7rem 0;
+  }
+  .shop-store-topbar .shop-link-button {
+    padding: 0.7rem 0;
+  }
+  .shop-back-arrow {
+    display: inline;
+    color: var(--lime-bright);
   }
 }
 /* Dark heading band (also the order page and confirmation headings) */

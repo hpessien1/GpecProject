@@ -10,13 +10,15 @@ interface ShopHeaderProps {
 }
 
 export default function ShopHeader({ mode, itemCount, onGoHome, onGoToCatalogue, onShowCart }: ShopHeaderProps) {
-  return <header className="shop-topbar">
+  return <header className="shop-topbar shop-store-topbar">
     {/* The logo goes home, as on every page; the label only says where you are, so it is not part of the link. */}
     <div className="shop-brand"><a href="#home" onClick={onGoHome} aria-label="Return to GPEC home"><LogoLockup /></a><small>Product ordering</small></div>
-    <nav className="shop-navigation" aria-label="Store navigation">
-      <a href="#home" onClick={onGoHome}>Return to site</a>
-      {mode !== 'catalogue' && <button type="button" className="shop-link-button" onClick={onGoToCatalogue}>Continue browsing</button>}
+    <div className="shop-header-actions">
+      <nav className="shop-navigation" aria-label="Store navigation">
+        <a href="#home" onClick={onGoHome}><span className="shop-back-arrow" aria-hidden="true">←</span>Return to site</a>
+        {mode !== 'catalogue' && <button type="button" className="shop-link-button" onClick={onGoToCatalogue}>Continue browsing</button>}
+      </nav>
       <button type="button" className="shop-cart-trigger" onClick={onShowCart}>Cart <span>{itemCount}</span></button>
-    </nav>
+    </div>
   </header>
 }

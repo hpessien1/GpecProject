@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { logInAsAdmin, mockApi } from './support/sampleApi'
 
-// The brief's menu (README.md): Home · About · Services · Products · Projects · FAQ · Contact, plus the
-// Shop button (Current Work was removed on 2026-10-24, FAQ added on 2026-10-25). Full menu on desktop;
+// The brief's menu (README.md): Home · About · Services · Products · Projects · FAQ · Enquiry, plus the
+// Shop button (Current Work was removed on 2026-10-24, FAQ added on 2026-10-25, Contact renamed Enquiry on 2026-10-31). Full menu on desktop;
 // a hamburger menu where it does not fit (1100px and below).
-const MENU = ['Home', 'About', 'Services', 'Products', 'Projects', 'FAQ', 'Contact', 'Shop']
+const MENU = ['Home', 'About', 'Services', 'Products', 'Projects', 'FAQ', 'Enquiry', 'Shop']
 
 test.describe('main menu', () => {
   test('shows the brief\'s items in order, as a full menu on desktop or behind the hamburger on phones', async ({ page }, testInfo) => {
@@ -26,7 +26,7 @@ test.describe('main menu', () => {
   test('each menu link goes to its section, and the hamburger menu closes after choosing', async ({ page }, testInfo) => {
     await mockApi(page)
     await page.goto('/')
-    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Contact', 'contact']]) {
+    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Enquiry', 'contact']]) {
       if (testInfo.project.name === 'phone') await page.getByRole('button', { name: 'Menu' }).click()
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: label, exact: true }).click()
       await expect(page).toHaveURL(new RegExp(`#${id}$`))
@@ -85,7 +85,7 @@ test.describe('main menu', () => {
   test('each section the menu leads to is labelled with the menu\'s word, and the panels follow Services', async ({ page }) => {
     await mockApi(page)
     await page.goto('/')
-    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Products', 'products'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Contact', 'contact']]) {
+    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Products', 'products'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Enquiry', 'contact']]) {
       await expect(page.locator(`#${id} .eyebrow`).first(), `#${id}`).toHaveText(label)
     }
     // The panels are one of GPEC's services, so "Services" leads into them rather than past them.
@@ -107,8 +107,8 @@ test.describe('home page sections', () => {
   test('Services shows all twelve of GPEC\'s business areas', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#services')
-    await expect(page.locator('#service-feature h3')).toHaveText('Electrical panels')
-    await expect(page.locator('.service-select')).toHaveText(['Solar energy', 'Electrical sales', 'Solar sales', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Installation & repairs', 'Generators & power', 'Security & smart home'].map((title) => `Show ${title} in the panel above`))
+    await expect(page.locator('#service-feature h3')).toHaveText('Solar sales')
+    await expect(page.locator('.service-select')).toHaveText(['Solar sales', 'Solar installation', 'Electrical accessories', 'Electrical panels', 'Electrical sales', 'Electronics', 'Industrial sales', 'Industrial accessories', 'Generators & power', 'Installation & repairs', 'Security & smart home', 'Solar accessories'].map((title) => `Show ${title} in the panel above`))
   })
 
   test('About shows GPEC\'s profile, vision, mission, and values', async ({ page }) => {
@@ -118,7 +118,10 @@ test.describe('home page sections', () => {
     await expect(page.locator('#about .about-body p')).toHaveCount(3)
     await expect(page.locator('#about .about-highlights:not(.about-values) strong')).toHaveText(['Our vision', 'Our mission'])
     await expect(page.getByRole('heading', { name: 'Our core values' })).toBeVisible()
-    await expect(page.locator('#about .about-values strong')).toHaveText(['Quality', 'Safety', 'Integrity', 'Innovation', 'Reliability', 'Customer satisfaction'])
+    await expect(page.locator('#about .about-values strong')).toHaveText(['Quality', 'Integrity', 'Reliability', 'Safety', 'Innovation', 'Customer satisfaction'])
+    // The navy diagonal starts 2rem above the cards, so it never runs behind the paragraphs.
+    const [body, details] = await Promise.all([page.locator('#about .about-body').boundingBox(), page.locator('#about .about-details').boundingBox()])
+    expect((details?.y ?? 0) - 32).toBeGreaterThanOrEqual((body?.y ?? 0) + (body?.height ?? 0))
   })
 
   test('there is no Current Work section; an old link to it opens the home page', async ({ page }) => {

@@ -202,7 +202,7 @@ export const demoContactRequests: DemoContactRequest[] = [
   },
   {
     reference: 'GPEC-C-2026-DE000006', age: 10 * DAY,
-    fullName: 'Gbenga Afolabi', company: 'Afolabi Estates', email: 'gbenga.afolabi@example.com', phone: '+234 000 000 0206', subject: 'Other inquiry',
+    fullName: 'Gbenga Afolabi', company: 'Afolabi Estates', email: 'gbenga.afolabi@example.com', phone: '+234 000 000 0206', subject: 'Other enquiry',
     message: 'Do you offer maintenance contracts for the distribution boards on a residential estate of 40 houses?',
     steps: [{ to: 'in_progress', after: 1 * DAY }, { to: 'closed', after: 4 * DAY }],
     note: { text: 'Sent a proposal by email; customer will come back next quarter.', after: 4 * DAY },
