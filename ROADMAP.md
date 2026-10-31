@@ -132,7 +132,7 @@ Follows the payment rules in `CLAUDE.md` Section 4.1 and `ECOMMERCE_REQUIREMENTS
 - [ ] Bank transfer: GPEC enters its bank details and switches it on (works without Paystack).
 - [x] Turned on in test mode on the live site (2026-10-24): Paystack test key, fee settings, and
       webhook URL in Coolify (RUNBOOK 1.8), demo delivery areas and prices, a test-mode order.
-- [ ] GPEC's own fee rate, delivery areas, and prices replace the demo values.
+- [ ] GPEC's delivery areas and prices replace the demo values. (Fee: Paystack's standard rate, GPEC has no special one, 2026-10-31.)
 - [ ] Live keys only with GPEC's approval.
 
 ## 6. Admin panel
@@ -192,7 +192,7 @@ These block launch, and several block steps 4 to 6. Ask early.
 
 - [ ] Real product list: names, specifications, photos, and **prices**.
 - [ ] GPEC's bank details for bank transfer (bank, account name, 10-digit account number), entered by
-      staff in the admin panel; and who checks the bank account and confirms transfers.
+      staff in the admin panel. (Who confirms transfers: the 2 GPEC admins, 2026-10-31.)
 - [x] Company profile (2026-10-23): about text, vision, mission, values, twelve service areas, contact
       details, and photos of GPEC's work, now on the home page and merged into `README.md`.
 - [x] Currency: NGN, and customers pay the Paystack fee (2026-10-23). Set `CURRENCY=NGN` on the API
@@ -205,9 +205,9 @@ These block launch, and several block steps 4 to 6. Ask early.
       from the service location, how long enquiries are kept, and legal wording from their adviser (draft at `#privacy`).
       Plus, from the Atlas owner, the database region (server and email regions are filled in).
 - [ ] Paystack: the account exists in test mode with the developer invited (2026-10-22); still
-      needed: business verification, the fee rate on GPEC's plan (Paystack publishes 1.5% + ₦100,
-      waived under ₦2,500, capped at ₦2,000), and confirmation that passing the fee to customers is
-      allowed under GPEC's Paystack terms.
+      needed: business verification, and confirmation that passing the fee to customers is allowed
+      under GPEC's Paystack terms. GPEC has no special rate (2026-10-31), so the standard one applies
+      (Paystack publishes 1.5% + ₦100, waived under ₦2,500, capped at ₦2,000).
 - [ ] Which payment methods Paystack's page offers (card, bank, transfer, USSD; all on today).
       Explained for GPEC in `ECOMMERCE_REQUIREMENTS.md` Section 6; the user is asking GPEC
       (2026-10-26). Switched in GPEC's Paystack dashboard, not in the website.

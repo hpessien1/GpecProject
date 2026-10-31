@@ -1459,10 +1459,10 @@ Pre-existing issues to be fixed over time. Remove an item when it is fixed.
 - Collection hours for pickup (the location is the Woji address, confirmed by the owner 2026-10-23).
 - Approval of the refunds, cancellations, and returns policy drafted on 2026-10-24 (`#refunds`).
 - Who receives order and contact-request notifications.
-- The Paystack fee rate on GPEC's own plan. Paystack publishes 1.5% + ₦100 for local payments, the
-  ₦100 waived under ₦2,500, capped at ₦2,000 (checked 2026-10-23); confirm in GPEC's dashboard, and
-  that passing the fee to customers is allowed under GPEC's Paystack terms. (Decided 2026-10-23: the
-  currency is NGN, and customers pay the Paystack fee.)
+- Whether Paystack's terms allow GPEC to pass its fee to customers: GPEC wants this and has no special
+  rate, only Paystack's standard one (reported by the user, 2026-10-31), but Paystack has not been asked.
+  Paystack publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000
+  (checked 2026-10-23); re-read it when switching to live keys. (Decided 2026-10-23: the currency is NGN.)
 - Atlas cluster tier (must include backups before launch).
 - None for retention: the periods, the 31 December year end, and the adviser's approval are in (2026-10-31,
   Section 4.9). The clean-up stays off until the launch checklist's steps are done.

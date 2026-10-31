@@ -229,7 +229,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 ## Open Decisions (to be confirmed by GPEC)
 
 - The delivery areas and their fees (staff enter them in the admin panel).
-- The Paystack fee rate on GPEC's own plan (Paystack publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000; checked 2026-10-23), and confirmation that passing it to customers is allowed under GPEC's Paystack terms.
+- Confirmation from Paystack that passing its fee to customers is allowed under GPEC's terms. GPEC wants this and has no special rate (2026-10-31), so Paystack's standard rate applies: it publishes 1.5% + ₦100 for local payments, the ₦100 waived under ₦2,500, capped at ₦2,000 (checked 2026-10-23; re-read when switching to live keys).
 - Which payment methods Paystack's page offers: card, bank, transfer, USSD, or fewer (Section 6, "Payment methods on Paystack's page"; GPEC switches them in its Paystack dashboard). The user is asking GPEC (2026-10-26).
 - Collection hours for pickup (the location is the Woji address).
 - Approval of the refunds, cancellations, and returns policy (a draft for GPEC's review is at `#refunds` since 2026-10-24; staff edit it in the admin panel, Site content).
