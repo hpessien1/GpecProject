@@ -300,7 +300,7 @@ All admin responses are sent with `Cache-Control: no-store`.
   `product.sale` records), recorded as `product.restock` under the admin who cancelled. Payment status,
   items, amounts, and customer details cannot be changed here. `notifyCustomer: true` (the screen's
   "Tell the customer by email", ticked by default) emails the customer after the change is saved,
-  only for `ready_for_pickup`, `out_for_delivery`, and `cancelled`, only when the status really
+  only for `ready_for_pickup`, `out_for_delivery`, `completed`, and `cancelled`, only when the status really
   changes, and only while email is on; the history entry then has `customerEmailed: true`.
   `transfer-not-received` takes the same optional `{ notifyCustomer }` (the customer is told the
   order is closed and asked for details if they did pay); `transfer-received` takes only `{ password }`. `POST /:reference/check-payment` (no body; audit

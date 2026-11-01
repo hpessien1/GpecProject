@@ -33,7 +33,7 @@ export default function PanelCapabilityPage({ capability }: PanelCapabilityPageP
       </section>
       <section className="panel-capability-detail-body" aria-label={`${title} details`}>
         {panelCapabilityDetails[number].map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-        <a className="button button-primary" href="#contact">Discuss your requirement <Arrow /></a>
+        <a className="button button-primary" href="#enquiry">Discuss your requirement <Arrow /></a>
       </section>
     </main>
     <Footer />

@@ -655,7 +655,7 @@ name), and logs which database it found. The guard only works if production sets
 │       ├── routes/           # HTTP wiring: public (products, product images, contact, checkout, Paystack webhook) and admin* routers
 │       ├── validation/       # Hand-written validators; fields.ts holds the shared helpers
 │       ├── models/           # ContactRequest, Order, DeliveryArea, WebhookEvent, RequestNote, Product, AdminUser, AdminSession, AdminPasswordReset, AuditRecord, SecurityEvent
-│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailTemplates, notifications, imageStore, photos, pdfs, heavyWork, productImages, requestFiles, customerEmail
+│       ├── services/         # Business logic: products, checkout, paystack, paystackFee, deliveryAreas, admin*, passwords, breachedPasswords, currency, email, emailLayout, emailTemplates, notifications, imageStore, photos, pdfs, heavyWork, productImages, requestFiles, customerEmail
 │       ├── scripts/          # Commands: seedProducts.ts, seedDemoData.ts, createAdmin.ts, retentionPreview.ts
 │       ├── utils/            # reference.ts: customer-facing reference numbers; paging.ts: admin page size, cursors
 │       └── data/             # sampleProducts.ts (seed products); demoData.ts (demo orders and contact requests)
@@ -973,18 +973,27 @@ up so GPEC receives the full order value after Paystack's fee; the rule comes fr
 
 ### Email / notifications (Amazon SES)
 Each new contact request emails GPEC staff (details, reply-to the customer, and a link
-to it in the admin panel) and sends the customer a plain-text confirmation with their reference.
+to it in the admin panel) and sends the customer a confirmation with their reference.
 - `services/email.ts` is the only code that talks to SES (`@aws-sdk/client-sesv2`); `Mailer` lets
   tests use `RecordingMailer` (`tests/helpers.ts`) instead. Templates: `services/emailTemplates.ts`.
 - `services/notifications.ts` decides who gets what. Routes call it **after** sending the response,
   and it never throws: a failed email is logged with the reference and error type only, and the
   customer's request stands. Spam-trapped or invalid submissions send nothing.
-- Plain text only; subjects contain only server-made references, never customer input.
+- **Designed emails** (2026-11-01, the user's choice of three options; replaces plain text only): every email
+  has a designed version and a plain-text copy. `services/emailLayout.ts` is the look: the logo
+  (`frontend/public/assets/gpec-email-logo.png`, the only image; no tracking) on a navy band. Its `html`
+  tag and blocks escape everything unless it is already `Html`, so no typed text becomes markup; links and
+  buttons take only web addresses the server built, and customers' multi-line text goes in `quotedBlock`,
+  labelled as theirs. A template's `preview` is fixed wording, never a code or customer text.
+  Subjects contain only server-made references, never customer input. A new email adds to `EVERY_EMAIL` in
+  `tests/emailDesign.test.ts`.
+- **Test order banner:** while `PAYSTACK_SECRET_KEY` is a test key, order emails carry a red "TEST ORDER"
+  banner, in both versions; with a live key they never do.
 - **Customer emails greet no one by name** ("Hello,"; 2026-10-30, fifth audit S5-L01): anyone can
   send the forms with a stranger's address, so a typed "name" must not put words or a link above GPEC's
   own. Names, companies, and phone numbers are one line (`oneLineText`, `validation/fields.ts`: any line
   break refused), and staff emails join any older stored ones onto one line. Messages, notes, and
-  addresses keep their lines, each starting with "> " in staff emails (`quoted`, fifth audit sweep), so
+  addresses keep their lines, each starting with "> " in staff emails' text and in a labelled box in the designed version (`quoted`, `quotedBlock`, fifth audit sweep), so
   none can pass for one of GPEC's own, such as a fake admin-panel link. A new customer email uses the
   same greeting, and new multi-line customer text in a staff email is quoted.
 - **Replies** (2026-10-24, the user's request): staff emails reply to the customer; customer emails
@@ -994,7 +1003,7 @@ to it in the admin panel) and sends the customer a plain-text confirmation with 
   undelivered (forwarding it was skipped by the user's choice; RUNBOOK 1.6, step 9). Changing the reply-to is recorded and emailed to all admins,
   like bank details: it decides where customers' replies, such as proof of payment, go.
 - **Order updates** (2026-10-24, the user's choice): moving a paid order to ready for pickup, out for
-  delivery, or cancelled, and closing an unpaid transfer, email the customer unless staff untick "Tell
+  delivery, completed (added 2026-11-01, the user's request), or cancelled, and closing an unpaid transfer, email the customer unless staff untick "Tell
   the customer by email" (ticked by default, rather than automatic: a mistaken status cannot be
   unsent, and staff may already have phoned). Sent after the change is saved, only if the status
   really changed and email is on; the AuditRecord gets `customerEmailed: true`. Not capped (staff
@@ -1174,10 +1183,14 @@ files. Offered only while the `S3_*` settings are set (`GET /api/contact-request
     part is its own test with a fresh browser and sample API, so parts run side by side; a part
     must set up any state it needs, such as the cart). Exemptions go in `EXEMPT` in
     `e2e/support/contrast.ts`, each with a reason.
+- **The header stays at the top of every page, at every width, while scrolling** (2026-11-01, the user's
+  request): `.topbar` is fixed, `.shop-topbar` (shop and admin) sticky. The shop's and admin's
+  `scroll-padding-top` and the cart's sticky `top` and `max-height` (`shop.css`) are set from the header's
+  height, so a change to that height changes them too; `e2e/navigation.spec.ts` checks them.
 - **Navigation:** the menu items live in `data/landingContent.ts` (`navigationLinks`), in the brief's
   order, with Shop as the highlighted button. Above 1100px the full menu sits in the header; at
   1100px and below it collapses into the hamburger ("Menu") button, because the eight items no
-  longer fit (Current Work was removed 2026-10-24; FAQ added 2026-10-25; Contact renamed Enquiry 2026-10-31, because people testing the site found it confusing, while the section's address stays `#contact`). The open menu fills the
+  longer fit (Current Work was removed 2026-10-24; FAQ added 2026-10-25; Contact renamed Enquiry 2026-10-31, because people testing the site found it confusing, and its address became `#enquiry` on 2026-11-01, with old `#contact` links redirected in `App.tsx` because sent emails contain them). The open menu fills the
   screen below the header and scrolls on its own, the page behind it stays still, and Escape or
   tabbing out of the header closes it (2026-10-25). The admin header (`components/admin/AdminHeader.tsx`)
   does the same at 1100px and below (2026-10-28, the user's request), with "Logged in as" at the top of

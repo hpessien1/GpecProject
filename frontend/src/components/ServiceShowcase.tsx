@@ -15,7 +15,7 @@ interface ServiceActionsProps extends ServiceShowcaseProps {
 // "Shop" opens the area's own category, or the whole shop for an area without one.
 function ServiceActions({ service, onAskAbout }: ServiceActionsProps) {
   return <div className="service-card-actions">
-    <a href="#contact" onClick={() => onAskAbout(service.topic)} aria-label={`Make an enquiry about ${service.title}`}>Make enquiry <Arrow /></a>
+    <a href="#enquiry" onClick={() => onAskAbout(service.topic)} aria-label={`Make an enquiry about ${service.title}`}>Make enquiry <Arrow /></a>
     <a className="service-shop-link" href={service.shopCategory ? `#shop/category/${service.shopCategory}` : '#shop'} aria-label={`Shop products related to ${service.title}`}>Shop <Arrow /></a>
   </div>
 }

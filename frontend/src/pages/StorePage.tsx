@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ShopHeader from '../components/shop/ShopHeader'
 import ProductCard from '../components/shop/ProductCard'
 import Cart from '../components/shop/Cart'
@@ -36,6 +36,9 @@ export default function StorePage({ mode, category, paymentReference, goHome, go
   const [currency, setCurrency] = useState<CurrencyInfo | null>(null)
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
+  const [addCount, setAddCount] = useState(0)
+  // Where the Cart button was pressed, for "Back to products"; it only applies to the same page of the same group.
+  const cartLeftFrom = useRef<{ y: number, category: ProductCategory | null, page: number } | null>(null)
   const [activeProduct, setActiveProduct] = useState<Product | null>(null)
   // The page number belongs to the group it was chosen in: switching group starts at page 1.
   const [pageChoice, setPageChoice] = useState<{ category: ProductCategory | null, page: number }>({ category, page: 1 })
@@ -83,6 +86,7 @@ export default function StorePage({ mode, category, paymentReference, goHome, go
   // refuses them on the server as well.)
   function addToCart(productId: string) {
     if (!catalogue.find((product) => product.id === productId)?.inStock) return
+    setAddCount((count) => count + 1)
     setCart((currentCart) => {
       const existingItem = currentCart.find((item) => item.id === productId)
       return existingItem ? currentCart.map((item) => item.id === productId ? { ...item, quantity: item.quantity + 1 } : item) : [...currentCart, { id: productId, quantity: 1 }]
@@ -103,7 +107,22 @@ export default function StorePage({ mode, category, paymentReference, goHome, go
     setLoadAttempt((attempt) => attempt + 1)
   }
 
-  function showCart() { document.getElementById('shop-cart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+  function showCart() {
+    // The catalogue's cart, or the checkout's summary of it; the payment page has neither.
+    const cartView = mode === 'order' ? document.querySelector('.shop-order-summary') : document.getElementById('shop-cart')
+    if (!cartView) return goToCatalogue()
+    // Pressed with the cart already in view, there is no better place to come back to than the last one.
+    if (cartView.getBoundingClientRect().top > window.innerHeight) cartLeftFrom.current = { y: window.scrollY, category, page: currentPage }
+    cartView.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  function backToProducts() {
+    const products = document.getElementById('catalogue-products')
+    const left = cartLeftFrom.current
+    // Keyboard users carry on from the products too, not from the cart they have left behind.
+    products?.focus({ preventScroll: true })
+    if (left && left.category === category && left.page === currentPage) window.scrollTo({ top: left.y, behavior: 'smooth' })
+    else products?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   function selectPage(page: number) {
     setPageChoice({ category, page })
     document.getElementById('catalogue-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -112,11 +131,11 @@ export default function StorePage({ mode, category, paymentReference, goHome, go
   return <div className="shop-shell">
     {/* Moves focus without changing the hash: "#shop-main" would be read as a route and leave the shop. */}
     <a className="skip-link" href="#shop-main" onClick={(event) => { event.preventDefault(); document.getElementById('shop-main')?.focus() }}>Skip to store content</a>
-    <ShopHeader mode={mode} itemCount={itemCount} onGoHome={goHome} onGoToCatalogue={goToCatalogue} onShowCart={showCart} />
+    <ShopHeader mode={mode} itemCount={itemCount} addCount={addCount} onGoHome={goHome} onGoToCatalogue={goToCatalogue} onShowCart={showCart} />
     <main id="shop-main" tabIndex={-1}>
       {mode === 'catalogue' && <>
-        <section className="shop-hero"><div><p className="eyebrow"><span /> GPEC product catalogue</p><h1>Source what<br /><em>your work needs.</em></h1></div><p>Browse GPEC’s electrical, solar, and industrial products and add what you need to your cart. Questions about a product? <a href="#contact">Ask GPEC</a>.</p></section>
-        {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products"><CategoryFilter current={category} products={catalogue} /><div className="shop-section-heading"><p className="eyebrow"><span /> {groupName ? `${groupName} products` : 'Available products'}</p>{shown.length > 0 && <p>{showingRange(currentPage, PRODUCTS_PER_PAGE, pageProducts.length, shown.length, { one: 'product', many: 'products' })}</p>}</div>{shown.length === 0 ? <div className="shop-category-empty" role="status"><h2>No {groupName?.toLowerCase()} products are listed yet.</h2><p>GPEC can source them for you. Send us the part number, specification, or what it is for.</p><a className="button button-primary" href="#contact">Ask GPEC <Arrow /></a></div> : <div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} currency={currency} onOpen={setActiveProduct} onAdd={addToCart} />)}</div>}{shown.length > 0 && <Pagination label="Product catalogue pages" page={currentPage} totalPages={totalPages} onSelect={selectPage} />}</div><Cart cartItems={cartItems} currency={currency} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} /></section>}
+        <section className="shop-hero"><div><p className="eyebrow"><span /> GPEC product catalogue</p><h1>Source what<br /><em>your work needs.</em></h1></div><p>Browse GPEC’s electrical, solar, and industrial products and add what you need to your cart. Questions about a product? <a href="#enquiry">Ask GPEC</a>.</p></section>
+        {catalogueState !== 'ready' ? <section className="shop-status-page"><CatalogueStatus state={catalogueState} errorMessage={loadError} onRetry={retryLoading} /></section> : <section className="shop-layout" aria-label="Product catalogue and cart"><div id="catalogue-products" tabIndex={-1}><CategoryFilter current={category} products={catalogue} /><div className="shop-section-heading"><p className="eyebrow"><span /> {groupName ? `${groupName} products` : 'Available products'}</p>{shown.length > 0 && <p>{showingRange(currentPage, PRODUCTS_PER_PAGE, pageProducts.length, shown.length, { one: 'product', many: 'products' })}</p>}</div>{shown.length === 0 ? <div className="shop-category-empty" role="status"><h2>No {groupName?.toLowerCase()} products are listed yet.</h2><p>GPEC can source them for you. Send us the part number, specification, or what it is for.</p><a className="button button-primary" href="#enquiry">Ask GPEC <Arrow /></a></div> : <div className="shop-product-grid">{pageProducts.map((product) => <ProductCard key={product.id} product={product} currency={currency} onOpen={setActiveProduct} onAdd={addToCart} />)}</div>}{shown.length > 0 && <Pagination label="Product catalogue pages" page={currentPage} totalPages={totalPages} onSelect={selectPage} />}</div><Cart cartItems={cartItems} currency={currency} itemCount={itemCount} onUpdateQuantity={updateQuantity} onRemove={(productId) => setCart((currentCart) => currentCart.filter((item) => item.id !== productId))} onGoToOrder={goToOrder} onBackToProducts={backToProducts} /></section>}
       </>}
       {mode === 'order' && products === null && <section className="shop-order-page"><CatalogueStatus state={loadError ? 'error' : 'loading'} errorMessage={loadError} onRetry={retryLoading} /></section>}
       {mode === 'order' && products !== null && <section className="shop-order-page"><Checkout cartItems={cartItems} currency={currency} itemCount={itemCount} onGoToCatalogue={goToCatalogue} onTransferOrderPlaced={placedTransferOrder} /></section>}

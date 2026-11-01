@@ -43,7 +43,7 @@ test.describe('shop catalogue', () => {
     await page.goto('/#shop/category/electronics')
     await expect(page.getByRole('navigation', { name: 'Product categories' }).getByRole('link', { name: /^Electronics/ })).toHaveText('Electronics 0')
     await expect(page.getByRole('heading', { name: 'No electronics products are listed yet.' })).toBeVisible()
-    await expect(page.locator('.shop-category-empty').getByRole('link', { name: 'Ask GPEC' })).toHaveAttribute('href', '#contact')
+    await expect(page.locator('.shop-category-empty').getByRole('link', { name: 'Ask GPEC' })).toHaveAttribute('href', '#enquiry')
     await expect(page.getByRole('navigation', { name: 'Product catalogue pages' })).toHaveCount(0)
   })
 
@@ -141,6 +141,99 @@ test.describe('product window', () => {
 })
 
 test.describe('cart', () => {
+  test('pressing "Add to cart" says so on the button for a moment and marks the Cart button in the header', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#shop')
+    const add = page.getByRole('button', { name: 'Add to cart: Custom control panel' })
+    const cartButton = page.getByRole('button', { name: /^Cart/ })
+    const count = cartButton.locator('span')
+    await expect(count).toHaveText('0')
+    await expect(cartButton).not.toHaveClass(/is-pulsing/)
+    await add.click()
+    await expect(add).toHaveText(/^Added/)
+    await expect(count).toHaveText('1')
+    await expect(cartButton).toHaveClass(/is-pulsing/)
+    // Pressing again while it says "Added" still adds.
+    await add.click()
+    await expect(count).toHaveText('2')
+    await expect(add).toHaveText(/^Add to cart/, { timeout: 4000 })
+    // Reloading shows the count without a glow: nothing was just added.
+    await page.reload()
+    await expect(count).toHaveText('2')
+    await expect(cartButton).not.toHaveClass(/is-pulsing/)
+  })
+
+  for (const [width, glows] of [[980, true], [390, true], [981, false], [1440, false]] as const) {
+    test(`the Cart button ${glows ? 'glows' : 'does not glow'} on adding at ${width}px, ${glows ? 'where the cart is under the products' : 'where the cart is in view'}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await mockApi(page)
+      await page.goto('/#shop')
+      await page.getByRole('button', { name: /^Add to cart/ }).first().click()
+      const running = page.getByRole('button', { name: /^Cart/ }).evaluate((button) => button.getAnimations().length)
+      expect(await running > 0).toBe(glows)
+    })
+  }
+
+  test('"Back to products" returns from the cart to where the customer was, on screens where the cart is under the products', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 800 })
+    await mockApi(page)
+    await page.goto('/#shop')
+    const add = page.getByRole('button', { name: /^Add to cart/ }).nth(3)
+    await add.click()
+    const where = await page.evaluate(() => window.scrollY)
+    expect(where).toBeGreaterThan(0)
+    // With the mouse where the button is on screen: Playwright's own click scrolls the page first.
+    const box = await page.getByRole('button', { name: /^Cart/ }).boundingBox()
+    if (!box) throw new Error('The Cart button is not on the page.')
+    const pressCart = () => page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+    await pressCart()
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(where + 200)
+    await expect(page.locator('#shop-cart')).toBeInViewport()
+    // Pressing Cart again, with the cart in view, must not make the cart the place to come back to.
+    await page.waitForTimeout(1000)
+    await pressCart()
+    await page.getByRole('button', { name: 'Back to products' }).click()
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(Math.round(where))
+    await expect(add).toBeInViewport()
+    await expect(page.locator('#catalogue-products')).toBeFocused()
+  })
+
+  test('"Back to products" goes to the products when the customer scrolled to the cart themselves', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 800 })
+    await mockApi(page)
+    await page.goto('/#shop')
+    await expect(page.locator('.shop-product-card').first()).toBeVisible()
+    await page.getByRole('button', { name: 'Back to products' }).scrollIntoViewIfNeeded()
+    await page.getByRole('button', { name: 'Back to products' }).click()
+    await expect(page.locator('.shop-product-card').first()).toBeInViewport()
+  })
+
+  test('"Back to products" is not shown where the cart is beside the products', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 800 })
+    await mockApi(page)
+    await page.goto('/#shop')
+    await expect(page.locator('#shop-cart')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Back to products' })).toBeHidden()
+  })
+
+  test('the Cart button shows the summary at checkout, and leads back to the shop from the payment page', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 500 })
+    await mockApi(page)
+    await page.goto('/#shop')
+    // Once the catalogue has loaded, so its own save of the (empty) cart does not overwrite this.
+    await expect(page.locator('.shop-product-card').first()).toBeVisible()
+    await page.evaluate(() => localStorage.setItem('gpec-order-cart', '[{"id":"panel-001","quantity":1}]'))
+    await page.goto('/#shop/order')
+    await page.reload()
+    const summary = page.locator('.shop-order-summary')
+    await expect(summary).toBeVisible()
+    await page.getByRole('button', { name: /^Cart/ }).click()
+    await expect(summary).toBeInViewport()
+    await page.goto('/#shop/payment/abcdef0123456789abcdef01')
+    await page.getByRole('button', { name: /^Cart/ }).click()
+    await expect(page.locator('#shop-cart')).toBeAttached()
+  })
+
   test('adds, changes, and removes products, and remembers the cart after a reload', async ({ page }) => {
     await mockApi(page)
     await page.goto('/#shop')
@@ -211,7 +304,7 @@ test.describe('checkout', () => {
     expect(api.requests.some((r) => r.method !== 'GET')).toBe(false)
     expect(await page.evaluate(() => localStorage.getItem('gpec-order-cart'))).toBe('[{"id":"panel-001","quantity":1}]')
     await page.getByRole('link', { name: 'Contact GPEC' }).click()
-    await expect(page.locator('#contact')).toBeInViewport()
+    await expect(page.locator('#enquiry')).toBeInViewport()
   })
 
   test('the checkout page explains an empty cart', async ({ page }) => {

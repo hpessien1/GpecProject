@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { logInAsAdmin, mockApi } from './support/sampleApi'
 
 // The brief's menu (README.md): Home · About · Services · Products · Projects · FAQ · Enquiry, plus the
@@ -26,7 +27,7 @@ test.describe('main menu', () => {
   test('each menu link goes to its section, and the hamburger menu closes after choosing', async ({ page }, testInfo) => {
     await mockApi(page)
     await page.goto('/')
-    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Enquiry', 'contact']]) {
+    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Enquiry', 'enquiry']]) {
       if (testInfo.project.name === 'phone') await page.getByRole('button', { name: 'Menu' }).click()
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: label, exact: true }).click()
       await expect(page).toHaveURL(new RegExp(`#${id}$`))
@@ -85,11 +86,11 @@ test.describe('main menu', () => {
   test('each section the menu leads to is labelled with the menu\'s word, and the panels follow Services', async ({ page }) => {
     await mockApi(page)
     await page.goto('/')
-    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Products', 'products'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Enquiry', 'contact']]) {
+    for (const [label, id] of [['About', 'about'], ['Services', 'services'], ['Products', 'products'], ['Projects', 'projects'], ['FAQ', 'faq'], ['Enquiry', 'enquiry']]) {
       await expect(page.locator(`#${id} .eyebrow`).first(), `#${id}`).toHaveText(label)
     }
     // The panels are one of GPEC's services, so "Services" leads into them rather than past them.
-    expect(await page.locator('main > section[id]').evaluateAll((sections) => sections.map((section) => section.id))).toEqual(['home', 'about', 'services', 'panels', 'products', 'projects', 'faq', 'contact'])
+    expect(await page.locator('main > section[id]').evaluateAll((sections) => sections.map((section) => section.id))).toEqual(['home', 'about', 'services', 'panels', 'products', 'projects', 'faq', 'enquiry'])
   })
 
   test('the page never scrolls sideways, from tablet down to the smallest phones', async ({ page }) => {
@@ -97,7 +98,7 @@ test.describe('main menu', () => {
     for (const width of [1100, 900, 821, 700, 600, 541, 390, 320]) {
       await page.setViewportSize({ width, height: 800 })
       await page.goto('/')
-      await page.locator('#contact').waitFor()
+      await page.locator('#enquiry').waitFor()
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `sideways scroll at ${width}px`).toBe(0)
     }
   })
@@ -120,8 +121,26 @@ test.describe('home page sections', () => {
     await expect(page.getByRole('heading', { name: 'Our core values' })).toBeVisible()
     await expect(page.locator('#about .about-values strong')).toHaveText(['Quality', 'Integrity', 'Reliability', 'Safety', 'Innovation', 'Customer satisfaction'])
     // The navy diagonal starts 2rem above the cards, so it never runs behind the paragraphs.
-    const [body, details] = await Promise.all([page.locator('#about .about-body').boundingBox(), page.locator('#about .about-details').boundingBox()])
-    expect((details?.y ?? 0) - 32).toBeGreaterThanOrEqual((body?.y ?? 0) + (body?.height ?? 0) - 1)
+    // Measured together: the page may still be scrolling to #about, which moves both between separate reads.
+    const gap = await page.evaluate(() => {
+      const top = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
+      return (top('#about .about-details')?.top ?? 0) - (top('#about .about-body')?.bottom ?? 0)
+    })
+    expect(gap - 32).toBeGreaterThanOrEqual(-1)
+  })
+
+  test('the old #contact address, in emails already sent, opens the enquiry section under its new address', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/#contact')
+    await expect(page).toHaveURL(/#enquiry$/)
+    await expect(page.locator('#enquiry')).toBeInViewport()
+    // Also from a link followed within the site, where the page is already open.
+    await page.goto('/#about')
+    await page.evaluate(() => { window.location.hash = '#contact' })
+    await expect(page).toHaveURL(/#enquiry$/)
+    await expect(page.locator('#enquiry')).toBeInViewport()
+    await page.goBack()
+    await expect(page).toHaveURL(/#about$/)
   })
 
   test('there is no Current Work section; an old link to it opens the home page', async ({ page }) => {
@@ -142,7 +161,7 @@ test.describe('home page sections', () => {
       await expect(cards.nth(index).locator('img')).toHaveAttribute('src', /^\/assets\/gpec-/)
       await expect.poll(() => cards.nth(index).locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
     }
-    await expect(page.locator('#products').getByRole('link', { name: 'Send us the part number or specification' })).toHaveAttribute('href', '#contact')
+    await expect(page.locator('#products').getByRole('link', { name: 'Send us the part number or specification' })).toHaveAttribute('href', '#enquiry')
     await page.getByRole('link', { name: 'Shop solar products' }).click()
     await expect(page).toHaveURL(/#shop\/category\/solar$/)
     await expect(page.locator('.shop-product-card h2')).toHaveText(['Solar power package'])
@@ -250,4 +269,82 @@ test('every page shows the same GPEC logo in its header, including the admin scr
   for (const hash of ['#privacy', '#shop', '#shop/order', '#admin']) expect(await logoOn(hash), hash).toBe(homeLogo)
   await logInAsAdmin(page)
   expect(await page.locator('header .brand-logo').getAttribute('src')).toBe(homeLogo)
+})
+
+test.describe('the header stays at the top of the screen while scrolling', () => {
+  const stayingAtTop = async (page: Page, label: string) => {
+    const header = page.locator('header').first()
+    await expect(header, label).toBeVisible()
+    await page.mouse.move(100, 300)
+    await page.mouse.wheel(0, 300)
+    await expect.poll(() => page.evaluate(() => window.scrollY), `${label}: the page scrolls`).toBeGreaterThan(0)
+    expect(Math.round((await header.boundingBox())?.y ?? -1), label).toBe(0)
+    // Nothing on the page paints over it.
+    expect(await header.evaluate((element) => {
+      const { left, width, top, height } = element.getBoundingClientRect()
+      return element.contains(document.elementFromPoint(left + width / 2, top + height / 2))
+    }), `${label}: on top of the page`).toBe(true)
+  }
+
+  // Short enough that every screen scrolls, at each width where the headers change.
+  for (const width of [1440, 1100, 820, 650, 390, 320]) {
+    test(`on every kind of page at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 400 })
+      await mockApi(page)
+      for (const hash of ['', '#privacy', '#panel-capability/1', '#shop', '#shop/order']) {
+        await page.goto(`/${hash}`)
+        await stayingAtTop(page, hash || 'home')
+      }
+      await logInAsAdmin(page)
+      await stayingAtTop(page, 'admin')
+    })
+  }
+
+  const clearOfHeader = async (page: Page, label: string) => {
+    const header = await page.locator('header').boundingBox()
+    const cart = await page.locator('#shop-cart').boundingBox()
+    if (!header || !cart) throw new Error('The header or the cart is not on the page.')
+    expect(cart.y, label).toBeGreaterThanOrEqual(header.y + header.height)
+  }
+
+  for (const [width, height] of [[1440, 900], [1440, 500], [1000, 700], [820, 800], [650, 800], [390, 844], [320, 600]]) {
+    test(`the cart stays clear of the header at ${width}x${height}`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      await mockApi(page)
+      await page.goto('/#shop')
+      const addButtons = page.getByRole('button', { name: /add to cart/i })
+      await expect(addButtons.first()).toBeVisible()
+      for (const index of [0, 1, 2, 3]) await addButtons.nth(index).click()
+
+      await page.getByRole('button', { name: /^Cart/ }).click()
+      // The scroll is animated, so give it the time it takes to finish.
+      await page.waitForTimeout(1200)
+      await clearOfHeader(page, 'after the Cart button')
+      if (width <= 980) return
+
+      // Beside the products it sticks, and a cart taller than the space left still shows its last button.
+      await page.mouse.move(100, height / 2)
+      await page.mouse.wheel(0, -200)
+      await page.waitForTimeout(500)
+      await clearOfHeader(page, 'while scrolling')
+      const cart = page.locator('#shop-cart')
+      expect((await cart.boundingBox())?.height ?? Infinity).toBeLessThanOrEqual(height)
+      await cart.locator('a, button').last().scrollIntoViewIfNeeded()
+      await expect(cart.locator('a, button').last()).toBeInViewport({ ratio: 1 })
+    })
+  }
+
+  test('the skip link shows above the header when focused', async ({ page }) => {
+    await mockApi(page)
+    for (const hash of ['', '#shop']) {
+      await page.goto(`/${hash}`)
+      const skipLink = page.locator('.skip-link')
+      await skipLink.focus()
+      await expect(skipLink).toBeFocused()
+      await expect.poll(() => skipLink.evaluate((link) => {
+        const { left, top, width, height } = link.getBoundingClientRect()
+        return document.elementFromPoint(left + width / 2, top + height / 2) === link
+      }), hash || 'home').toBe(true)
+    }
+  })
 })

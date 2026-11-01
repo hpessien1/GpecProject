@@ -92,6 +92,8 @@ The shop is for buying: there are no "order enquiries" about price or availabili
   - Subtotal
 - Adding an existing product must increase its quantity instead of creating an unnecessary duplicate line.
 - Users can update quantity or remove products before checkout.
+- Adding a product is confirmed on the spot: the button says "Added" for a moment and the count on the header's Cart button, always on screen, goes up. Below 980px, where the cart is out of sight under the products, that button also glows briefly.
+- On screens where the cart sits under the products (below 980px), "Back to products" returns the customer to where they were.
 - Cart must retain selected items while the user browses other products during the same session.
 - The cart stores product IDs and quantities only. Prices are always taken from the server.
 - Empty cart state must explain that products can be added before checking out.
@@ -212,7 +214,7 @@ Added 2026-10-23 at the project owner's request, adapted from the sister project
 - Every price, product, and order status change records who made it and when.
 - Admins can view orders and their fulfilment details, and manage delivery areas and fees.
 - **Completed** and **Cancelled** are final (2026-10-28, the user's decision): staff confirm before choosing either, and the order's status cannot be changed afterwards (the server refuses it too). Staff can still add notes. Cancelling puts back into the stock count whatever the order took from it, shown in each product's history as "Returned to stock".
-- When staff move an order to **Ready for pickup**, **Out for delivery**, or **Cancelled**, the customer is emailed about it (2026-10-24, the user's choice), unless staff untick "Tell the customer by email" (ticked by default: untick it when the customer already knows, or when correcting a mistake). A cancellation email points to the refunds policy and promises nothing more. The order's history shows "Customer emailed". Other status changes, and contact-request status changes, send nothing.
+- When staff move an order to **Ready for pickup**, **Out for delivery**, **Completed** (added 2026-11-01), or **Cancelled**, the customer is emailed about it (2026-10-24, the user's choice), unless staff untick "Tell the customer by email" (ticked by default: untick it when the customer already knows, or when correcting a mistake). A cancellation email points to the refunds policy and promises nothing more. The order's history shows "Customer emailed". Other status changes, and contact-request status changes, send nothing.
 
 ## Suggested User Flow
 

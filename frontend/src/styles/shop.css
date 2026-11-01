@@ -11,6 +11,7 @@
   background: var(--cream);
   color: var(--ink);
 }
+/* Stays at the top while visitors scroll, as the home page's header does (site.css). */
 .shop-topbar {
   min-height: 82px;
   display: flex;
@@ -20,6 +21,19 @@
   padding: 0 5vw;
   background: var(--deep);
   color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+/* Whatever a button scrolls to, or the keyboard moves to, stops below the header. */
+html:has(.shop-topbar) {
+  scroll-padding-top: 124px;
+}
+@media (max-width: 820px) {
+  /* The logo is smaller from here down (base.css), so the header is 82px. */
+  html:has(.shop-topbar) {
+    scroll-padding-top: 98px;
+  }
 }
 .shop-brand {
   display: inline-flex;
@@ -85,7 +99,36 @@
   color: var(--ink);
   font-size: 0.8rem;
 }
+/* When a product is added, where the cart is out of sight under the products (980px and below; see
+   Cart): a soft orange glow around the button and a small bump on the count. The text colours do not
+   change. The bump is left out for visitors who ask for less movement. */
+@keyframes shop-cart-glow {
+  25%,
+  55% {
+    border-color: var(--lime);
+    box-shadow: 0 0 0 4px rgba(255, 118, 0, 0.45);
+  }
+}
+@keyframes shop-cart-bump {
+  30% {
+    transform: scale(1.3);
+  }
+}
+@media (max-width: 980px) {
+  .shop-cart-trigger.is-pulsing {
+    animation: shop-cart-glow 1.2s ease-out;
+  }
+}
+@media (max-width: 980px) and (prefers-reduced-motion: no-preference) {
+  .shop-cart-trigger.is-pulsing span {
+    animation: shop-cart-bump 0.6s ease-out;
+  }
+}
 @media (max-width: 650px) {
+  /* The shop's header has a second row of links here, 135px in all. */
+  html:has(.shop-store-topbar) {
+    scroll-padding-top: 151px;
+  }
   /* Same height as the home page's header, so the logo has the same room above it. A smaller gap
      keeps the logo, "Continue browsing", and the cart within 320px. */
   .shop-topbar {
@@ -354,6 +397,12 @@
 .shop-add-button:hover {
   background: var(--forest);
 }
+/* For a moment after a press (components/shop/ProductCard.tsx). */
+.shop-add-button.is-added,
+.shop-add-button.is-added:hover {
+  background: var(--lime);
+  color: var(--ink);
+}
 /* Out of stock: an outline instead of the solid button, with full-strength text (no fading). */
 .shop-add-button:disabled,
 .shop-add-button:disabled:hover {
@@ -404,9 +453,22 @@
   font: 600 0.8rem var(--label);
 }
 /* Cart (components/shop/Cart.tsx) */
+/* Only where the cart is under the products (below). */
+.shop-cart-back {
+  display: none;
+}
+#catalogue-products:focus {
+  outline: none;
+}
 .shop-cart {
+  /* Sticks 16px below the header (108.5px here; below 980px the cart is not sticky), and scrolls on
+     its own when it is taller than the space left, so "go to order" is always reachable. */
   position: sticky;
-  top: 105px;
+  top: 125px;
+  max-height: calc(100vh - 141px);
+  max-height: calc(100dvh - 141px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1.25rem;
   border-top: 4px solid var(--lime);
   background: var(--deep);
@@ -513,6 +575,23 @@
 @media (max-width: 980px) {
   .shop-cart {
     position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+  .shop-cart-back {
+    display: inline-flex;
+    gap: 0.4rem;
+    min-height: 44px;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--lime);
+    cursor: pointer;
+    font: 600 0.8rem var(--label);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 }
 /* Checkout page (components/shop/Checkout.tsx) */

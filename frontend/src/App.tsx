@@ -8,11 +8,17 @@ import { panelCapabilities, productGroups } from './data/landingContent'
 // Loaded only when someone opens #admin, so customers never download the admin screens.
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 
+// The enquiry section's address until 2026-11-01: emails already sent and saved links still use it.
+function currentRoute() {
+  if (window.location.hash === '#contact') window.location.replace('#enquiry')
+  return window.location.hash
+}
+
 export default function App() {
-  const [route, setRoute] = useState(() => window.location.hash)
+  const [route, setRoute] = useState(currentRoute)
 
   useEffect(() => {
-    const syncRoute = () => setRoute(window.location.hash)
+    const syncRoute = () => setRoute(currentRoute())
     window.addEventListener('hashchange', syncRoute)
     return () => window.removeEventListener('hashchange', syncRoute)
   }, [])

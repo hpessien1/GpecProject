@@ -120,7 +120,7 @@ export const navigationLinks: [href: string, label: string][] = [
   ['#products', 'Products'],
   ['#projects', 'Projects'],
   ['#faq', 'FAQ'],
-  ['#contact', 'Enquiry'],
+  ['#enquiry', 'Enquiry'],
 ]
 
 // From GPEC's company profile (2026-10-23), with light grammar corrections GPEC approved; the meaning

@@ -218,7 +218,8 @@ main section[id] {
   position: fixed;
   top: -60px;
   left: 1rem;
-  z-index: 100;
+  /* Above the headers (100), which come after it on the page. */
+  z-index: 101;
   padding: 0.7rem 1rem;
   background: var(--lime);
   color: var(--ink);

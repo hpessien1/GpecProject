@@ -66,11 +66,11 @@ export default function PaymentResult({ paymentReference, onPaid, onGoToCatalogu
           {result.fulfilmentMethod === 'pickup'
             ? <p>Pickup from GPEC at <strong>{checkoutContent.pickupAddress}</strong>. {result.collectionHours && checkoutContent.pickupNote(result.collectionHours)}</p>
             : <p>Delivery{result.deliveryAreaName && <> to <strong>{result.deliveryAreaName}</strong></>}. {checkoutContent.deliveryNote}</p>}
-          <a className="button button-primary" href="#contact">Questions? Contact GPEC <Arrow /></a>
+          <a className="button button-primary" href="#enquiry">Questions? Contact GPEC <Arrow /></a>
         </> : result.paymentMethod === 'bank_transfer' && result.paymentStatus === 'failed' ? <>
           <h2 id="payment-result-title">{paymentResultContent.transferClosedTitle}</h2>
           <p>{paymentResultContent.transferClosedText} Your order reference is <strong>{result.reference}</strong>.</p>
-          <a className="button button-primary" href="#contact">Contact GPEC <Arrow /></a>
+          <a className="button button-primary" href="#enquiry">Contact GPEC <Arrow /></a>
         </> : result.paymentMethod === 'bank_transfer' && result.bankTransfer ? <TransferInstructions paymentReference={paymentReference} result={{ ...result, bankTransfer: result.bankTransfer }} onReported={setResult} />
         : result.paymentStatus === 'failed' ? <>
           <h2 id="payment-result-title">{paymentResultContent.failedTitle}</h2>

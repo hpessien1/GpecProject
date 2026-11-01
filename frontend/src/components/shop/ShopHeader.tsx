@@ -4,12 +4,14 @@ import type { StoreMode } from '../../types'
 interface ShopHeaderProps {
   mode: StoreMode
   itemCount: number
+  // Goes up each time a product is added, which restarts the Cart button's glow (shop.css).
+  addCount: number
   onGoHome: () => void
   onGoToCatalogue: () => void
   onShowCart: () => void
 }
 
-export default function ShopHeader({ mode, itemCount, onGoHome, onGoToCatalogue, onShowCart }: ShopHeaderProps) {
+export default function ShopHeader({ mode, itemCount, addCount, onGoHome, onGoToCatalogue, onShowCart }: ShopHeaderProps) {
   return <header className="shop-topbar shop-store-topbar">
     {/* The logo goes home, as on every page; the label only says where you are, so it is not part of the link. */}
     <div className="shop-brand"><a href="#home" onClick={onGoHome} aria-label="Return to GPEC home"><LogoLockup /></a><small>Product ordering</small></div>
@@ -18,7 +20,7 @@ export default function ShopHeader({ mode, itemCount, onGoHome, onGoToCatalogue,
         <a href="#home" onClick={onGoHome}><span className="shop-back-arrow" aria-hidden="true">←</span>Return to site</a>
         {mode !== 'catalogue' && <button type="button" className="shop-link-button" onClick={onGoToCatalogue}>Continue browsing</button>}
       </nav>
-      <button type="button" className="shop-cart-trigger" onClick={onShowCart}>Cart <span>{itemCount}</span></button>
+      <button key={addCount} type="button" className={addCount > 0 ? 'shop-cart-trigger is-pulsing' : 'shop-cart-trigger'} onClick={onShowCart}>Cart <span>{itemCount}</span></button>
     </div>
   </header>
 }

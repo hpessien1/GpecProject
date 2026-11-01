@@ -137,9 +137,6 @@
    Menu button takes over (its look and the page lock, html.menu-open, come from site.css), as on the
    public site. The open menu fills the screen below the header, with the label at the top. */
 @media (max-width: 1100px) {
-  .admin-topbar {
-    position: relative;
-  }
   .admin-topbar .shop-navigation {
     display: none;
     position: absolute;

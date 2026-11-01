@@ -103,7 +103,7 @@ export default function createApp(
   imageStore: ImageStore | null = config.imageStorage ? s3ImageStore(config.imageStorage) : null,
   paystack: PaystackClient | null = config.payments ? paystackClient(config.payments.secretKey) : null,
 ) {
-  const notifier = createNotifier(mailer, config.email)
+  const notifier = createNotifier(mailer, config.email, undefined, undefined, config.payments?.testMode === true)
   // Product photos are kept in memory, so repeated requests do not reach the bucket (audit M-08).
   const images = imageStore && cachingImageStore(imageStore)
   // Public reads (audit M-08): generous per-IP budgets, one for the catalogue, the site's text, the

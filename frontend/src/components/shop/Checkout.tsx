@@ -149,7 +149,7 @@ export default function Checkout({ cartItems, currency, itemCount, onGoToCatalog
           <h2 id="checkout-unavailable-title">Online payment is not available yet</h2>
           <p>GPEC is setting up secure online payment through Paystack. Until it is ready, orders cannot be completed on the website. Your cart is kept on this device, so you can come back to it.</p>
           <p>To order now, or to ask about a product, contact GPEC.</p>
-          <a className="button button-primary" href="#contact">Contact GPEC <Arrow /></a>
+          <a className="button button-primary" href="#enquiry">Contact GPEC <Arrow /></a>
         </section>
         {summary}
       </div>

@@ -46,8 +46,8 @@ export interface Notifier {
 // failed email is logged (reference and error type only, no personal details) and the customer's
 // request stands. With no mailer (email not configured), it does nothing.
 // customerReplyTo: where customers' replies go (staff choose it, services/customerEmail.ts); staff
-// emails reply to the customer instead.
-export function createNotifier(mailer: Mailer | null, settings: EmailSettings | null, customerReplyTo: () => Promise<string> = async () => (await getCustomerEmailSettings()).replyTo, collectionHours: () => Promise<string> = getCollectionHours): Notifier {
+// emails reply to the customer instead. testMode: Paystack is on test keys, so order emails say so.
+export function createNotifier(mailer: Mailer | null, settings: EmailSettings | null, customerReplyTo: () => Promise<string> = async () => (await getCustomerEmailSettings()).replyTo, collectionHours: () => Promise<string> = getCollectionHours, testMode = false): Notifier {
   const confirmations = new EmailBudget(CONFIRMATIONS_PER_HOUR, HOUR)
   const mayConfirm = (address: string) => confirmations.take(address)
 
@@ -92,23 +92,23 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     async orderPaid(order) {
       if (!mailer || !settings) return
       await deliver(order.reference, [
-        { to: settings.staffRecipients, replyTo: order.customer.email, ...staffOrderEmail(order, settings.siteUrl) },
-        { to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderEmail(order, settings.siteUrl, await hours(order.reference)) },
+        { to: settings.staffRecipients, replyTo: order.customer.email, ...staffOrderEmail(order, settings.siteUrl, testMode) },
+        { to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderEmail(order, settings.siteUrl, await hours(order.reference), testMode) },
       ])
     },
     async transferOrderPlaced(order) {
       if (!mailer || !settings) return
-      const messages: EmailMessage[] = [{ to: settings.staffRecipients, replyTo: order.customer.email, ...staffTransferOrderEmail(order, settings.siteUrl) }]
-      if (mayConfirm(order.customer.email)) messages.push({ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerTransferOrderEmail(order, settings.siteUrl, `${settings.siteUrl}/#shop/payment/${String(order._id)}`) })
+      const messages: EmailMessage[] = [{ to: settings.staffRecipients, replyTo: order.customer.email, ...staffTransferOrderEmail(order, settings.siteUrl, testMode) }]
+      if (mayConfirm(order.customer.email)) messages.push({ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerTransferOrderEmail(order, settings.siteUrl, `${settings.siteUrl}/#shop/payment/${String(order._id)}`, testMode) })
       await deliver(order.reference, messages)
     },
     async orderUpdate(order, update) {
       if (!mailer || !settings) return
-      await deliver(order.reference, [{ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderUpdateEmail(order, update, settings.siteUrl, await hours(order.reference)) }])
+      await deliver(order.reference, [{ to: [order.customer.email], replyTo: await replyTo(order.reference), ...customerOrderUpdateEmail(order, update, settings.siteUrl, await hours(order.reference), testMode) }])
     },
     async transferReported(order) {
       if (!mailer || !settings) return
-      await deliver(order.reference, [{ to: settings.staffRecipients, ...staffTransferReportedEmail(order, settings.siteUrl) }])
+      await deliver(order.reference, [{ to: settings.staffRecipients, ...staffTransferReportedEmail(order, settings.siteUrl, testMode) }])
     },
     async paymentUnmatched(payment) {
       if (!mailer || !settings) return false
@@ -132,7 +132,7 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     // of server and proxy logs.
     async passwordResetRequested(admin, token, minutes) {
       if (!mailer || !settings) return
-      await deliver('an admin password reset', [{ to: [admin.email], ...adminPasswordResetEmail(admin, `${settings.siteUrl}/#admin/reset-password/${token}`, minutes) }])
+      await deliver('an admin password reset', [{ to: [admin.email], ...adminPasswordResetEmail(admin, `${settings.siteUrl}/#admin/reset-password/${token}`, minutes, settings.siteUrl) }])
     },
     async passwordChanged(admin, how) {
       if (!mailer || !settings) return
@@ -140,11 +140,11 @@ export function createNotifier(mailer: Mailer | null, settings: EmailSettings | 
     },
     async loginCode(admin, code, minutes) {
       if (!mailer || !settings) return
-      await deliver('an admin login code', [{ to: [admin.email], ...adminLoginCodeEmail(admin, code, minutes) }])
+      await deliver('an admin login code', [{ to: [admin.email], ...adminLoginCodeEmail(admin, code, minutes, settings.siteUrl) }])
     },
     async accountCode(admin, code, minutes) {
       if (!mailer || !settings) return
-      await deliver('an admin security code', [{ to: [admin.email], ...adminAccountCodeEmail(admin, code, minutes) }])
+      await deliver('an admin security code', [{ to: [admin.email], ...adminAccountCodeEmail(admin, code, minutes, settings.siteUrl) }])
     },
     async twoFactorChanged(admin, change) {
       if (!mailer || !settings) return

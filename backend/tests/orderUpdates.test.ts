@@ -54,6 +54,22 @@ describe('telling the customer about an order status change', () => {
     expect(mailer.sent[0].text).toMatch(/is out for delivery to the address you gave \(Lagos\)\./)
   })
 
+  it('emails that an order is complete, asking to hear if anything is missing, and records it', async () => {
+    const res = await setStatus(NEW_DELIVERY, { fulfilmentStatus: 'completed', notifyCustomer: true })
+    expect(res.body.history[0]).toMatchObject({ customerEmailed: true, changes: [{ field: 'fulfilmentStatus', to: 'completed' }] })
+    await vi.waitFor(() => expect(mailer.sent).toHaveLength(1))
+    expect(mailer.sent[0]).toMatchObject({ to: [await customerOf(NEW_DELIVERY)], replyTo: REPLY_TO, subject: `Your GPEC order ${NEW_DELIVERY} is complete` })
+    expect(mailer.sent[0].text).toContain('If you have not received everything on it, please reply to this email.')
+    expect(mailer.sent[0].text).toContain('https://www.example.com/#enquiry')
+    expect(mailer.sent[0].text).not.toContain('#contact')
+  })
+
+  it('sends nothing when an order is completed with the box unticked', async () => {
+    const res = await setStatus(NEW_DELIVERY, { fulfilmentStatus: 'completed', notifyCustomer: false })
+    expect(res.body.history[0].customerEmailed).toBe(false)
+    expect(await sent()).toEqual([])
+  })
+
   it('emails a cancellation, pointing to the refunds policy without promising anything else', async () => {
     await setStatus(NEW_DELIVERY, { fulfilmentStatus: 'cancelled', notifyCustomer: true })
     await vi.waitFor(() => expect(mailer.sent).toHaveLength(1))
@@ -70,9 +86,8 @@ describe('telling the customer about an order status change', () => {
     expect(await sent()).toEqual([])
   })
 
-  it('emails only about ready, out for delivery, and cancelled', async () => {
-    // Completed last: it is final.
-    for (const fulfilmentStatus of ['processing', 'new', 'completed']) {
+  it('emails only about ready, out for delivery, completed, and cancelled', async () => {
+    for (const fulfilmentStatus of ['processing', 'new']) {
       const res = await setStatus(NEW_DELIVERY, { fulfilmentStatus, notifyCustomer: true })
       expect(res.body.history[0].customerEmailed).toBe(false)
     }

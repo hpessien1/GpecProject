@@ -1,5 +1,5 @@
 import request from 'supertest'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AuditRecord from '../src/models/AuditRecord.js'
 import DeliveryArea from '../src/models/DeliveryArea.js'
 import Order from '../src/models/Order.js'
@@ -44,6 +44,24 @@ async function paidResult(reference: string, override: Partial<{ status: string,
   const order = await Order.findById(reference).lean()
   return { reference, status: 'success', amount: order?.total ?? 0, currency: 'NGN', ...override }
 }
+
+describe('the test order banner, from the Paystack key to the email', () => {
+  it.each([
+    ['a test key', TEST_PAYMENTS, true],
+    ['a live key', { ...TEST_PAYMENTS, secretKey: 'sk_live_fake', testMode: false }, false],
+  ])('with %s', async (_name, payments, banner) => {
+    app = testApp({ payments, email: TEST_EMAIL_SETTINGS }, mailer, undefined, null, paystack)
+    await placeOrder(pickupBasket)
+    const reference = paystack.started.at(-1)?.reference ?? ''
+    paystack.results.set(reference, await paidResult(reference))
+    await request(app).get(`/api/checkout/orders/${reference}`).expect(200)
+    await vi.waitFor(() => expect(mailer.sent).toHaveLength(2))
+    for (const email of mailer.sent) {
+      expect(email.html?.includes('TEST ORDER')).toBe(banner)
+      expect(email.text.includes('TEST ORDER')).toBe(banner)
+    }
+  })
+})
 
 describe('GET /api/checkout', () => {
   it('says payment is on, in test mode, with the active delivery areas and their fees', async () => {

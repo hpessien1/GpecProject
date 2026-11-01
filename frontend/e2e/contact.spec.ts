@@ -5,7 +5,7 @@ import { mockApi } from './support/sampleApi'
 
 test.describe('contact form', () => {
   async function fillContactForm(page: import('@playwright/test').Page) {
-    await page.goto('/#contact')
+    await page.goto('/#enquiry')
     const form = page.locator('.quote-form')
     await form.getByLabel('Full name').fill('Ada Buyer')
     await form.getByLabel('Email address').fill('ada@example.com')
@@ -36,7 +36,7 @@ test.describe('contact form', () => {
 
   test('the spam-trap field is invisible, unreachable by keyboard, and hidden from screen readers', async ({ page }) => {
     await mockApi(page)
-    await page.goto('/#contact')
+    await page.goto('/#enquiry')
     const trap = page.locator('.quote-form input[name="website"]')
     await expect(trap).toHaveAttribute('tabindex', '-1')
     await expect(trap.locator('xpath=ancestor::*[@aria-hidden="true"]')).toHaveCount(1)

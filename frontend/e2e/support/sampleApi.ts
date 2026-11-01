@@ -682,7 +682,7 @@ function reply(state: ApiState, request: Request): Reply {
       const to = body.fulfilmentStatus as FulfilmentStatus
       if (to !== order.fulfilmentStatus && ['completed', 'cancelled'].includes(order.fulfilmentStatus)) return [409, { message: `This order is ${order.fulfilmentStatus} and can no longer be changed.`, code: 'ORDER_CLOSED' }]
       if (to !== order.fulfilmentStatus) {
-        const customerEmailed = body.notifyCustomer === true && state.emailOn && ['ready_for_pickup', 'out_for_delivery', 'cancelled'].includes(to)
+        const customerEmailed = body.notifyCustomer === true && state.emailOn && ['ready_for_pickup', 'out_for_delivery', 'completed', 'cancelled'].includes(to)
         state.orderHistory[order.reference] = [{ action: 'order.status', actor: { name: ADMIN.name, email: ADMIN.email }, changes: [{ field: 'fulfilmentStatus', from: order.fulfilmentStatus, to }], customerEmailed, createdAt: new Date().toISOString() }, ...(state.orderHistory[order.reference] ?? [])]
         Object.assign(order, { fulfilmentStatus: to, stage: to })
       }

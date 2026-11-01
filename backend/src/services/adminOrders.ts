@@ -141,7 +141,7 @@ export async function listOrders(page: number, stage: OrderStage | null, search:
 }
 
 // The statuses a customer can be emailed about, if staff choose to (the admin panel's checkbox).
-export const CUSTOMER_UPDATE_STATUSES = ['ready_for_pickup', 'out_for_delivery', 'cancelled'] as const
+export const CUSTOMER_UPDATE_STATUSES = ['ready_for_pickup', 'out_for_delivery', 'completed', 'cancelled'] as const
 type CustomerUpdateStatus = typeof CUSTOMER_UPDATE_STATUSES[number]
 const isCustomerUpdate = (status: FulfilmentStatus): status is CustomerUpdateStatus => (CUSTOMER_UPDATE_STATUSES as readonly string[]).includes(status)
 

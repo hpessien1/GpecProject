@@ -37,9 +37,9 @@ function isFinal(status: FulfilmentStatus): status is 'completed' | 'cancelled' 
 }
 
 // The statuses the customer can be emailed about (backend services/adminOrders.ts, CUSTOMER_UPDATE_STATUSES).
-type CustomerUpdateStatus = 'ready_for_pickup' | 'out_for_delivery' | 'cancelled'
+type CustomerUpdateStatus = 'ready_for_pickup' | 'out_for_delivery' | 'completed' | 'cancelled'
 function isCustomerUpdate(status: FulfilmentStatus): status is CustomerUpdateStatus {
-  return status === 'ready_for_pickup' || status === 'out_for_delivery' || status === 'cancelled'
+  return status === 'ready_for_pickup' || status === 'out_for_delivery' || status === 'completed' || status === 'cancelled'
 }
 
 interface NotifyCustomerFieldProps {
@@ -198,11 +198,10 @@ export default function AdminOrderDetail({ reference, onSessionEnded }: AdminOrd
   const selectedStatus = chosenStatus ?? order?.fulfilmentStatus ?? 'new'
   // The status the customer would be emailed about, if the one chosen is a change worth telling them.
   const statusUpdate = order && selectedStatus !== order.fulfilmentStatus && isCustomerUpdate(selectedStatus) ? selectedStatus : null
-  // What the dialog says about the step it asks about, and whether the customer will be emailed (not
-  // asked for completed orders, which email nobody).
+  // What the dialog says about the step it asks about, and whether the customer will be emailed.
   const confirmContent = confirming ? ordersContent.confirm[confirming.kind] : null
   const emailing = confirming?.kind === 'transferMissing' ? data?.emailOn === true && notifyOnClose
-    : confirming?.kind === 'cancelled' ? confirming.notify === true : null
+    : confirming?.kind === 'completed' || confirming?.kind === 'cancelled' ? confirming.notify === true : null
   return <section aria-labelledby="admin-order-title">
     <div className="admin-heading">
       <div><p className="eyebrow"><span /> {ordersContent.title}</p><h1 id="admin-order-title" tabIndex={-1}>{reference}</h1></div>

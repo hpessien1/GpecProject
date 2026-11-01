@@ -436,15 +436,16 @@ test.describe('orders', () => {
     await expect(dialog).toBeHidden()
     await expect(update).toBeFocused()
     expect(api.requests.some((r) => r.method === 'PATCH')).toBe(false)
-    // Completing asks too, without the stock, refund, or email lines.
+    // Completing asks too, without the stock or refund lines, and offers to tell the customer.
     await page.getByLabel('Order status').selectOption('completed')
+    await expect(page.getByRole('checkbox', { name: 'Tell the customer by email' })).toBeChecked()
     await update.click()
     const completing = page.getByRole('dialog', { name: `Mark order ${ORDER_REF} as completed?` })
-    await expect(completing.locator('li')).toHaveText(['This cannot be changed afterwards.', 'Use this once the customer has the order.'])
+    await expect(completing.locator('li')).toHaveText(['This cannot be changed afterwards.', 'Use this once the customer has the order.', 'The customer is emailed about it.'])
     await completing.getByRole('button', { name: 'Mark as completed' }).click()
-    await expect(page.locator('.success-message')).toHaveText('Order moved to Completed.')
+    await expect(page.locator('.success-message')).toHaveText('Order moved to Completed. The customer has been emailed.')
     await expect(page.locator('.success-message')).toBeFocused()
-    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ fulfilmentStatus: 'completed' })
+    expect(api.requests.find((r) => r.method === 'PATCH')?.body).toEqual({ fulfilmentStatus: 'completed', notifyCustomer: true })
     // From then on the order is read only.
     await expect(page.getByLabel('Order status')).toHaveCount(0)
     await expect(update).toHaveCount(0)

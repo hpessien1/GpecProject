@@ -2064,7 +2064,7 @@
   margin: 0;
   color: var(--ink);
 }
-/* Contact (#contact): statement panel and quote form. */
+/* Enquiry (#enquiry): statement panel and quote form. */
 .contact {
   display: grid;
 }

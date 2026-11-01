@@ -82,7 +82,14 @@ const parts: [string, (part: Part) => Promise<void>][] = [
     api.products = listed
     await open('#shop', '.shop-product-card')
     await page.locator('.shop-add-button').first().click()
+    // The Cart button's glow, held at its strongest (below 980px; nothing to hold on desktop); then its ordinary look.
+    await page.evaluate(() => { for (const animation of document.getAnimations()) { animation.pause(); animation.currentTime = 400 } })
+    await audit.page(page, `${label} shop with the Cart button glowing`)
+    await page.evaluate(() => { for (const animation of document.getAnimations()) animation.finish() })
     await audit.page(page, `${label} shop with cart`)
+    // "Added" lasts a moment, shorter than an audit, so it is held on with its class.
+    await page.locator('.shop-add-button:not(:disabled)').first().evaluate((button) => button.classList.add('is-added'))
+    await audit.page(page, `${label} shop with an "Added" button`)
     await page.evaluate(() => localStorage.setItem('gpec-order-cart', JSON.stringify([{ id: 'panel-001', quantity: 1 }, { id: 'solar-001', quantity: 1 }])))
     await open('#shop', '.shop-cart-list .shop-stock-label')
     await audit.page(page, `${label} cart with an out-of-stock product`)

@@ -94,7 +94,7 @@ test.describe('services showcase', () => {
     await page.goto('/#services')
     await page.getByRole('button', { name: 'Show Industrial sales in the panel above' }).click()
     await feature(page).getByRole('link', { name: 'Make an enquiry about Industrial sales' }).click()
-    await expect(page.locator('#contact')).toBeInViewport()
+    await expect(page.locator('#enquiry')).toBeInViewport()
     await expect(page.locator('select[name="subject"]')).toHaveValue('Industrial products')
   })
 
@@ -184,7 +184,7 @@ test.describe('services showcase', () => {
 test.describe('contact form topics', () => {
   test('offer one topic per business area, plus Other', async ({ page }) => {
     await mockApi(page)
-    await page.goto('/#contact')
+    await page.goto('/#enquiry')
     await expect(page.locator('select[name="subject"] option:not([disabled])')).toHaveText(['Electrical panels', 'Solar energy', 'Electrical products', 'Solar products', 'Solar accessories', 'Electrical accessories', 'Electronics', 'Industrial products', 'Industrial accessories', 'Installation and repairs', 'Generators and power systems', 'Security and smart home', 'Other enquiry'])
   })
 

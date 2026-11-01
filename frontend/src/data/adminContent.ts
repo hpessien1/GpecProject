@@ -199,6 +199,7 @@ export const ordersContent = {
   notifyHints: {
     ready_for_pickup: 'They are told the order is ready to collect from GPEC in Woji, with the collection hours, and asked to reply if they cannot come during those hours.',
     out_for_delivery: 'They are told the order is on its way to the address they gave.',
+    completed: 'They are told the order is complete, and asked to reply if they have not received everything on it.',
     cancelled: 'They are told the order is cancelled and that, if they paid, GPEC will contact them about a refund as the refunds policy says.',
     transfer_not_received: 'They are told the order is closed because the transfer did not arrive, and asked to reply with the details if they did send it.',
   },
